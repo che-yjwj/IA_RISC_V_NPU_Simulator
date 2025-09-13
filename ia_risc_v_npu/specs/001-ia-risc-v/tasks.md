@@ -31,9 +31,9 @@
 ## Phase 2: NPU & Event System (Weeks 5-8)
 
 ### Week 5: NPU & Asyncio
-- [ ] T016: Implement the basic `NPU` model class in `src/npu/model.py`.
-- [ ] T017: Implement the MMIO interface for NPU communication in `src/simulator/mmio.py`.
-- [ ] T018: Set up the `asyncio` event loop in the main simulator class in `src/simulator/main.py`.
+- [x] T016: Implement the basic `NPU` model class in `src/npu/model.py`.
+- [x] T017: Implement the MMIO interface for NPU communication in `src/simulator/mmio.py`.
+- [x] T018: Set up the `asyncio` event loop in the main simulator class in `src/simulator/main.py`.
 
 ### Week 6: Adaptive Control
 - [ ] T019: Implement the fidelity level switching logic in `src/simulator/adaptive_controller.py`.
