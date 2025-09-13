@@ -37,7 +37,7 @@
 
 ### Week 6: Adaptive Control
 - [x] T019: Implement the fidelity level switching logic in `src/simulator/adaptive_controller.py`.
-- [ ] T020: Implement a simple classifier to detect when to switch between Lev0 and Lev1 in `src/simulator/classifier.py`.
+- [x] T020: Implement a simple classifier to detect when to switch between Lev0 and Lev1 in `src/simulator/classifier.py`.
 - [x] T021: [P] Write tests for the adaptive controller in `tests/unit/test_adaptive_controller.py`.
 
 ### Week 7: Vector Operations & Bus
