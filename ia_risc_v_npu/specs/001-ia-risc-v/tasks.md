@@ -19,9 +19,9 @@
 - [x] T009: [P] Write integration tests for the basic simulation loop in `tests/integration/test_simulation.py`.
 
 ### Week 3: Memory System
-- [ ] T010: Implement memory access instructions (LD, SD, LW, SW) in `src/risc_v/instructions/memory.py`.
-- [ ] T011: [P] Write unit tests for memory access instructions in `tests/unit/risc_v/instructions/test_memory.py`.
-- [ ] T012: Implement memory access hooks in `src/simulator/hooks.py`.
+- [x] T010: Implement memory access instructions (LD, SD, LW, SW) in `src/risc_v/instructions/memory.py`.
+- [x] T011: [P] Write unit tests for memory access instructions in `tests/unit/risc_v/instructions/test_memory.py`.
+- [x] T012: Implement memory access hooks in `src/simulator/hooks.py`.
 
 ### Week 4: Control Flow & Performance
 - [ ] T013: Implement branch instructions (BEQ, BNE, JAL, JALR) in `src/risc_v/instructions/control_flow.py`.

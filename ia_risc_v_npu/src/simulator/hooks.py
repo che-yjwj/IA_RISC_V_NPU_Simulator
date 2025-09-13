@@ -29,3 +29,16 @@ class TimingHookSystem:
 
     def execute_hook(self, op):
         pass
+
+    def memory_hook(self, address, size, is_write):
+        timestamp = time.time()
+        # For now, we'll just assume a fixed latency for all memory accesses.
+        latency = 2
+        self.hook_stats['memory'].append({
+            'timestamp': timestamp,
+            'latency': latency,
+            'address': address,
+            'size': size,
+            'is_write': is_write
+        })
+        return latency
