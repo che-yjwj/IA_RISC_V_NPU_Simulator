@@ -6,17 +6,17 @@
 ## Phase 1: Foundation Engine (Weeks 1-4)
 
 ### Week 1: Project Setup & Core Engine
-- [ ] T001: [P] Set up Python project with `pytest`, `numpy`, `numba`, and `asyncio`.
-- [ ] T002: [P] Configure linting (e.g., ruff) and formatting (e.g., black).
-- [ ] T003: Implement the basic `RISCVEngine` class structure in `src/risc_v/engine.py`.
-- [ ] T004: Implement the `TimingHookSystem` class in `src/simulator/hooks.py`.
-- [ ] T005: Create a fixed lookup table for instruction latencies in `src/simulator/latency.py`.
+- [x] T001: [P] Set up Python project with `pytest`, `numpy`, `numba`, and `asyncio`.
+- [x] T002: [P] Configure linting (e.g., ruff) and formatting (e.g., black).
+- [x] T003: Implement the basic `RISCVEngine` class structure in `src/risc_v/engine.py`.
+- [x] T004: Implement the `TimingHookSystem` class in `src/simulator/hooks.py`.
+- [x] T005: Create a fixed lookup table for instruction latencies in `src/simulator/latency.py`.
 
 ### Week 2: ALU & Initial Testing
-- [ ] T006: [P] Implement basic ALU instructions (ADD, SUB, AND, OR, XOR) in `src/risc_v/instructions/alu.py`.
-- [ ] T007: [P] Write unit tests for the ALU instructions in `tests/unit/risc_v/instructions/test_alu.py`.
-- [ ] T008: Implement statistics collection for timing hooks in `src/simulator/hooks.py`.
-- [ ] T009: [P] Write integration tests for the basic simulation loop in `tests/integration/test_simulation.py`.
+- [x] T006: [P] Implement basic ALU instructions (ADD, SUB, AND, OR, XOR) in `src/risc_v/instructions/alu.py`.
+- [x] T007: [P] Write unit tests for the ALU instructions in `tests/unit/risc_v/instructions/test_alu.py`.
+- [x] T008: Implement statistics collection for timing hooks in `src/simulator/hooks.py`.
+- [x] T009: [P] Write integration tests for the basic simulation loop in `tests/integration/test_simulation.py`.
 
 ### Week 3: Memory System
 - [ ] T010: Implement memory access instructions (LD, SD, LW, SW) in `src/risc_v/instructions/memory.py`.
