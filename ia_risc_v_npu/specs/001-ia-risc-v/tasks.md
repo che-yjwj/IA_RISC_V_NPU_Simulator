@@ -45,8 +45,8 @@
 - [x] T023: Implement the SPM (Scratchpad Memory) and Bus models in `src/simulator/memory.py`.
 
 ### Week 8: Optimization
-- [ ] T024: Profile the simulator using `cProfile` and `line_profiler` to identify bottlenecks.
-- [ ] T025: Apply `numba` and `numpy` optimizations to critical code paths.
+- [x] T024: Profile the simulator using `cProfile` and `line_profiler` to identify bottlenecks.
+- [x] T025: Apply `numba` and `numpy` optimizations to critical code paths.
 - [ ] T026: [P] Run and analyze performance benchmarks.
 
 ## Phase 3: Integration & Validation (Weeks 9-12)
