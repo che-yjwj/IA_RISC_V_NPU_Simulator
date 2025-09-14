@@ -46,8 +46,15 @@
 
 ### Week 8: Optimization
 - [x] T024: Profile the simulator using `cProfile` and `line_profiler` to identify bottlenecks.
-- [x] T025: Apply `numba` and `numpy` optimizations to critical code paths.
+- [ ] T025: Apply `numpy` optimizations to critical code paths.
+- [ ] T025a: Apply `numba` optimizations to critical code paths.
 - [ ] T026: [P] Run and analyze performance benchmarks.
+- [ ] T026a: Implement benchmarks for all ALU instructions.
+- [ ] T026b: Implement benchmarks for memory access instructions.
+- [ ] T026c: Implement benchmarks for control flow instructions.
+- [ ] T026d: Implement benchmarks for the NPU vector operations.
+- [ ] T026e: Run all performance benchmarks and analyze the results.
+- [ ] T026f: Generate a performance report.
 
 ## Phase 3: Integration & Validation (Weeks 9-12)
 
