@@ -48,13 +48,13 @@
 - [x] T024: Profile the simulator using `cProfile` and `line_profiler` to identify bottlenecks.
 - [x] T025: Apply `numpy` optimizations to critical code paths.
 - [x] T025a: Apply `numba` optimizations to critical code paths.
-- [ ] T026: [P] Run and analyze performance benchmarks.
+- [x] T026: [P] Run and analyze performance benchmarks.
 - [x] T026a: Implement benchmarks for all ALU instructions.
 - [x] T026b: Implement benchmarks for memory access instructions.
 - [x] T026c: Implement benchmarks for control flow instructions.
 - [x] T026d: Implement benchmarks for the NPU vector operations.
-- [ ] T026e: Run all performance benchmarks and analyze the results.
-- [ ] T026f: Generate a performance report.
+- [x] T026e: Run all performance benchmarks and analyze the results.
+- [x] T026f: Generate a performance report.
 
 ## Phase 3: Integration & Validation (Weeks 9-12)
 
