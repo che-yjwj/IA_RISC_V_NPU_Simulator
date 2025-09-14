@@ -45,15 +45,22 @@
 - [x] T023: Implement the SPM (Scratchpad Memory) and Bus models in `src/simulator/memory.py`.
 
 ### Week 8: Optimization
-- [ ] T024: Profile the simulator using `cProfile` and `line_profiler` to identify bottlenecks.
-- [ ] T025: Apply `numba` and `numpy` optimizations to critical code paths.
-- [ ] T026: [P] Run and analyze performance benchmarks.
+- [x] T024: Profile the simulator using `cProfile` and `line_profiler` to identify bottlenecks.
+- [x] T025: Apply `numpy` optimizations to critical code paths.
+- [x] T025a: Apply `numba` optimizations to critical code paths.
+- [x] T026: [P] Run and analyze performance benchmarks.
+- [x] T026a: Implement benchmarks for all ALU instructions.
+- [x] T026b: Implement benchmarks for memory access instructions.
+- [x] T026c: Implement benchmarks for control flow instructions.
+- [x] T026d: Implement benchmarks for the NPU vector operations.
+- [x] T026e: Run all performance benchmarks and analyze the results.
+- [x] T026f: Generate a performance report.
 
 ## Phase 3: Integration & Validation (Weeks 9-12)
 
 ### Week 9: System Integration
-- [ ] T027: Integrate the RISC-V engine, NPU, and memory system.
-- [ ] T028: [P] Run end-to-end tests with simple workloads.
+- [x] T027: Integrate the RISC-V engine, NPU, and memory system.
+- [x] T028: [P] Run end-to-end tests with simple workloads.
 
 ### Week 10: Memory Optimization & ROI
 - [ ] T029: Optimize memory usage using techniques like object pooling.

@@ -1,21 +1,24 @@
 import pytest
-from src.risc_v.engine import RISCVEngine
-from src.simulator.hooks import TimingHookSystem
+from src.simulator.main import AdaptiveSimulator
 
-def test_basic_simulation_loop():
-    engine = RISCVEngine()
-    hooks = TimingHookSystem()
+@pytest.mark.asyncio
+async def test_end_to_end_add_instruction():
+    """
+    Tests the end-to-end simulation of a single ADD instruction.
+    It checks if the instruction is fetched from memory, executed, and the result is written back to the register file.
+    """
+    # 1. Initialize the simulator
+    simulator = AdaptiveSimulator(config_path="")
 
-    # This is a simplified simulation loop for testing purposes.
-    # In the real simulator, this will be more complex.
-    for _ in range(10):
-        # Simulate fetching an instruction
-        pc = 0 # dummy pc
-        inst_bits = 0 # dummy instruction
-        hooks.fetch_hook(pc, inst_bits)
+    # 2. The simulator by default loads an ADD instruction (add x1, x2, x3)
+    # and sets x2=10, x3=20.
 
-        # Simulate executing an instruction
-        engine.execute_instruction()
+    # 3. Run the simulation for one cycle
+    await simulator.run_simulation(max_cycles=1)
 
-    # Check if the fetch hook was called
-    assert len(hooks.hook_stats['fetch']) == 10
+    # 4. Verify the results
+    # The result of 10 + 20 should be in register x1
+    assert simulator.risc_v_engine.registers[1] == 30
+
+    # The program counter should have advanced by 4
+    assert simulator.risc_v_engine.pc == 4

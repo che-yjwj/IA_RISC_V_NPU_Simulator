@@ -3,3 +3,4 @@ numpy
 numba
 pytest-benchmark
 line_profiler
+pytest-asyncio
