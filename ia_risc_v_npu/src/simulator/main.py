@@ -27,7 +27,7 @@ class AdaptiveSimulator:
 
 async def main():
     simulator = AdaptiveSimulator("config.json")
-    await simulator.run_simulation(max_cycles=1000)
+    await simulator.run_simulation(max_cycles=200000)
 
 if __name__ == "__main__":
     asyncio.run(main())
