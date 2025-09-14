@@ -18,4 +18,5 @@ def test_basic_simulation_loop():
         engine.execute_instruction()
 
     # Check if the fetch hook was called
-    assert len(hooks.hook_stats['fetch']) == 10
+            # Check if the fetch hook was called
+    assert hooks.counters['fetch'] == 10
