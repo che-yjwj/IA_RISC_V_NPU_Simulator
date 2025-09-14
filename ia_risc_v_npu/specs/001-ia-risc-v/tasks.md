@@ -41,8 +41,8 @@
 - [x] T021: [P] Write tests for the adaptive controller in `tests/unit/test_adaptive_controller.py`.
 
 ### Week 7: Vector Operations & Bus
-- [ ] T022: Implement basic vector operations in the NPU model in `src/npu/model.py`.
-- [ ] T023: Implement the SPM (Scratchpad Memory) and Bus models in `src/simulator/memory.py`.
+- [x] T022: Implement basic vector operations in the NPU model in src/npu/model.py.
+- [x] T023: Implement the SPM (Scratchpad Memory) and Bus models in `src/simulator/memory.py`.
 
 ### Week 8: Optimization
 - [ ] T024: Profile the simulator using `cProfile` and `line_profiler` to identify bottlenecks.
@@ -67,3 +67,5 @@
 - [ ] T033: [P] Create final documentation for the simulator.
 - [ ] T034: [P] Implement the CLI using the contract in `contracts/cli.md`.
 - [ ] T035: [P] Run final benchmarks and generate a performance report.
+- [x] T036: [P] Reorganize project documentation structure.
+- [x] T037: [P] Create a comprehensive README.md file.
