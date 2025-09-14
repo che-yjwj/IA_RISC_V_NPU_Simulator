@@ -11,11 +11,12 @@ class RISCVEngine:
         self.registers = [0] * 32
         self.memory = bytearray(1024 * 1024)  # 1MB of memory
 
-        # Fill memory with a simple ADD instruction: ADD x1, x2, x3
+        # Fill a smaller portion of memory (e.g., 4KB) with a simple ADD instruction: ADD x1, x2, x3
         # 0x003100B3
         instruction = 0x003100B3
-        for i in range(0, len(self.memory), 4):
-            self.memory[i:i+4] = instruction.to_bytes(4, 'little')
+        instruction_bytes = instruction.to_bytes(4, 'little')
+        for i in range(0, 4 * 1024, 4): # Fill first 4KB
+            self.memory[i:i+4] = instruction_bytes
 
         # Initialize registers for the ADD instruction
         self.registers[2] = 10
@@ -24,7 +25,7 @@ class RISCVEngine:
     def _read_word(self, address):
         return int.from_bytes(self.memory[address:address+4], 'little')
 
-    def _decode_instruction(self, instruction):
+    def _decode_r_type_instruction(self, instruction):
         opcode = instruction & 0x7F
         rd = (instruction >> 7) & 0x1F
         funct3 = (instruction >> 12) & 0x7
@@ -35,15 +36,17 @@ class RISCVEngine:
 
     def _execute_alu_instruction(self, funct3, rd, rs1, rs2, funct7):
         if funct3 == FUNCT3_ADD and funct7 == FUNCT7_ADD:
-            self.registers[rd] = alu.add(self.registers[rs1], self.registers[rs2])
+            if rd != 0: # x0 is hardwired to zero
+                self.registers[rd] = alu.add(self.registers[rs1], self.registers[rs2])
         else:
             raise ValueError(f"Unsupported ALU instruction: funct3={funct3}, funct7={funct7}")
 
     def execute_instruction(self):
         instruction = self._read_word(self.pc)
-        opcode, rd, funct3, rs1, rs2, funct7 = self._decode_instruction(instruction)
+        opcode = instruction & 0x7F
 
         if opcode == OPCODE_R_TYPE:
+            opcode, rd, funct3, rs1, rs2, funct7 = self._decode_r_type_instruction(instruction)
             self._execute_alu_instruction(funct3, rd, rs1, rs2, funct7)
         else:
             raise ValueError(f"Unsupported opcode: {opcode}")

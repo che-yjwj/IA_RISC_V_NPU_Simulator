@@ -82,5 +82,5 @@ def test_npu_v_mul_benchmark(benchmark, npu_model, vectors):
 def test_npu_v_div_benchmark(benchmark, npu_model, vectors):
     a, b = vectors
     # Ensure no division by zero
-    b[b == 0] = 1
-    benchmark(npu_model.v_div, a, b)
+    safe_b = np.where(b == 0, 1, b)
+    benchmark(npu_model.v_div, a, safe_b)
