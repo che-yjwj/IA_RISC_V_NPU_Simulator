@@ -2,9 +2,6 @@ import asyncio
 from src.risc_v.engine import RISCVEngine
 from src.simulator.hooks import TimingHookSystem
 
-# This is for line_profiler
-from line_profiler import profile
-
 class AdaptiveSimulator:
     def __init__(self, config_path: str):
         self.risc_v_engine = RISCVEngine()
@@ -14,7 +11,6 @@ class AdaptiveSimulator:
         self.halt = False
         self.sim_time = 0
 
-    @profile
     async def run_simulation(self, max_cycles: int = 0):
         cycles = 0
         while not self.halt:
@@ -25,7 +21,7 @@ class AdaptiveSimulator:
             latency = self.timing_hooks.fetch_hook(0, 0) # dummy values
             self.sim_time += latency
             cycles += 1
-            await asyncio.sleep(0.001) # Yield control to the event loop
+            await asyncio.sleep(0) # Yield control to the event loop
 
         # return SimulationResult(...) # This will be implemented later
 
