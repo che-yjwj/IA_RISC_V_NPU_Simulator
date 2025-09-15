@@ -63,8 +63,8 @@
 - [x] T028: [P] Run end-to-end tests with simple workloads.
 
 ### Week 10: Memory Optimization & ROI
-- [ ] T029: Optimize memory usage using techniques like object pooling.
-- [ ] T030: Implement a more advanced ROI detection mechanism.
+- [x] T029: Optimize memory usage using techniques like object pooling.
+- [x] T030: Implement a more advanced ROI detection mechanism.
 
 ### Week 11: Workload Analysis
 - [ ] T031: [P] Run the simulator with a variety of workloads (e.g., CNN layers).
