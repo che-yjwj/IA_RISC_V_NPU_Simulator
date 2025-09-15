@@ -18,8 +18,7 @@ class RISCVEngine:
     def _read_word(self, address):
         return int.from_bytes(self.bus.read(address, 4), 'little')
 
-    def _write_word(self, address, value):
-        self.bus.write(address, value.to_bytes(4, 'little'))
+    
 
     def _decode_r_type_instruction(self, instruction):
         opcode = instruction & 0x7F
