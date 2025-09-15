@@ -59,8 +59,8 @@
 ## Phase 3: Integration & Validation (Weeks 9-12)
 
 ### Week 9: System Integration
-- [ ] T027: Integrate the RISC-V engine, NPU, and memory system.
-- [ ] T028: [P] Run end-to-end tests with simple workloads.
+- [x] T027: Integrate the RISC-V engine, NPU, and memory system.
+- [x] T028: [P] Run end-to-end tests with simple workloads.
 
 ### Week 10: Memory Optimization & ROI
 - [ ] T029: Optimize memory usage using techniques like object pooling.

@@ -6,24 +6,19 @@ FUNCT3_ADD = 0b000
 FUNCT7_ADD = 0b0000000
 
 class RISCVEngine:
-    def __init__(self):
+    def __init__(self, bus):
         self.pc = 0
         self.registers = [0] * 32
-        self.memory = bytearray(1024 * 1024)  # 1MB of memory
+        self.bus = bus
 
-        # Fill a smaller portion of memory (e.g., 4KB) with a simple ADD instruction: ADD x1, x2, x3
-        # 0x003100B3
-        instruction = 0x003100B3
-        instruction_bytes = instruction.to_bytes(4, 'little')
-        for i in range(0, 4 * 1024, 4): # Fill first 4KB
-            self.memory[i:i+4] = instruction_bytes
-
-        # Initialize registers for the ADD instruction
+        # Initialize registers for testing
         self.registers[2] = 10
         self.registers[3] = 20
 
     def _read_word(self, address):
-        return int.from_bytes(self.memory[address:address+4], 'little')
+        return int.from_bytes(self.bus.read(address, 4), 'little')
+
+    
 
     def _decode_r_type_instruction(self, instruction):
         opcode = instruction & 0x7F

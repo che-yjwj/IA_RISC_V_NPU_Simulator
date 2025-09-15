@@ -35,13 +35,17 @@ class Bus:
     def read(self, address, size):
         device, local_addr = self._find_device(address, size)
         if device:
-            return device.read(local_addr, size)
+            if hasattr(device, 'read'):
+                return device.read(local_addr, size)
+            else:
+                return device[local_addr:local_addr+size]
         else:
             raise MemoryError(f"No device found or access out of bounds for address {address} with size {size}")
 
     def write(self, address, data):
         device, local_addr = self._find_device(address, len(data))
         if device:
-            device.write(local_addr, data)
-        else:
-            raise MemoryError(f"No device found or access out of bounds for address {address} with data length {len(data)}")
+            if hasattr(device, 'write'):
+                device.write(local_addr, data)
+            else:
+                device[local_addr:local_addr+len(data)] = data

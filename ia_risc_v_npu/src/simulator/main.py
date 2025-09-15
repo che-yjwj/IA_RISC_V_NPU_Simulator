@@ -1,15 +1,43 @@
 import asyncio
 from src.risc_v.engine import RISCVEngine
 from src.simulator.hooks import TimingHookSystem
+from src.npu.model import NPU
+from src.simulator.memory import SPM, Bus
+from src.simulator.mmio import MMIO
+
+# Define memory map
+DRAM_BASE = 0x00000000
+DRAM_SIZE = 1024 * 1024  # 1MB
+SPM_BASE = 0x10000000
+SPM_SIZE_KB = 64
+MMIO_BASE = 0x20000000
+MMIO_SIZE = 0x10000  # 64KB
 
 class AdaptiveSimulator:
-    def __init__(self, config_path: str):
-        self.risc_v_engine = RISCVEngine()
+    def __init__(self):
+        self.bus = Bus()
+        self.dram = bytearray(DRAM_SIZE)
+        self.spm = SPM(SPM_SIZE_KB)
+        self.npu = NPU()
+        self.mmio = MMIO(self.npu)
+
+        # Connect devices to the bus
+        self.bus.add_device("dram", self.dram, DRAM_BASE, DRAM_BASE + DRAM_SIZE - 1)
+        self.bus.add_device("spm", self.spm, SPM_BASE, SPM_BASE + (SPM_SIZE_KB * 1024) - 1)
+        self.bus.add_device("mmio", self.mmio, MMIO_BASE, MMIO_BASE + MMIO_SIZE - 1)
+
+        self.risc_v_engine = RISCVEngine(self.bus)
         self.timing_hooks = TimingHookSystem()
         # self.event_system = EventBasedSystem() # This will be implemented later
         # self.fidelity_controller = FidelityController() # This will be implemented later
         self.halt = False
         self.sim_time = 0
+
+    def load_program(self, instructions: list[int]):
+        addr = DRAM_BASE
+        for inst in instructions:
+            self.bus.write(addr, inst.to_bytes(4, 'little'))
+            addr += 4
 
     async def run_simulation(self, max_cycles: int = 0):
         cycles = 0
@@ -26,7 +54,9 @@ class AdaptiveSimulator:
         # return SimulationResult(...) # This will be implemented later
 
 async def main():
-    simulator = AdaptiveSimulator("config.json")
+    simulator = AdaptiveSimulator()
+    # Load a simple program: ADD x1, x2, x3
+    simulator.load_program([0x003100B3])
     await simulator.run_simulation(max_cycles=200000)
 
 if __name__ == "__main__":
