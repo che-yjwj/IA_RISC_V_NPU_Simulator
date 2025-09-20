@@ -49,13 +49,23 @@ The adaptive core uses a combination of timing hooks for fast, high-level latenc
 
 ### Running the Simulator
 
-The main entry point for the simulator is `src/simulator/main.py`.
+Use the CLI entry point to execute an ELF workload.
 
 ```bash
-python src/simulator/main.py
+python -m src.simulator.cli simulate build/program.elf --config configs/example.json --output results/summary.json
 ```
 
-*Note: The simulator currently expects a `config.json` file in the execution directory.*
+*Note: The simulator expects a RISC-V ELF binary; configuration is optional but accepted via `--config`.*
+
+### Measuring Performance (T032)
+
+Benchmark wall-clock throughput and capture MIPS metrics.
+
+```bash
+python -m src.simulator.cli benchmark --instructions 200000 --output results/benchmark.json
+```
+
+The written JSON includes executed instruction count, elapsed seconds, and calculated MIPS so you can compare against the 12–20 MIPS goal.
 
 ## 5. Technology Stack
 

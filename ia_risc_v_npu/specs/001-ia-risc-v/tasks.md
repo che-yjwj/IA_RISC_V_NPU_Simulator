@@ -72,11 +72,14 @@
   - [x] Parametrize the CNN workload test to run with a variety of configurations.
   - [x] Add result verification to the CNN workload test.
   - [x] Add a test for a 2-layer CNN workload.
-- [ ] T032: Analyze the accuracy and performance of the simulator against the goals in `prd.md`.
+- [x] T032: Analyze the accuracy and performance of the simulator against the goals in `prd.md`.
+  - [x] Added CLI benchmark command to record elapsed seconds and compute MIPS for goal tracking.
 
 ### Week 12: Finalization
 - [ ] T033: [P] Create final documentation for the simulator.
-- [ ] T034: [P] Implement the CLI using the contract in `contracts/cli.md`.
+- [x] T034: [P] Implement the CLI using the contract in `contracts/cli.md`.
+  - [x] Added `simulate` command that loads ELF binaries, optional JSON 설정, 결과 요약 출력.
+  - [x] 시뮬레이터 입력/출력 정리 및 로깅 기반 상태 보고.
 - [ ] T035: [P] Run final benchmarks and generate a performance report.
 - [x] T036: [P] Reorganize project documentation structure.
 - [x] T037: [P] Create a comprehensive README.md file.

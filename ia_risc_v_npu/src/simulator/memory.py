@@ -1,3 +1,9 @@
+import logging
+
+
+LOGGER = logging.getLogger(__name__)
+
+
 class SPM:
     """Scratchpad Memory (SPM)"""
     def __init__(self, size_kb):
@@ -27,9 +33,15 @@ class Bus:
         }
 
     def _find_device(self, address, size):
+        LOGGER.debug("bus lookup: address=%s size=%s", address, size)
         for name, info in self.devices.items():
-            if info["start_addr"] <= address and address + size - 1 <= info["end_addr"]:
-                return info["device"], address - info["start_addr"]
+            start = info["start_addr"]
+            end = info["end_addr"]
+            LOGGER.debug("  checking %s: start=%s end=%s", name, start, end)
+            if start <= address and address + size - 1 <= end:
+                LOGGER.debug("  device %s selected", name)
+                return info["device"], address - start
+        LOGGER.debug("  no device for address=%s size=%s", address, size)
         return None, None
 
     def read(self, address, size):
@@ -44,10 +56,10 @@ class Bus:
 
     def write(self, address, data):
         device, local_addr = self._find_device(address, len(data))
-        if device:
-            if hasattr(device, 'write'):
-                device.write(local_addr, data)
-            else:
-                device[local_addr:local_addr+len(data)] = data
-        else:
+        if not device:
             raise MemoryError(f"No device found or access out of bounds for address {address} with size {len(data)}")
+
+        if hasattr(device, 'write'):
+            device.write(local_addr, data)
+        else:
+            device[local_addr:local_addr+len(data)] = data
