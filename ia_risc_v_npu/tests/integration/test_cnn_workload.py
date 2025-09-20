@@ -44,9 +44,9 @@ async def test_run_cnn_workload_with_verification(input_shape, kernel_config):
     workload.append(0x0000006F)
     # 3. Initialize the simulator and memory
     simulator = AdaptiveSimulator()
-    input_addr = 0x1000
-    weights_addr = 0x2000
-    output_addr = 0x3000
+    input_addr = 0x20000
+    weights_addr = 0x30000
+    output_addr = 0x40000
 
     simulator.risc_v_engine.registers[REG_T0] = input_addr
     simulator.risc_v_engine.registers[REG_T1] = weights_addr

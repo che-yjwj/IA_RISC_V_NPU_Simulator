@@ -72,7 +72,7 @@
   - [x] Parametrize the CNN workload test to run with a variety of configurations.
   - [x] Add result verification to the CNN workload test.
   - [x] Add a test for a 2-layer CNN workload.
-- [ ] T032: Analyze the accuracy and performance of the simulator against the goals in `prd.md`.
+- [x] T032: Analyze the accuracy and performance of the simulator against the goals in `prd.md`.
 
 ### Week 12: Finalization
 - [ ] T033: [P] Create final documentation for the simulator.
