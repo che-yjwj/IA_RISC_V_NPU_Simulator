@@ -1,0 +1,9 @@
+{
+  "cycles": 200000,
+  "halted": true,
+  "reason": "halt",
+  "sim_time": 245342,
+  "instructions_executed": 200001,
+  "elapsed_seconds": 0.7056563480291516,
+  "mips": 0.28342549536837397
+}

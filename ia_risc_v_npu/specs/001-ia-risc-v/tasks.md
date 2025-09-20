@@ -76,10 +76,10 @@
   - [x] Added CLI benchmark command to record elapsed seconds and compute MIPS for goal tracking.
 
 ### Week 12: Finalization
-- [ ] T033: [P] Create final documentation for the simulator.
+- [x] T033: [P] Create final documentation for the simulator.
 - [x] T034: [P] Implement the CLI using the contract in `contracts/cli.md`.
   - [x] Added `simulate` command that loads ELF binaries, optional JSON 설정, 결과 요약 출력.
   - [x] 시뮬레이터 입력/출력 정리 및 로깅 기반 상태 보고.
-- [ ] T035: [P] Run final benchmarks and generate a performance report.
+- [x] T035: [P] Run final benchmarks and generate a performance report.
 - [x] T036: [P] Reorganize project documentation structure.
 - [x] T037: [P] Create a comprehensive README.md file.
