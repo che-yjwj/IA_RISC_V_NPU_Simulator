@@ -2,9 +2,18 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import sys
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Iterable, Optional
+
+# Ensure repository root is on sys.path when executed directly.
+if __package__ is None:
+    project_root = Path(__file__).resolve().parents[2]
+    project_root_str = str(project_root)
+    if project_root_str not in sys.path:
+        sys.path.insert(0, project_root_str)
 
 from src.risc_v.engine import RISCVEngine
 from src.simulator.hooks import TimingHookSystem
