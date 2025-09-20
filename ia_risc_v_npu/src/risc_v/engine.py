@@ -50,6 +50,8 @@ class RISCVEngine:
         funct3 = (instruction >> 12) & 0x7
         rs1 = (instruction >> 15) & 0x1F
         imm = (instruction >> 20) & 0xFFF
+        if (imm >> 11) & 1:
+            imm -= 1 << 12
         return opcode, rd, funct3, rs1, imm
 
     def _decode_s_type_instruction(self, instruction):
@@ -60,6 +62,8 @@ class RISCVEngine:
         rs2 = (instruction >> 20) & 0x1F
         imm2 = (instruction >> 25) & 0x7F
         imm = (imm2 << 5) | imm1
+        if (imm >> 11) & 1:
+            imm -= 1 << 12
         return opcode, funct3, rs1, rs2, imm
 
     def _decode_r4_type_instruction(self, instruction):
@@ -121,16 +125,16 @@ class RISCVEngine:
         instruction = self._read_word(self.pc)
         opcode = instruction & 0x7F
         if opcode == OPCODE_R_TYPE:
-            opcode, rd, funct3, rs1, rs2, funct7 = self._decode_r_type_instruction(instruction)
+            _, rd, funct3, rs1, rs2, funct7 = self._decode_r_type_instruction(instruction)
             self._execute_alu_instruction(funct3, rd, rs1, rs2, funct7)
         elif opcode == OPCODE_I_TYPE_LOAD:
-            opcode, rd, funct3, rs1, imm = self._decode_i_type_instruction(instruction)
+            _, rd, funct3, rs1, imm = self._decode_i_type_instruction(instruction)
             self._execute_load_instruction(funct3, rd, rs1, imm)
         elif opcode == OPCODE_S_TYPE_STORE:
-            opcode, funct3, rs1, rs2, imm = self._decode_s_type_instruction(instruction)
+            _, funct3, rs1, rs2, imm = self._decode_s_type_instruction(instruction)
             self._execute_store_instruction(funct3, rs1, rs2, imm)
         elif opcode == OPCODE_R4_TYPE_FMADD:
-            opcode, rd, funct3, rs1, rs2, rs3 = self._decode_r4_type_instruction(instruction)
+            _, rd, funct3, rs1, rs2, rs3 = self._decode_r4_type_instruction(instruction)
             self._execute_fmadd_instruction(funct3, rd, rs1, rs2, rs3)
         else:
             raise ValueError(f"Unsupported opcode: {opcode}")

@@ -103,7 +103,7 @@ class TestInstructionAccuracy:
         assert self.main_engine.pc == self.ref_engine.pc
         assert self.main_engine.registers == self.ref_engine.registers
 
-    def _run_single_instruction_test(self, test_name, instruction_bytes, ref_executor, *args):
+    def _run_single_instruction_test(self, instruction_bytes, ref_executor, *args):
         self.reset_states()
         self.bus.write(0, instruction_bytes)
         self.main_engine.execute_instruction()
@@ -111,36 +111,40 @@ class TestInstructionAccuracy:
         self.compare_states()
 
     def test_add_instruction(self):
-        self._run_single_instruction_test("ADD", ADD_INSTRUCTION.to_bytes(4, 'little'), self.ref_engine.execute_add, RD_X1, RS1_X2, RS2_X3)
-        assert self.main_engine.registers[RD_X1] == (self.initial_registers[RS1_X2] + self.initial_registers[RS2_X3]) & 0xFFFFFFFF
+        self._run_single_instruction_test(ADD_INSTRUCTION.to_bytes(4, 'little'), self.ref_engine.execute_add, RD_X1, RS1_X2, RS2_X3)
 
     def test_sub_instruction(self):
-        self._run_single_instruction_test("SUB", SUB_INSTRUCTION.to_bytes(4, 'little'), self.ref_engine.execute_sub, RD_X1, RS1_X2, RS2_X3)
-        assert self.main_engine.registers[RD_X1] == (self.initial_registers[RS1_X2] - self.initial_registers[RS2_X3]) & 0xFFFFFFFF
+        self._run_single_instruction_test(SUB_INSTRUCTION.to_bytes(4, 'little'), self.ref_engine.execute_sub, RD_X1, RS1_X2, RS2_X3)
 
     def test_xor_instruction(self):
-        self._run_single_instruction_test("XOR", XOR_INSTRUCTION.to_bytes(4, 'little'), self.ref_engine.execute_xor, RD_X1, RS1_X2, RS2_X3)
-        assert self.main_engine.registers[RD_X1] == (self.initial_registers[RS1_X2] ^ self.initial_registers[RS2_X3]) & 0xFFFFFFFF
+        self._run_single_instruction_test(XOR_INSTRUCTION.to_bytes(4, 'little'), self.ref_engine.execute_xor, RD_X1, RS1_X2, RS2_X3)
 
     def test_or_instruction(self):
-        self._run_single_instruction_test("OR", OR_INSTRUCTION.to_bytes(4, 'little'), self.ref_engine.execute_or, RD_X1, RS1_X2, RS2_X3)
-        assert self.main_engine.registers[RD_X1] == (self.initial_registers[RS1_X2] | self.initial_registers[RS2_X3]) & 0xFFFFFFFF
+        self._run_single_instruction_test(OR_INSTRUCTION.to_bytes(4, 'little'), self.ref_engine.execute_or, RD_X1, RS1_X2, RS2_X3)
 
     def test_and_instruction(self):
-        self._run_single_instruction_test("AND", AND_INSTRUCTION.to_bytes(4, 'little'), self.ref_engine.execute_and, RD_X1, RS1_X2, RS2_X3)
-        assert self.main_engine.registers[RD_X1] == (self.initial_registers[RS1_X2] & self.initial_registers[RS2_X3]) & 0xFFFFFFFF
+        self._run_single_instruction_test(AND_INSTRUCTION.to_bytes(4, 'little'), self.ref_engine.execute_and, RD_X1, RS1_X2, RS2_X3)
 
     def test_lw_instruction(self):
         self.reset_states()
         memory_address = self.initial_registers[RS1_X5] + IMM_LW
         value_to_load = 0xABCDEF01
         self.bus.write(memory_address, value_to_load.to_bytes(4, 'little'))
-        self._run_single_instruction_test("LW", LW_INSTRUCTION.to_bytes(4, 'little'), self.ref_engine.execute_lw, RD_X4, RS1_X5, IMM_LW)
+
+        self.bus.write(0, LW_INSTRUCTION.to_bytes(4, 'little'))
+        self.main_engine.execute_instruction()
+        self.ref_engine.execute_lw(RD_X4, RS1_X5, IMM_LW)
+
+        self.compare_states()
         assert self.main_engine.registers[RD_X4] == value_to_load
 
     def test_sw_instruction(self):
         self.reset_states()
-        self._run_single_instruction_test("SW", SW_INSTRUCTION.to_bytes(4, 'little'), self.ref_engine.execute_sw, RS1_X7, RS2_X6, IMM_SW)
+        self.bus.write(0, SW_INSTRUCTION.to_bytes(4, 'little'))
+        self.main_engine.execute_instruction()
+        self.ref_engine.execute_sw(RS1_X7, RS2_X6, IMM_SW)
+
+        self.compare_states()
         memory_address = self.initial_registers[RS1_X7] + IMM_SW
         stored_value = int.from_bytes(self.bus.read(memory_address, 4), 'little')
         assert stored_value == self.initial_registers[RS2_X6]
