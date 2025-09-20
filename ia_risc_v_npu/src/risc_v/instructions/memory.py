@@ -1,11 +1,11 @@
-def ld(memory, address):
-    return int.from_bytes(memory[address:address+8], 'little')
+def ld(bus, address):
+    return int.from_bytes(bus.read(address, 8), 'little')
 
-def sd(memory, address, value):
-    memory[address:address+8] = value.to_bytes(8, 'little')
+def sd(bus, address, value):
+    bus.write(address, value.to_bytes(8, 'little'))
 
-def lw(memory, address):
-    return int.from_bytes(memory[address:address+4], 'little')
+def lw(bus, address):
+    return int.from_bytes(bus.read(address, 4), 'little')
 
-def sw(memory, address, value):
-    memory[address:address+4] = value.to_bytes(4, 'little')
+def sw(bus, address, value):
+    bus.write(address, value.to_bytes(4, 'little'))

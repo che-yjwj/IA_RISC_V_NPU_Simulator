@@ -12,3 +12,6 @@ def or_(a, b):
 
 def xor(a, b):
     return a ^ b
+
+def fmadd(a, b, c):
+    return a * b + c

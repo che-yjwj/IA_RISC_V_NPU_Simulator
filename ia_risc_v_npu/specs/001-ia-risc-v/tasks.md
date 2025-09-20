@@ -67,7 +67,10 @@
 - [x] T030: Implement a more advanced ROI detection mechanism.
 
 ### Week 11: Workload Analysis
-- [ ] T031: [P] Run the simulator with a variety of workloads (e.g., CNN layers).
+- [/] T031: [P] Run the simulator with a variety of workloads (e.g., CNN layers).
+  - [x] Create a test to run the generated CNN workload.
+  - [x] Parametrize the CNN workload test to run with a variety of configurations.
+  - [x] Add result verification to the CNN workload test.
 - [ ] T032: Analyze the accuracy and performance of the simulator against the goals in `prd.md`.
 
 ### Week 12: Finalization

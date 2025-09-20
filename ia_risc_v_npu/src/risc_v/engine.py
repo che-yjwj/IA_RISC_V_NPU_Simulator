@@ -6,6 +6,7 @@ OPCODE_R_TYPE = 0b0110011
 OPCODE_I_TYPE_LOAD = 0b0000011
 OPCODE_S_TYPE_STORE = 0b0100011
 OPCODE_R4_TYPE_FMADD = 0b1000011
+OPCODE_J_TYPE_JAL = 0b1101111
 
 # Funct3 constants for R-type
 FUNCT3_ADD_SUB = 0b000
@@ -75,6 +76,23 @@ class RISCVEngine:
         rs3 = (instruction >> 27) & 0x1F
         return opcode, rd, funct3, rs1, rs2, rs3
 
+    def _decode_j_type_instruction(self, instruction):
+        opcode = instruction & 0x7F
+        rd = (instruction >> 7) & 0x1F
+
+        imm_20 = (instruction >> 31) & 0x1
+        imm_10_1 = (instruction >> 21) & 0x3FF
+        imm_11 = (instruction >> 20) & 0x1
+        imm_19_12 = (instruction >> 12) & 0xFF
+
+        imm = (imm_20 << 20) | (imm_19_12 << 12) | (imm_11 << 11) | (imm_10_1 << 1)
+
+        # Sign extend from 21 bits
+        if (imm >> 20) & 1:
+            imm |= ~((1 << 21) - 1)
+
+        return opcode, rd, imm
+
     def _execute_alu_instruction(self, funct3, rd, rs1, rs2, funct7):
         if rd == 0: # x0 is hardwired to zero, so no-op
             return
@@ -121,9 +139,19 @@ class RISCVEngine:
         else:
             raise ValueError(f"Unsupported FMADD instruction: funct3={funct3}")
 
+    def _execute_jal_instruction(self, rd, imm):
+        if rd != 0:
+            self.registers[rd] = self.pc + 4
+        self.pc += imm
+
     def execute_instruction(self):
         instruction = self._read_word(self.pc)
+        original_pc = self.pc
         opcode = instruction & 0x7F
+
+        if instruction == 0:
+            return "halt"
+
         if opcode == OPCODE_R_TYPE:
             _, rd, funct3, rs1, rs2, funct7 = self._decode_r_type_instruction(instruction)
             self._execute_alu_instruction(funct3, rd, rs1, rs2, funct7)
@@ -136,7 +164,16 @@ class RISCVEngine:
         elif opcode == OPCODE_R4_TYPE_FMADD:
             _, rd, funct3, rs1, rs2, rs3 = self._decode_r4_type_instruction(instruction)
             self._execute_fmadd_instruction(funct3, rd, rs1, rs2, rs3)
+        elif opcode == OPCODE_J_TYPE_JAL:
+            _, rd, imm = self._decode_j_type_instruction(instruction)
+            if rd == 0 and imm == 0:
+                return "halt"
+            self._execute_jal_instruction(rd, imm)
         else:
             raise ValueError(f"Unsupported opcode: {opcode}")
         
-        self.pc += 4
+        # If the PC was not changed by a jump/branch instruction, increment it by 4
+        if self.pc == original_pc:
+            self.pc += 4
+        
+        return "continue"

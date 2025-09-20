@@ -44,7 +44,10 @@ class AdaptiveSimulator:
         while not self.halt:
             if max_cycles > 0 and cycles >= max_cycles:
                 break
-            inst_result = self.risc_v_engine.execute_instruction()
+            status = self.risc_v_engine.execute_instruction()
+            if status == "halt":
+                self.halt = True
+                break
             # For now, we'll just use the timing hooks for latency
             latency = self.timing_hooks.fetch_hook(0, 0) # dummy values
             self.sim_time += latency
