@@ -1,3 +1,5 @@
+import logging
+
 from src.risc_v.instructions import alu, memory, control_flow
 import numpy as np
 
@@ -24,10 +26,13 @@ FUNCT3_LW = 0b010
 FUNCT3_SW = 0b010
 FUNCT3_FMADD = 0b000
 
+LOGGER = logging.getLogger(__name__)
+
+
 class RISCVEngine:
     def __init__(self, bus):
         self.pc = 0
-        self.registers = [0] * 32
+        self.registers = np.zeros(32, dtype=np.uint32)
         self.bus = bus
         self.instruction_count = 0
 
@@ -102,10 +107,14 @@ class RISCVEngine:
         rs1 = (instruction >> 15) & 0x1F
         rs2 = (instruction >> 20) & 0x1F
         imm2 = (instruction >> 25) & 0x7F
-        imm = ((imm2 & 0x40) << 6) | ((imm1 & 1) << 11) | ((imm2 & 0x3F) << 5) | ((imm1 & 0x1E) >> 1)
-        if (imm >> 12) & 1:
-            imm -= 1 << 13
-        print(f"DECODE B-TYPE: opcode={opcode}, funct3={funct3}, rs1={rs1}, rs2={rs2}, imm={imm}")
+        imm = ((instruction >> 31) & 0x1) << 12 | \
+              ((instruction >> 7) & 0x1) << 11  | \
+              ((instruction >> 25) & 0x3F) << 5 | \
+              ((instruction >> 8) & 0xF) << 1
+        
+        # Sign-extend the 13-bit immediate to 32 bits
+        if imm & (1 << 12):
+            imm -= (1 << 13)
         return opcode, funct3, rs1, rs2, imm
 
     def _execute_alu_instruction(self, funct3, rd, rs1, rs2, funct7):
@@ -179,12 +188,12 @@ class RISCVEngine:
 
         if branch_taken:
             self.pc = original_pc + imm
-            print(f"BRANCH from {original_pc:08x} to {self.pc:08x}")
+            LOGGER.debug("branch taken: 0x%08x -> 0x%08x", original_pc, self.pc)
 
     def execute_instruction(self):
         self.instruction_count += 1
         instruction = self._read_word(self.pc)
-        print(f"PC: {self.pc:08x}, Instruction: {instruction:08x}")
+        LOGGER.debug("pc=0x%08x instruction=0x%08x", self.pc, instruction)
         original_pc = self.pc
         opcode = instruction & 0x7F
 
@@ -214,7 +223,7 @@ class RISCVEngine:
             if rd == 0 and imm == 0:
                 return "halt"
             self._execute_jal_instruction(rd, imm, original_pc)
-            print(f"JUMP from {original_pc:08x} to {self.pc:08x}")
+            LOGGER.debug("jump: 0x%08x -> 0x%08x", original_pc, self.pc)
             pc_changed = True
         else:
             raise ValueError(f"Unsupported opcode: {opcode}")

@@ -4,3 +4,5 @@ __pycache__/
 # Profiling results
 *.pstats
 *.lprof
+profile.out
+test_output.log

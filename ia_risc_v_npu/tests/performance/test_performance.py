@@ -1,6 +1,7 @@
 import pytest
 import numpy as np
 from src.risc_v.instructions import alu, control_flow, memory
+from src.simulator.memory import SPM
 from src.npu.model import NPU
 
 # Mock state for control flow instructions
@@ -27,7 +28,11 @@ def test_xor_benchmark(benchmark):
 # T026b: Memory access instruction benchmarks
 @pytest.fixture
 def mem():
-    return bytearray(1024)
+    spm = memory.SPM(size_kb=1) # 1KB memory
+    # Initialize with some data for reads
+    for i in range(0, 1024, 4):
+        spm.write(i, (i // 4).to_bytes(4, 'little'))
+    return spm
 
 def test_ld_benchmark(benchmark, mem):
     benchmark(memory.ld, mem, 0)
@@ -44,13 +49,14 @@ def test_sw_benchmark(benchmark, mem):
 # T026c: Control flow instruction benchmarks
 @pytest.fixture
 def state():
+    # MockState is no longer needed for beq/bne, but kept for jal/jalr if they are benchmarked later
     return MockState(pc=100)
 
 def test_beq_benchmark(benchmark, state):
-    benchmark(control_flow.beq, state, 1, 1, 20)
+    benchmark(control_flow.beq, 1, 1)
 
 def test_bne_benchmark(benchmark, state):
-    benchmark(control_flow.bne, state, 1, 2, 20)
+    benchmark(control_flow.bne, 1, 2)
 
 def test_jal_benchmark(benchmark, state):
     benchmark(control_flow.jal, state, 40)
