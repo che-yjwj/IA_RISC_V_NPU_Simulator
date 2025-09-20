@@ -59,7 +59,7 @@ def test_jal_negative_offset(engine):
 def test_beq_taken(engine):
     # BEQ x1, x2, 40
     engine.registers[1] = 10
-    instruction = assemble_b_type(0b000, 1, 2, 20)
+    instruction = assemble_b_type(0b000, 1, 2, 40)
     engine.bus.write(0, instruction.to_bytes(4, 'little'))
     engine.pc = 0
     
@@ -71,7 +71,7 @@ def test_beq_not_taken(engine):
     # BEQ x1, x2, 40
     engine.registers[1] = 10
     engine.registers[2] = 20
-    instruction = assemble_b_type(0b000, 1, 2, 20)
+    instruction = assemble_b_type(0b000, 1, 2, 40)
     engine.bus.write(0, instruction.to_bytes(4, 'little'))
     engine.pc = 0
     
@@ -127,6 +127,8 @@ def test_blt_not_taken_signed(engine):
 
 def test_bge_taken_signed(engine):
     # BGE x1, x2, 40 (signed)
+    engine.registers[1] = np.int32(10)
+    engine.registers[2] = np.int32(0)
     instruction = assemble_b_type(0b101, 1, 2, 40)
     engine.bus.write(0, instruction.to_bytes(4, 'little'))
     engine.pc = 0
@@ -171,6 +173,8 @@ def test_bltu_not_taken_unsigned(engine):
 
 def test_bgeu_taken_unsigned(engine):
     # BGEU x1, x2, 40 (unsigned)
+    engine.registers[1] = 20
+    engine.registers[2] = 10
     instruction = assemble_b_type(0b111, 1, 2, 40)
     engine.bus.write(0, instruction.to_bytes(4, 'little'))
     engine.pc = 0

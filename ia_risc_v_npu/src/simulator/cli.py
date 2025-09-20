@@ -15,7 +15,7 @@ try:  # pragma: no cover - import guarded for environments without pyelftools
 except ImportError:  # pragma: no cover - fallback handled at runtime
     ELFFile = None  # type: ignore[assignment]
 
-from src.simulator.main import AdaptiveSimulator, SimulationResult, DRAM_SIZE
+from src.simulator.main import AdaptiveSimulator, SimulationReport, DRAM_SIZE
 
 LOGGER = logging.getLogger(__name__)
 
@@ -102,7 +102,7 @@ def load_program_image(elf_path: Path) -> ProgramImage:
 
 
 def write_output(
-    result: SimulationResult,
+    result: SimulationReport,
     output_path: Optional[Path],
     instruction_count: int,
     *,
@@ -159,7 +159,7 @@ def _generate_synthetic_program(length: int) -> ProgramImage:
     return ProgramImage(instructions=program, text_size=len(program) * 4)
 
 
-def _measure_performance(simulator: AdaptiveSimulator, max_cycles: int) -> tuple[SimulationResult, BenchmarkMetrics]:
+def _measure_performance(simulator: AdaptiveSimulator, max_cycles: int) -> tuple[SimulationReport, BenchmarkMetrics]:
     start = perf_counter()
     result = asyncio.run(simulator.run_simulation(max_cycles=max_cycles))
     elapsed = perf_counter() - start
