@@ -1,4 +1,14 @@
 import asyncio
+import sys
+from pathlib import Path
+
+# Ensure repository root is on sys.path when executed directly.
+if __package__ is None:
+    project_root = Path(__file__).resolve().parents[2]
+    project_root_str = str(project_root)
+    if project_root_str not in sys.path:
+        sys.path.insert(0, project_root_str)
+
 from src.risc_v.engine import RISCVEngine
 from src.simulator.hooks import TimingHookSystem
 from src.npu.model import NPU

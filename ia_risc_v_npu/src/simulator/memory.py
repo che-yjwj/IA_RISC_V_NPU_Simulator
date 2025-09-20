@@ -49,3 +49,5 @@ class Bus:
                 device.write(local_addr, data)
             else:
                 device[local_addr:local_addr+len(data)] = data
+        else:
+            raise MemoryError(f"No device found or access out of bounds for address {address} with size {len(data)}")
