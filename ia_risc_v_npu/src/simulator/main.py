@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from dataclasses import dataclass
 from typing import Iterable, Optional
 
@@ -19,12 +20,21 @@ SPM_SIZE_KB = 64
 MMIO_BASE = 0x20000000
 MMIO_SIZE = 0x10000  # 64KB
 
+
 @dataclass(slots=True)
-class SimulationResult:
+class SimulationReport:
     cycles: int
+    instructions: int
     halted: bool
     reason: str
     sim_time: int
+    elapsed_seconds: float
+
+    @property
+    def mips(self) -> float:
+        if self.elapsed_seconds <= 0:
+            return 0.0
+        return (self.instructions / 1_000_000) / self.elapsed_seconds
 
 
 class AdaptiveSimulator:
@@ -55,19 +65,25 @@ class AdaptiveSimulator:
         self.sim_time = 0
         self.logger = logger or logging.getLogger(__name__)
 
-    def load_program(self, instructions: Iterable[int], *, base_address: int = DRAM_BASE) -> None:
+    def load_program(
+        self,
+        instructions: Iterable[int],
+        *,
+        base_address: int = DRAM_BASE,
+    ) -> None:
         addr = base_address
         self.risc_v_engine.pc = base_address
         for inst in instructions:
             self.bus.write(addr, int(inst).to_bytes(4, "little", signed=False))
             addr += 4
 
-    async def run_simulation(self, max_cycles: int = 0) -> SimulationResult:
+    async def run_simulation(self, max_cycles: int = 0) -> SimulationReport:
         self.halt = False
         self.sim_time = 0
         self.risc_v_engine.instruction_count = 0
         cycles = 0
         reason = "completed"
+        start_time = time.perf_counter()
 
         while not self.halt:
             if max_cycles > 0 and cycles >= max_cycles:
@@ -82,15 +98,18 @@ class AdaptiveSimulator:
             self.sim_time += latency
             cycles += 1
 
-        return SimulationResult(
+        elapsed = time.perf_counter() - start_time
+        return SimulationReport(
             cycles=cycles,
+            instructions=self.risc_v_engine.instruction_count,
             halted=self.halt,
             reason=reason,
             sim_time=self.sim_time,
+            elapsed_seconds=elapsed,
         )
 
 
-async def demo(max_cycles: int = 200_000) -> SimulationResult:
+async def demo(max_cycles: int = 200_000) -> SimulationReport:
     """Run a minimal ADD program. Intended for manual experimentation."""
 
     simulator = AdaptiveSimulator()
