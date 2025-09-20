@@ -97,7 +97,7 @@ class TestInstructionAccuracy:
         self.main_engine.pc = 0
         self.ref_engine.registers = self.initial_registers[:]
         self.ref_engine.pc = 0
-        self.dram.fromhex('00' * 1024)
+        self.dram[:] = b'\x00' * len(self.dram)
 
     def compare_states(self):
         assert self.main_engine.pc == self.ref_engine.pc

@@ -1,4 +1,10 @@
+from __future__ import annotations
+
 import asyncio
+import logging
+from dataclasses import dataclass
+from typing import Iterable, Optional
+
 from src.risc_v.engine import RISCVEngine
 from src.simulator.hooks import TimingHookSystem
 from src.npu.model import NPU
@@ -13,8 +19,23 @@ SPM_SIZE_KB = 64
 MMIO_BASE = 0x20000000
 MMIO_SIZE = 0x10000  # 64KB
 
+@dataclass(slots=True)
+class SimulationResult:
+    cycles: int
+    halted: bool
+    reason: str
+    sim_time: int
+
+
 class AdaptiveSimulator:
-    def __init__(self):
+    """Primary integration point for CPU, NPU, and shared memory models."""
+
+    def __init__(
+        self,
+        *,
+        timing_hooks: Optional[TimingHookSystem] = None,
+        logger: Optional[logging.Logger] = None,
+    ) -> None:
         self.bus = Bus()
         self.dram = bytearray(DRAM_SIZE)
         self.spm = SPM(SPM_SIZE_KB)
@@ -27,40 +48,57 @@ class AdaptiveSimulator:
         self.bus.add_device("mmio", self.mmio, MMIO_BASE, MMIO_BASE + MMIO_SIZE - 1)
 
         self.risc_v_engine = RISCVEngine(self.bus)
-        self.timing_hooks = TimingHookSystem()
+        self.timing_hooks = timing_hooks or TimingHookSystem()
         # self.event_system = EventBasedSystem() # This will be implemented later
         # self.fidelity_controller = FidelityController() # This will be implemented later
         self.halt = False
         self.sim_time = 0
+        self.logger = logger or logging.getLogger(__name__)
 
-    def load_program(self, instructions: list[int]):
-        addr = DRAM_BASE
+    def load_program(self, instructions: Iterable[int], *, base_address: int = DRAM_BASE) -> None:
+        addr = base_address
+        self.risc_v_engine.pc = base_address
         for inst in instructions:
-            self.bus.write(addr, inst.to_bytes(4, 'little'))
+            self.bus.write(addr, int(inst).to_bytes(4, "little", signed=False))
             addr += 4
 
-    async def run_simulation(self, max_cycles: int = 0):
+    async def run_simulation(self, max_cycles: int = 0) -> SimulationResult:
+        self.halt = False
+        self.sim_time = 0
+        self.risc_v_engine.instruction_count = 0
         cycles = 0
+        reason = "completed"
+
         while not self.halt:
             if max_cycles > 0 and cycles >= max_cycles:
+                reason = "max_cycles_reached"
                 break
             status = self.risc_v_engine.execute_instruction()
             if status == "halt":
                 self.halt = True
+                reason = "halt"
                 break
-            # For now, we'll just use the timing hooks for latency
-            latency = self.timing_hooks.fetch_hook(0, 0) # dummy values
+            latency = self.timing_hooks.fetch_hook(self.risc_v_engine.pc, 0)
             self.sim_time += latency
             cycles += 1
-            await asyncio.sleep(0) # Yield control to the event loop
 
-        # return SimulationResult(...) # This will be implemented later
+        return SimulationResult(
+            cycles=cycles,
+            halted=self.halt,
+            reason=reason,
+            sim_time=self.sim_time,
+        )
 
-async def main():
+
+async def demo(max_cycles: int = 200_000) -> SimulationResult:
+    """Run a minimal ADD program. Intended for manual experimentation."""
+
     simulator = AdaptiveSimulator()
-    # Load a simple program: ADD x1, x2, x3
     simulator.load_program([0x003100B3])
-    await simulator.run_simulation(max_cycles=200000)
+    return await simulator.run_simulation(max_cycles=max_cycles)
 
-if __name__ == "__main__":
-    asyncio.run(main())
+
+if __name__ == "__main__":  # pragma: no cover
+    from src.simulator.cli import main as cli_main
+
+    raise SystemExit(cli_main())
