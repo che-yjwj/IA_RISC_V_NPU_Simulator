@@ -21,11 +21,13 @@ def test_configure_deterministic_environment_sets_env():
 
 def test_adaptive_simulator_produces_repeatable_random_choices():
     # Force deterministic baseline before constructing the simulators.
-    configure_deterministic_environment(force=True)
+    configure_deterministic_environment(force=True, seed=42)
 
     sim_a = AdaptiveSimulator()
     choices_a = np.copy(sim_a.timing_hooks.random_choices)
 
+    # Force re-configuration to reset the RNG state for a true apples-to-apples comparison
+    configure_deterministic_environment(force=True, seed=42)
     sim_b = AdaptiveSimulator()
     choices_b = np.copy(sim_b.timing_hooks.random_choices)
 

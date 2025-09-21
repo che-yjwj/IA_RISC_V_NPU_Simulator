@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 import os
 import random
+import threading
 from dataclasses import dataclass
 from typing import MutableMapping, Optional
 
@@ -13,6 +14,7 @@ except ImportError:  # pragma: no cover - numpy is required in normal operation
     np = None  # type: ignore[assignment]
 
 LOGGER = logging.getLogger(__name__)
+_CONFIG_LOCK = threading.Lock()
 
 
 @dataclass(frozen=True)
@@ -76,12 +78,17 @@ def configure_deterministic_environment(
     logger = logger or LOGGER
     active_config = config or DeterminismConfig(seed=seed)
 
-    if force:
-        _CONFIGURED = False
+    with _CONFIG_LOCK:
+        if _CONFIGURED and not force:
+            logger.debug("Environment already configured for determinism; skipping.")
+            return
 
-    if not _CONFIGURED:
-        _set_env_targets(env=target_env, config=active_config, logger=logger)
-        _CONFIGURED = True
+        if force:
+            _CONFIGURED = False
+
+        if not _CONFIGURED:
+            _set_env_targets(env=target_env, config=active_config, logger=logger)
+            _CONFIGURED = True
 
     if reset_rng:
         random.seed(active_config.seed)
