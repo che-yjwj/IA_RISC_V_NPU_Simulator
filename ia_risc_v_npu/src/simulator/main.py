@@ -16,6 +16,7 @@ if __package__ is None:
         sys.path.insert(0, project_root_str)
 
 from src.risc_v.engine import RISCVEngine
+from src.simulator.determinism import configure_deterministic_environment
 from src.simulator.hooks import TimingHookSystem
 from src.npu.model import NPU
 from src.simulator.memory import SPM, Bus
@@ -55,6 +56,8 @@ class AdaptiveSimulator:
         timing_hooks: Optional[TimingHookSystem] = None,
         logger: Optional[logging.Logger] = None,
     ) -> None:
+        # Ensure deterministic seeding before any timing hooks or models allocate RNG state.
+        configure_deterministic_environment()
         self.bus = Bus()
         self.dram = bytearray(DRAM_SIZE)
         self.spm = SPM(SPM_SIZE_KB)
