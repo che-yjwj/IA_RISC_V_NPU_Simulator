@@ -17,6 +17,7 @@ if __package__ is None:
 
 from src.risc_v.engine import RISCVEngine
 from src.simulator.determinism import configure_deterministic_environment
+from src.simulator.events import EventScheduler
 from src.simulator.hooks import TimingHookSystem
 from src.npu.model import NPU
 from src.simulator.memory import SPM, Bus
@@ -71,6 +72,7 @@ class AdaptiveSimulator:
 
         self.risc_v_engine = RISCVEngine(self.bus)
         self.timing_hooks = timing_hooks or TimingHookSystem()
+        self.scheduler: Optional[EventScheduler] = None
         # self.event_system = EventBasedSystem() # This will be implemented later
         # self.fidelity_controller = FidelityController() # This will be implemented later
         self.halt = False
@@ -97,19 +99,33 @@ class AdaptiveSimulator:
         reason = "completed"
         start_time = time.perf_counter()
 
-        while not self.halt:
+        scheduler = EventScheduler()
+        self.scheduler = scheduler
+
+        def execute_instruction_event() -> None:
+            nonlocal cycles, reason
+
+            self.sim_time = scheduler.now
+
             if max_cycles > 0 and cycles >= max_cycles:
                 reason = "max_cycles_reached"
-                break
+                return
+
             status = self.risc_v_engine.execute_instruction()
+            cycles += 1
+
             if status == "halt":
                 self.halt = True
                 reason = "halt"
-                break
-            latency = self.timing_hooks.fetch_hook(self.risc_v_engine.pc, 0)
-            self.sim_time += latency
-            cycles += 1
+                return
 
+            latency = self.timing_hooks.fetch_hook(self.risc_v_engine.pc, 0)
+            scheduler.schedule_after(delay=max(0, latency), callback=execute_instruction_event)
+
+        scheduler.schedule(timestamp=0, callback=execute_instruction_event)
+        scheduler.run()
+
+        self.sim_time = scheduler.now
         elapsed = time.perf_counter() - start_time
         return SimulationReport(
             cycles=cycles,

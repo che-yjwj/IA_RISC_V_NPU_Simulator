@@ -18,12 +18,15 @@
 
 ## Phase 1 – EventScheduler 도입 (주 1–2)
 
-- [ ] `src/simulator/events.py` 힙 기반 스케줄러 구현(now/schedule/run)
+- [x] `src/simulator/events.py` 힙 기반 스케줄러 구현(now/schedule/run)
   - 수용기준: 단위 테스트에서 동시간 이벤트 id 순서 보장
-- [ ] `src/simulator/main.py:AdaptiveSimulator`를 이벤트 구동으로 전환
+  - 완료: `EventScheduler` 도입 및 `tests/unit/test_events.py` 커버리지 확보(PR 준비 브랜치 `feature/event-scheduler-migration`)
+- [x] `src/simulator/main.py:AdaptiveSimulator`를 이벤트 구동으로 전환
   - 수용기준: 기존 통합 테스트 유지, 훅 비의존 경로로 동작
-- [ ] `src/simulator/hooks.py` 제거 또는 옵저버로 축소(결정성 위반 요소 제거)
+  - 완료: `AdaptiveSimulator.run_simulation`이 스케줄러 기반 루프로 교체, fetch 훅 지연을 이벤트로 연결
+- [x] `src/simulator/hooks.py` 제거 또는 옵저버로 축소(결정성 위반 요소 제거)
   - 수용기준: time.time()/난수 사용 제거
+  - 완료: 난수 선표와 타임스탬프 제거, 결정적 계측 버퍼만 유지
 
 ---
 
@@ -126,4 +129,3 @@
 - 정확도: 벤치셋 평균/중앙값 ±15% 이내, 단일 케이스 ±20% 미만
 - 성능: 기본 8–12 MIPS 달성(정확도 모드)
 - 문서: 설계/작업/구성 스키마 설명 및 사용법 정리
-
