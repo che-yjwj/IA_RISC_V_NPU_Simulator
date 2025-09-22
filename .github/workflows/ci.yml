@@ -35,7 +35,7 @@ jobs:
         id: pytest_unit
         env:
           PYTHONPATH: ${{ github.workspace }}/ia_risc_v_npu
-        run: python3 -m scripts.deterministic_env -- pytest -v -q --json-report --json-report-file=reports/unit-report.json
+        run: python3 -m scripts.deterministic_env -- pytest -v -q --json-report --json-report-file=reports/unit-report.json | tee reports/unit-pytest.log
         continue-on-error: true
 
       - name: Upload unit test report
@@ -44,6 +44,13 @@ jobs:
         with:
           name: unit-pytest-report
           path: ia_risc_v_npu/reports/unit-report.json
+
+      - name: Upload unit test log
+        if: steps.pytest_unit.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-pytest-log
+          path: ia_risc_v_npu/reports/unit-pytest.log
 
       - name: Fail job when tests fail
         if: steps.pytest_unit.outcome == 'failure'
@@ -79,7 +86,7 @@ jobs:
           PYTHONPATH: ${{ github.workspace }}/ia_risc_v_npu
         run: >-
           python3 -m scripts.deterministic_env -- pytest -v tests/performance --benchmark-only
-          --json-report --json-report-file=reports/performance-report.json
+          --json-report --json-report-file=reports/performance-report.json | tee reports/performance-pytest.log
         continue-on-error: true
 
       - name: Upload performance report
@@ -88,6 +95,13 @@ jobs:
         with:
           name: performance-pytest-report
           path: ia_risc_v_npu/reports/performance-report.json
+
+      - name: Upload performance test log
+        if: steps.pytest_performance.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-pytest-log
+          path: ia_risc_v_npu/reports/performance-pytest.log
 
       - name: Fail job when benchmarks fail
         if: steps.pytest_performance.outcome == 'failure'
