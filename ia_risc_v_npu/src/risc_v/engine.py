@@ -47,7 +47,7 @@ class RISCVEngine:
 
     def begin_instruction(self, now: int) -> None:
         if now < 0:
-            raise ValueError("now는 음수가 될 수 없습니다.")
+            raise ValueError("now cannot be negative.")
         self.current_time = now
         self.last_bus_done_at = now
 
