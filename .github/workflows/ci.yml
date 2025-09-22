@@ -35,7 +35,7 @@ jobs:
         id: pytest_unit
         env:
           PYTHONPATH: ${{ github.workspace }}/ia_risc_v_npu
-        run: python -m scripts.deterministic_env -- pytest -q --json-report --json-report-file=reports/unit-report.json
+        run: python3 -m scripts.deterministic_env -- pytest -q --json-report --json-report-file=reports/unit-report.json
         continue-on-error: true
 
       - name: Upload unit test report
@@ -78,7 +78,7 @@ jobs:
         env:
           PYTHONPATH: ${{ github.workspace }}/ia_risc_v_npu
         run: >-
-          python -m scripts.deterministic_env -- pytest tests/performance --benchmark-only
+          python3 -m scripts.deterministic_env -- pytest tests/performance --benchmark-only
           --json-report --json-report-file=reports/performance-report.json
         continue-on-error: true
 
