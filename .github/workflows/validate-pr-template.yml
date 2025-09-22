@@ -1,0 +1,19 @@
+name: Validate PR Checklist
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+
+jobs:
+  checklist:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 확인 - 문서 체크박스
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.pull_request.body || "";
+            const pattern = /- \[[xX]\] `specs\/tasks-event-only-migration\.md`에 해당 작업 상태를 반영했습니다\./;
+            if (!pattern.test(body)) {
+              core.setFailed("PR 체크리스트에서 문서 업데이트 항목을 체크해야 합니다. `specs/tasks-event-only-migration.md` 상태를 반영한 뒤 체크박스를 활성화해 주세요.");
+            }
