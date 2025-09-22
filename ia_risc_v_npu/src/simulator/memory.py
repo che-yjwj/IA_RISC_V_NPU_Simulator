@@ -91,7 +91,7 @@ class BusMetrics:
 
 
 class Bus:
-    """슬라이스·대역폭 모델을 포함한 결정적 버스."""
+    """Deterministic bus model with slice-aware bandwidth scheduling."""
 
     def __init__(
         self,
@@ -102,11 +102,11 @@ class Bus:
         metrics: Optional[BusMetrics] = None,
     ) -> None:
         if slice_bytes <= 0:
-            raise ValueError("slice_bytes는 0보다 커야 합니다.")
+            raise ValueError("slice_bytes must be greater than zero.")
         if bandwidth_bytes_per_cycle <= 0:
-            raise ValueError("bandwidth_bytes_per_cycle은 0보다 커야 합니다.")
+            raise ValueError("bandwidth_bytes_per_cycle must be greater than zero.")
         if grant_latency < 0:
-            raise ValueError("grant_latency는 음수가 될 수 없습니다.")
+            raise ValueError("grant_latency cannot be negative.")
 
         self.slice_bytes = slice_bytes
         self.bandwidth_bytes_per_cycle = bandwidth_bytes_per_cycle
@@ -139,7 +139,7 @@ class Bus:
         request_at: Optional[int] = None,
     ) -> Tuple[int, int]:
         if bytes <= 0:
-            raise ValueError("bytes는 0보다 커야 합니다.")
+            raise ValueError("bytes must be greater than zero.")
 
         request_at = self._resolve_request_time(request_at)
         self._evict_completed(request_at)
@@ -160,7 +160,7 @@ class Bus:
         self._active_requests.append(request)
 
         if request.grant_at is None or request.done_at is None:
-            raise RuntimeError("버스 스케줄링이 완료되지 않았습니다.")
+            raise RuntimeError("Bus scheduling did not produce a grant and completion time.")
 
         return request.grant_at, request.done_at
 
@@ -169,9 +169,9 @@ class Bus:
 
     def sync_time(self, now: int) -> None:
         if now < 0:
-            raise ValueError("now는 음수가 될 수 없습니다.")
+            raise ValueError("now cannot be negative.")
         if now < self._now:
-            raise ValueError("시간은 되돌릴 수 없습니다.")
+            raise ValueError("Simulation time cannot move backwards.")
         self._now = now
         self._evict_completed(now)
 
@@ -179,9 +179,9 @@ class Bus:
         if request_at is None:
             return self._now
         if request_at < 0:
-            raise ValueError("request_at은 음수가 될 수 없습니다.")
+            raise ValueError("request_at cannot be negative.")
         if request_at < self._now:
-            raise ValueError("request_at은 현재 시간보다 이를 수 없습니다.")
+            raise ValueError("request_at cannot be earlier than the current time.")
         return request_at
 
     def _evict_completed(self, now: int) -> None:
@@ -239,7 +239,7 @@ class Bus:
 
             queue.popleft()
             if not queue:
-                # 마스터 큐가 비면 향후 next_arrival 탐색에서 제외되도록 유지
+                # Keep empty queues so round-robin order stays stable when requests return
                 pass
 
             self._pending_requests -= 1

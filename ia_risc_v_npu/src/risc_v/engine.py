@@ -28,6 +28,8 @@ FUNCT3_FMADD = 0b000
 
 LOGGER = logging.getLogger(__name__)
 
+WORD_SIZE_BYTES = 4
+
 
 class RISCVEngine:
     def __init__(self, bus, *, master_id: int = 0):
@@ -52,15 +54,14 @@ class RISCVEngine:
     def _read_word(self, address):
         return int.from_bytes(self.bus.read(address, 4), 'little')
 
-    def _schedule_bus_transfer(self, size_bytes: int) -> int:
-        grant_at, done_at = self.bus.request(
+    def _schedule_bus_transfer(self, size_bytes: int) -> None:
+        _, done_at = self.bus.request(
             master_id=self.master_id,
             bytes=size_bytes,
             request_at=self.current_time,
         )
         if done_at > self.last_bus_done_at:
             self.last_bus_done_at = done_at
-        return grant_at
 
     def _decode_r_type_instruction(self, instruction):
         opcode = instruction & 0x7F
@@ -162,7 +163,7 @@ class RISCVEngine:
     def _execute_load_instruction(self, funct3, rd, rs1, imm):
         if funct3 == FUNCT3_LW:
             address = self.registers[rs1] + imm
-            self._schedule_bus_transfer(4)
+            self._schedule_bus_transfer(WORD_SIZE_BYTES)
             if rd != 0:
                 self.registers[rd] = memory.lw(self.bus, address)
         else:
@@ -171,7 +172,7 @@ class RISCVEngine:
     def _execute_store_instruction(self, funct3, rs1, rs2, imm):
         if funct3 == FUNCT3_SW:
             address = self.registers[rs1] + imm
-            self._schedule_bus_transfer(4)
+            self._schedule_bus_transfer(WORD_SIZE_BYTES)
             memory.sw(self.bus, address, self.registers[rs2])
         else:
             raise ValueError(f"Unsupported store instruction: funct3={funct3}")

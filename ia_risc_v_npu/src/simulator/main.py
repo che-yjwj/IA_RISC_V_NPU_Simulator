@@ -50,6 +50,7 @@ class SimulationReport:
 
 
 CPU_MASTER_ID = 0
+MIN_EVENT_DELAY = 1
 
 
 class AdaptiveSimulator:
@@ -129,7 +130,7 @@ class AdaptiveSimulator:
             bus_delay = max(0, self.risc_v_engine.last_bus_done_at - scheduler.now)
             next_delay = max(latency, bus_delay)
             if next_delay <= 0:
-                next_delay = 1
+                next_delay = MIN_EVENT_DELAY
             scheduler.schedule_after(delay=next_delay, callback=execute_instruction_event)
 
         scheduler.schedule(timestamp=0, callback=execute_instruction_event)
