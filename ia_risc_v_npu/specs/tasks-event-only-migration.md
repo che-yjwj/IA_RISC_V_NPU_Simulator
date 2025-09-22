@@ -32,10 +32,12 @@
 
 ## Phase 2 – Bus 이벤트화 (주 2–3)
 
-- [ ] `src/simulator/memory.py:Bus` rr 중재/슬라이스/대역폭/그랜트 지연 구현
+- [x] `src/simulator/memory.py:Bus` rr 중재/슬라이스/대역폭/그랜트 지연 구현
   - 수용기준: 요청 bytes, slice_bytes, bandwidth로 예측 가능한 done_at 도출
-- [ ] Bus 요청/완료 통계 수집(옵저버) 추가
+  - 완료: 슬라이스 기반 라운드로빈 버스 모델을 도입하고 `RISCVEngine`/`AdaptiveSimulator`에서 done_at을 활용하도록 통합.
+- [x] Bus 요청/완료 통계 수집(옵저버) 추가
   - 수용기준: 평균 대기/전송 시간, 큐 길이 리포트 가능
+  - 완료: `BusMetrics.snapshot()`을 리포트/CLI 요약에 포함하며 단위/검증 테스트로 통계 집계를 검증.
 
 ---
 
