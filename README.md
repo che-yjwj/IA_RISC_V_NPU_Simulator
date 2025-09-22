@@ -57,6 +57,16 @@ python -m src.simulator.cli simulate build/program.elf --config configs/example.
 
 *Note: The simulator expects a RISC-V ELF binary; configuration is optional but accepted via `--config`.*
 
+### Deterministic Environment
+
+Use the deterministic helper to pin BLAS threads and RNG seeds before running tooling:
+
+```bash
+python -m scripts.deterministic_env -- python -m pytest -q
+```
+
+Pass `--repeat 3 --verify` to execute a command multiple times and assert the captured output remains identical, which is helpful when checking CI or benchmark determinism.
+
 ### Measuring Performance (T032)
 
 Benchmark wall-clock throughput and capture MIPS metrics.
