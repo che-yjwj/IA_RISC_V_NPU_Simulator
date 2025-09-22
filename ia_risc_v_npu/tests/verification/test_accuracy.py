@@ -137,6 +137,7 @@ class TestInstructionAccuracy:
 
         self.compare_states()
         assert self.main_engine.registers[RD_X4] == value_to_load
+        assert self.bus.metrics.completed_requests == 1
 
     def test_sw_instruction(self):
         self.reset_states()
@@ -148,3 +149,4 @@ class TestInstructionAccuracy:
         memory_address = self.initial_registers[RS1_X7] + IMM_SW
         stored_value = int.from_bytes(self.bus.read(memory_address, 4), 'little')
         assert stored_value == self.initial_registers[RS2_X6]
+        assert self.bus.metrics.completed_requests == 1
