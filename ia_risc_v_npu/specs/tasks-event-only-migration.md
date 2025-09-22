@@ -7,10 +7,12 @@
 
 ## Phase 0 – 준비 (주 0–1)
 
-- [ ] 결정성 환경 고정 스크립트 추가(OPENBLAS/MKL 스레드 1, NumPy RNG 시드)
+- [x] 결정성 환경 고정 스크립트 추가(OPENBLAS/MKL 스레드 1, NumPy RNG 시드)
   - 수용기준: 동일 입력 N회 실행 시 결과 해시/타임라인 동일
-- [ ] CI에서 `pytest -q`, `pytest tests/performance --benchmark-only` 잡 구성
+  - 완료: `scripts/deterministic_env.py` 도입, 통합 테스트 2회 반복 시 `sha256=0e26f8d6…` 동일 출력 확인
+- [x] CI에서 `pytest -q`, `pytest tests/performance --benchmark-only` 잡 구성
   - 수용기준: 실패 시 아티팩트로 리포트 JSON 업로드
+  - 완료: `.github/workflows/ci.yml` 작성, 실패 시 JSON 리포트 업로드 및 Deterministic helper로 실행
 
 ---
 
