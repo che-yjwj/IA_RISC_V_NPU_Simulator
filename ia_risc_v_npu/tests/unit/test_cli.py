@@ -100,6 +100,7 @@ def test_run_simulate_writes_summary(tmp_path, monkeypatch):
     assert summary["halted"] is True
     assert summary["reason"] == "halt"
     assert summary["instructions_executed"] == 1
+    assert "bus_metrics" in summary
 
 
 def test_run_benchmark_synthetic(tmp_path):
@@ -122,3 +123,4 @@ def test_run_benchmark_synthetic(tmp_path):
     assert summary["instructions_executed"] >= args.instructions
     assert summary["mips"] > 0
     assert summary["elapsed_seconds"] > 0
+    assert "bus_metrics" in summary

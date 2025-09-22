@@ -79,3 +79,59 @@ def test_bus_cross_boundary_write(bus, spm):
     except MemoryError:
         exception_raised = True
     assert exception_raised # Write 8 bytes, but only 4 bytes left in device
+
+
+def test_bus_request_single_transfer():
+    bus = Bus(slice_bytes=16, bandwidth_bytes_per_cycle=8, grant_latency=2)
+
+    bus.sync_time(0)
+    grant_at, done_at = bus.request(master_id=0, bytes=32)
+
+    assert grant_at == 0
+    assert done_at == 6  # grant 0 + latency 2 + transfer 4
+
+    completed = bus.completed_requests()
+    assert len(completed) == 1
+    request = completed[0]
+    assert request.start_at == 2
+    assert request.transfer_cycles == 4
+
+    metrics = bus.metrics
+    assert metrics.average_wait_cycles() == pytest.approx(0.0)
+    assert metrics.average_transfer_cycles() == pytest.approx(4.0)
+    assert metrics.max_queue_depth == 1
+
+
+def test_bus_round_robin_fairness():
+    bus = Bus(slice_bytes=16, bandwidth_bytes_per_cycle=16, grant_latency=1)
+
+    bus.sync_time(0)
+    grant0, done0 = bus.request(master_id=0, bytes=16)
+    grant1, done1 = bus.request(master_id=1, bytes=16, request_at=0)
+    grant2, done2 = bus.request(master_id=0, bytes=16, request_at=0)
+
+    assert (grant0, done0) == (0, 2)
+    assert (grant1, done1) == (2, 4)
+    assert (grant2, done2) == (4, 6)
+
+    metrics = bus.metrics
+    assert metrics.average_wait_cycles() == pytest.approx((0 + 2 + 4) / 3)
+    assert metrics.average_transfer_cycles() == pytest.approx(1.0)
+    assert metrics.average_queue_depth() == pytest.approx((1 + 2 + 3) / 3)
+    assert metrics.max_queue_depth == 3
+
+
+def test_bus_idle_gap_respected():
+    bus = Bus(slice_bytes=16, bandwidth_bytes_per_cycle=16, grant_latency=1)
+
+    bus.sync_time(0)
+    bus.request(master_id=0, bytes=16)
+    bus.sync_time(10)
+    grant, done = bus.request(master_id=0, bytes=16)
+
+    assert grant == 10
+    assert done == 12
+
+    metrics = bus.metrics
+    assert metrics.completed_requests == 2
+    assert metrics.average_wait_cycles() == pytest.approx((0 + 0) / 2)

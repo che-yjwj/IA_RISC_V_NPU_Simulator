@@ -6,7 +6,7 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Dict, Iterable, Optional
 
 # Ensure repository root is on sys.path when executed directly.
 if __package__ is None:
@@ -40,12 +40,17 @@ class SimulationReport:
     reason: str
     sim_time: int
     elapsed_seconds: float
+    bus_metrics: Dict[str, float | int]
 
     @property
     def mips(self) -> float:
         if self.elapsed_seconds <= 0:
             return 0.0
         return (self.instructions / 1_000_000) / self.elapsed_seconds
+
+
+CPU_MASTER_ID = 0
+MIN_EVENT_DELAY = 1
 
 
 class AdaptiveSimulator:
@@ -70,7 +75,7 @@ class AdaptiveSimulator:
         self.bus.add_device("spm", self.spm, SPM_BASE, SPM_BASE + (SPM_SIZE_KB * 1024) - 1)
         self.bus.add_device("mmio", self.mmio, MMIO_BASE, MMIO_BASE + MMIO_SIZE - 1)
 
-        self.risc_v_engine = RISCVEngine(self.bus)
+        self.risc_v_engine = RISCVEngine(self.bus, master_id=CPU_MASTER_ID)
         self.timing_hooks = timing_hooks or TimingHookSystem()
         self.scheduler: Optional[EventScheduler] = None
         # self.event_system = EventBasedSystem() # This will be implemented later
@@ -106,6 +111,8 @@ class AdaptiveSimulator:
             nonlocal cycles, reason
 
             self.sim_time = scheduler.now
+            self.bus.sync_time(self.sim_time)
+            self.risc_v_engine.begin_instruction(self.sim_time)
 
             if max_cycles > 0 and cycles >= max_cycles:
                 reason = "max_cycles_reached"
@@ -120,7 +127,11 @@ class AdaptiveSimulator:
                 return
 
             latency = self.timing_hooks.fetch_hook(self.risc_v_engine.pc, 0)
-            scheduler.schedule_after(delay=max(0, latency), callback=execute_instruction_event)
+            bus_delay = max(0, self.risc_v_engine.last_bus_done_at - scheduler.now)
+            next_delay = max(latency, bus_delay)
+            if next_delay <= 0:
+                next_delay = MIN_EVENT_DELAY
+            scheduler.schedule_after(delay=next_delay, callback=execute_instruction_event)
 
         scheduler.schedule(timestamp=0, callback=execute_instruction_event)
         scheduler.run()
@@ -134,6 +145,7 @@ class AdaptiveSimulator:
             reason=reason,
             sim_time=self.sim_time,
             elapsed_seconds=elapsed,
+            bus_metrics=self.bus.metrics.snapshot(),
         )
 
 

@@ -114,6 +114,7 @@ def write_output(
         "reason": result.reason,
         "sim_time": result.sim_time,
         "instructions_executed": instruction_count,
+        "bus_metrics": result.bus_metrics,
     }
     if extra:
         summary.update(extra)
