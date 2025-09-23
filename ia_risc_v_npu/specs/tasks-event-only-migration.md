@@ -76,11 +76,11 @@
 
 ## Phase 6 – NPU Cluster + DMA (주 6–8)
 
-- [ ] `src/npu/cluster.py` 도입(cores, core_free_at, submit)
+- [x] `src/npu/cluster.py` 도입(cores, core_free_at, submit)
   - 수용기준: 단일 코어/멀티 코어 모두 동작, done_at 산출
-- [ ] DMA 슬라이스 전송(Bus 사용) 및 compute 파이프라인
+- [x] DMA 슬라이스 전송(Bus 사용) 및 compute 파이프라인
   - 수용기준: 입력/출력 전송+연산이 직렬/겹침 규칙대로 합산
-- [ ] 정책: min_finish_time/rr 선택 가능
+- [x] 정책: min_finish_time/rr 선택 가능
   - 수용기준: 동일 작업군에서 코어 선택 차이 확인
 
 ---
