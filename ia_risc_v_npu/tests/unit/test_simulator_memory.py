@@ -1,5 +1,8 @@
+import math
+
 import pytest
-from src.simulator.memory import SPM, Bus
+
+from src.simulator.memory import Bus, DRAMConfig, MemorySystem, SPM
 
 @pytest.fixture
 def spm():
@@ -10,6 +13,12 @@ def bus():
     bus = Bus()
     bus.devices = {}
     return bus
+
+
+@pytest.fixture
+def dram():
+    config = DRAMConfig(banks=4, row_size=128, line_size=16, t_rp=10, t_rcd=6, t_cas=3)
+    return MemorySystem(dram_config=config).dram
 
 def test_spm_initialization(spm):
     assert spm.size == 4 * 1024
@@ -78,7 +87,7 @@ def test_bus_cross_boundary_write(bus, spm):
         bus.write(0x1FFC, data_to_write)
     except MemoryError:
         exception_raised = True
-    assert exception_raised # Write 8 bytes, but only 4 bytes left in device
+    assert exception_raised  # Write 8 bytes, but only 4 bytes left in device
 
 
 def test_bus_request_single_transfer():
@@ -135,3 +144,34 @@ def test_bus_idle_gap_respected():
     metrics = bus.metrics
     assert metrics.completed_requests == 2
     assert metrics.average_wait_cycles() == pytest.approx((0 + 0) / 2)
+
+
+def test_dram_row_hit_and_miss_latency(dram):
+    first_done = dram.access(address=0, size=32, request_time=0)
+    same_bank_addr = dram.config.line_size * dram.config.banks
+    second_done = dram.access(address=same_bank_addr, size=32, request_time=first_done)
+
+    transfer_cycles = math.ceil(32 / dram.config.data_bytes_per_cycle)
+    assert first_done - 0 == dram.config.t_rp + dram.config.t_rcd + dram.config.t_cas + transfer_cycles
+    assert second_done - first_done == dram.config.t_cas + transfer_cycles
+
+
+def test_dram_bank_mapping_round_robin(dram):
+    banks = dram.config.banks
+    line = dram.config.line_size
+    observed = [dram.map_address(i * line)[0] for i in range(banks * 2)]
+    assert observed[:banks] == list(range(banks))
+    assert observed[banks:] == list(range(banks))
+
+
+def test_dram_config_validation():
+    with pytest.raises(ValueError):
+        DRAMConfig(banks=0)
+    with pytest.raises(ValueError):
+        DRAMConfig(row_size=0)
+    with pytest.raises(ValueError):
+        DRAMConfig(line_size=0)
+    with pytest.raises(ValueError):
+        DRAMConfig(t_rp=-1)
+    with pytest.raises(ValueError):
+        DRAMConfig(data_bytes_per_cycle=0)
