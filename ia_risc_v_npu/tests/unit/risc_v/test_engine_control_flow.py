@@ -2,7 +2,7 @@
 import pytest
 import numpy as np
 from src.risc_v.engine import RISCVEngine
-from src.simulator.memory import SPM
+from src.simulator.memory import Bus, MemorySystem
 
 # Helper function to assemble B-type instructions
 def assemble_b_type(funct3, rs1, rs2, imm):
@@ -32,8 +32,11 @@ def assemble_j_type(rd, imm):
 
 @pytest.fixture
 def engine():
-    bus = SPM(size_kb=1024)  # 1MB memory
-    return RISCVEngine(bus)
+    bus = Bus()
+    dram = bytearray(1024)
+    bus.add_device("dram", dram, 0x0000, len(dram) - 1)
+    memory_system = MemorySystem(bus)
+    return RISCVEngine(bus, memory_system)
 
 def test_jal_positive_offset(engine):
     instruction = 0x014000ef

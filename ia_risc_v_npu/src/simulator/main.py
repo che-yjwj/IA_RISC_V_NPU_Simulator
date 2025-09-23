@@ -20,7 +20,7 @@ from src.simulator.determinism import configure_deterministic_environment
 from src.simulator.events import EventScheduler
 from src.simulator.hooks import TimingHookSystem
 from src.npu.model import NPU
-from src.simulator.memory import SPM, Bus
+from src.simulator.memory import MemorySystem, SPM, Bus
 from src.simulator.mmio import MMIO
 
 # Define memory map
@@ -69,13 +69,18 @@ class AdaptiveSimulator:
         self.spm = SPM(SPM_SIZE_KB)
         self.npu = NPU()
         self.mmio = MMIO(self.npu)
+        self.memory_system = MemorySystem(self.bus)
 
         # Connect devices to the bus
         self.bus.add_device("dram", self.dram, DRAM_BASE, DRAM_BASE + DRAM_SIZE - 1)
         self.bus.add_device("spm", self.spm, SPM_BASE, SPM_BASE + (SPM_SIZE_KB * 1024) - 1)
         self.bus.add_device("mmio", self.mmio, MMIO_BASE, MMIO_BASE + MMIO_SIZE - 1)
 
-        self.risc_v_engine = RISCVEngine(self.bus, master_id=CPU_MASTER_ID)
+        self.risc_v_engine = RISCVEngine(
+            self.bus,
+            self.memory_system,
+            master_id=CPU_MASTER_ID,
+        )
         self.timing_hooks = timing_hooks or TimingHookSystem()
         self.scheduler: Optional[EventScheduler] = None
         # self.event_system = EventBasedSystem() # This will be implemented later
@@ -127,8 +132,8 @@ class AdaptiveSimulator:
                 return
 
             latency = self.timing_hooks.fetch_hook(self.risc_v_engine.pc, 0)
-            bus_delay = max(0, self.risc_v_engine.last_bus_done_at - scheduler.now)
-            next_delay = max(latency, bus_delay)
+            memory_delay = max(0, self.risc_v_engine.last_memory_done_at - scheduler.now)
+            next_delay = max(latency, memory_delay)
             if next_delay <= 0:
                 next_delay = MIN_EVENT_DELAY
             scheduler.schedule_after(delay=next_delay, callback=execute_instruction_event)

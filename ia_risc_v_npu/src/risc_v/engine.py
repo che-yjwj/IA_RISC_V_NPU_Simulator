@@ -32,14 +32,15 @@ WORD_SIZE_BYTES = 4
 
 
 class RISCVEngine:
-    def __init__(self, bus, *, master_id: int = 0):
+    def __init__(self, bus, memory_system, *, master_id: int = 0):
         self.pc = 0
         self.registers = np.zeros(32, dtype=np.uint32)
         self.bus = bus
+        self.memory_system = memory_system
         self.master_id = master_id
         self.instruction_count = 0
         self.current_time = 0
-        self.last_bus_done_at = 0
+        self.last_memory_done_at = 0
 
         # Initialize registers for testing
         self.registers[2] = 10
@@ -49,19 +50,10 @@ class RISCVEngine:
         if now < 0:
             raise ValueError("now cannot be negative.")
         self.current_time = now
-        self.last_bus_done_at = now
+        self.last_memory_done_at = now
 
     def _read_word(self, address):
         return int.from_bytes(self.bus.read(address, 4), 'little')
-
-    def _schedule_bus_transfer(self, size_bytes: int) -> None:
-        _, done_at = self.bus.request(
-            master_id=self.master_id,
-            bytes=size_bytes,
-            request_at=self.current_time,
-        )
-        if done_at > self.last_bus_done_at:
-            self.last_bus_done_at = done_at
 
     def _decode_r_type_instruction(self, instruction):
         opcode = instruction & 0x7F
@@ -163,7 +155,14 @@ class RISCVEngine:
     def _execute_load_instruction(self, funct3, rd, rs1, imm):
         if funct3 == FUNCT3_LW:
             address = self.registers[rs1] + imm
-            self._schedule_bus_transfer(WORD_SIZE_BYTES)
+            done_at = self.memory_system.load(
+                address=address,
+                size=WORD_SIZE_BYTES,
+                request_time=self.current_time,
+                master_id=self.master_id,
+            )
+            if done_at > self.last_memory_done_at:
+                self.last_memory_done_at = done_at
             if rd != 0:
                 self.registers[rd] = memory.lw(self.bus, address)
         else:
@@ -172,7 +171,14 @@ class RISCVEngine:
     def _execute_store_instruction(self, funct3, rs1, rs2, imm):
         if funct3 == FUNCT3_SW:
             address = self.registers[rs1] + imm
-            self._schedule_bus_transfer(WORD_SIZE_BYTES)
+            done_at = self.memory_system.store(
+                address=address,
+                size=WORD_SIZE_BYTES,
+                request_time=self.current_time,
+                master_id=self.master_id,
+            )
+            if done_at > self.last_memory_done_at:
+                self.last_memory_done_at = done_at
             memory.sw(self.bus, address, self.registers[rs2])
         else:
             raise ValueError(f"Unsupported store instruction: funct3={funct3}")
@@ -254,7 +260,7 @@ class RISCVEngine:
         if not pc_changed:
             self.pc += 4
         
-        if self.last_bus_done_at > self.current_time:
-            self.current_time = self.last_bus_done_at
+        if self.last_memory_done_at > self.current_time:
+            self.current_time = self.last_memory_done_at
 
         return "continue"
