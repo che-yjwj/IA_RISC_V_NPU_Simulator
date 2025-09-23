@@ -306,6 +306,19 @@ class DRAMConfig:
     t_rp: int = 12  # Precharge
     t_rcd: int = 12  # Activate to read/write
     t_cas: int = 12  # Column access
+    data_bytes_per_cycle: int = 16  # Burst transfer throughput
+
+    def __post_init__(self) -> None:
+        if self.banks <= 0:
+            raise ValueError("banks must be greater than zero")
+        if self.row_size <= 0:
+            raise ValueError("row_size must be greater than zero")
+        if self.line_size <= 0:
+            raise ValueError("line_size must be greater than zero")
+        if self.t_rp < 0 or self.t_rcd < 0 or self.t_cas < 0:
+            raise ValueError("DRAM timing parameters cannot be negative")
+        if self.data_bytes_per_cycle <= 0:
+            raise ValueError("data_bytes_per_cycle must be greater than zero")
 
 
 class DRAM:
@@ -339,12 +352,14 @@ class DRAM:
 
         ready_at = max(now, self.bank_free_at[bank])
         row_hit = self.row_open[bank] == row
-        if row_hit:
-            latency = self.config.t_cas
-        else:
-            latency = self.config.t_rp + self.config.t_rcd + self.config.t_cas
+        command_latency = (
+            self.config.t_cas
+            if row_hit
+            else self.config.t_rp + self.config.t_rcd + self.config.t_cas
+        )
+        transfer_cycles = math.ceil(size / self.config.data_bytes_per_cycle)
 
-        done_at = ready_at + latency
+        done_at = ready_at + command_latency + transfer_cycles
         self.bank_free_at[bank] = done_at
         self.row_open[bank] = row
         self._now = max(self._now, done_at)

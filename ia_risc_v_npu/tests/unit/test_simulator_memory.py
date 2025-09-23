@@ -1,3 +1,5 @@
+import math
+
 import pytest
 
 from src.simulator.memory import Bus, DRAMConfig, MemorySystem, SPM
@@ -149,8 +151,9 @@ def test_dram_row_hit_and_miss_latency(dram):
     same_bank_addr = dram.config.line_size * dram.config.banks
     second_done = dram.access(address=same_bank_addr, size=32, request_time=first_done)
 
-    assert first_done - 0 == dram.config.t_rp + dram.config.t_rcd + dram.config.t_cas
-    assert second_done - first_done == dram.config.t_cas
+    transfer_cycles = math.ceil(32 / dram.config.data_bytes_per_cycle)
+    assert first_done - 0 == dram.config.t_rp + dram.config.t_rcd + dram.config.t_cas + transfer_cycles
+    assert second_done - first_done == dram.config.t_cas + transfer_cycles
 
 
 def test_dram_bank_mapping_round_robin(dram):
@@ -159,3 +162,16 @@ def test_dram_bank_mapping_round_robin(dram):
     observed = [dram.map_address(i * line)[0] for i in range(banks * 2)]
     assert observed[:banks] == list(range(banks))
     assert observed[banks:] == list(range(banks))
+
+
+def test_dram_config_validation():
+    with pytest.raises(ValueError):
+        DRAMConfig(banks=0)
+    with pytest.raises(ValueError):
+        DRAMConfig(row_size=0)
+    with pytest.raises(ValueError):
+        DRAMConfig(line_size=0)
+    with pytest.raises(ValueError):
+        DRAMConfig(t_rp=-1)
+    with pytest.raises(ValueError):
+        DRAMConfig(data_bytes_per_cycle=0)
