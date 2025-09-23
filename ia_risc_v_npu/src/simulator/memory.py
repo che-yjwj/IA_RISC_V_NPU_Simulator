@@ -13,18 +13,18 @@ LOGGER = logging.getLogger(__name__)
 class SPM:
     """Scratchpad Memory (SPM)"""
 
-    def __init__(self, size_kb):
+    def __init__(self, size_kb: int):
         self.size = size_kb * 1024
         self.memory = bytearray(self.size)
 
-    def read(self, address, size):
+    def read(self, address: int, size: int) -> bytes:
         if not (0 <= address < self.size and 0 <= address + size <= self.size):
             raise IndexError(
                 f"SPM read out of bounds: address={address}, size={size}, SPM size={self.size}"
             )
         return self.memory[address : address + size]
 
-    def write(self, address, data):
+    def write(self, address: int, data: bytes) -> None:
         if not (0 <= address < self.size and 0 <= address + len(data) <= self.size):
             raise IndexError(
                 f"SPM write out of bounds: address={address}, data_len={len(data)}, SPM size={self.size}"
@@ -124,7 +124,7 @@ class Bus:
         self._active_requests: List[BusRequest] = []
         self._now: int = 0
 
-    def add_device(self, name, device, start_addr, end_addr):
+    def add_device(self, name: str, device: object, start_addr: int, end_addr: int) -> None:
         self.devices[name] = {
             "device": device,
             "start_addr": start_addr,
@@ -238,9 +238,6 @@ class Bus:
             request.transfer_cycles = transfer_cycles
 
             queue.popleft()
-            if not queue:
-                # Keep empty queues so round-robin order stays stable when requests return
-                pass
 
             self._pending_requests -= 1
             wait_cycles = grant_event_time - request.request_at
@@ -264,7 +261,7 @@ class Bus:
             total_cycles += math.ceil(remainder / self.bandwidth_bytes_per_cycle)
         return total_cycles
 
-    def _find_device(self, address, size):
+    def _find_device(self, address: int, size: int) -> Tuple[Optional[object], Optional[int]]:
         LOGGER.debug("bus lookup: address=%s size=%s", address, size)
         for name, info in self.devices.items():
             start = info["start_addr"]
@@ -276,19 +273,17 @@ class Bus:
         LOGGER.debug("  no device for address=%s size=%s", address, size)
         return None, None
 
-    def read(self, address, size):
+    def read(self, address: int, size: int) -> bytes:
         device, local_addr = self._find_device(address, size)
         if device:
             if hasattr(device, "read"):
-                return device.read(local_addr, size)
-            else:
-                return device[local_addr : local_addr + size]
-        else:
-            raise MemoryError(
-                f"No device found or access out of bounds for address {address} with size {size}"
-            )
+                return device.read(local_addr, size)  # type: ignore[no-any-return]
+            return device[local_addr : local_addr + size]  # type: ignore[index]
+        raise MemoryError(
+            f"No device found or access out of bounds for address {address} with size {size}"
+        )
 
-    def write(self, address, data):
+    def write(self, address: int, data: bytes) -> None:
         device, local_addr = self._find_device(address, len(data))
         if not device:
             raise MemoryError(
@@ -298,4 +293,72 @@ class Bus:
         if hasattr(device, "write"):
             device.write(local_addr, data)
         else:
-            device[local_addr : local_addr + len(data)] = data
+            device[local_addr : local_addr + len(data)] = data  # type: ignore[index]
+
+
+@dataclass(frozen=True)
+class DRAMConfig:
+    """Static configuration for the DRAM timing model."""
+
+    banks: int = 8
+    row_size: int = 4096
+    line_size: int = 64
+    t_rp: int = 12  # Precharge
+    t_rcd: int = 12  # Activate to read/write
+    t_cas: int = 12  # Column access
+
+
+class DRAM:
+    """Simple DRAM timing approximation with bank/row tracking."""
+
+    def __init__(self, config: Optional[DRAMConfig] = None):
+        self.config = config or DRAMConfig()
+        self.bank_free_at: List[int] = [0] * self.config.banks
+        self.row_open: List[Optional[int]] = [None] * self.config.banks
+        self._now = 0
+
+    def reset(self) -> None:
+        self.bank_free_at = [0] * self.config.banks
+        self.row_open = [None] * self.config.banks
+        self._now = 0
+
+    def map_address(self, address: int) -> Tuple[int, int]:
+        if address < 0:
+            raise ValueError("Address must be non-negative")
+        line_index = address // max(1, self.config.line_size)
+        bank = line_index % self.config.banks
+        row = address // self.config.row_size
+        return bank, row
+
+    def access(self, address: int, size: int, *, request_time: Optional[int] = None) -> int:
+        if size <= 0:
+            raise ValueError("Size must be positive")
+
+        now = self._now if request_time is None else max(self._now, request_time)
+        bank, row = self.map_address(address)
+
+        ready_at = max(now, self.bank_free_at[bank])
+        row_hit = self.row_open[bank] == row
+        if row_hit:
+            latency = self.config.t_cas
+        else:
+            latency = self.config.t_rp + self.config.t_rcd + self.config.t_cas
+
+        done_at = ready_at + latency
+        self.bank_free_at[bank] = done_at
+        self.row_open[bank] = row
+        self._now = max(self._now, done_at)
+        return done_at
+
+
+class MemorySystem:
+    """Container for timing-aware memory components."""
+
+    def __init__(self, dram_config: Optional[DRAMConfig] = None):
+        self.dram = DRAM(dram_config)
+
+    def access_dram(self, address: int, size: int, *, request_time: Optional[int] = None) -> int:
+        return self.dram.access(address, size, request_time=request_time)
+
+    def map_address(self, address: int) -> Tuple[int, int]:
+        return self.dram.map_address(address)

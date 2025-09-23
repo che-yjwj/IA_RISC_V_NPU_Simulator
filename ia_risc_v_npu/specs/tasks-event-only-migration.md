@@ -43,10 +43,12 @@
 
 ## Phase 3 – DRAM 은행/로우버퍼 (주 3–4)
 
-- [ ] `MemorySystem.DRAM` 상태(bank_free_at,row_open) 및 지연 모델(tRP,tRCD,tCAS)
+- [x] `MemorySystem.DRAM` 상태(bank_free_at,row_open) 및 지연 모델(tRP,tRCD,tCAS)
   - 수용기준: row-hit/miss 케이스가 서로 다른 done_at 반환
-- [ ] 주소 매핑 함수(bank,row) 구성화 및 테스트
+  - 완료: `DRAMConfig/DRAM` 클래스 추가하여 은행/로우 상태 추적 및 지연 반영
+- [x] 주소 매핑 함수(bank,row) 구성화 및 테스트
   - 수용기준: bank 라운드로빈 분산 확인(합성 주소군)
+  - 완료: `tests/unit/test_simulator_memory.py`에 bank 라운드로빈/row-hit 검증 추가
 
 ---
 
