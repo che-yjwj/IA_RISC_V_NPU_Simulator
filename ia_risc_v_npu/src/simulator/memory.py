@@ -90,6 +90,133 @@ class BusMetrics:
         }
 
 
+@dataclass(frozen=True)
+class CacheConfig:
+    """Static cache parameters."""
+
+    name: str
+    size_bytes: int
+    line_size: int
+    associativity: int
+    hit_latency: int
+    write_back: bool = True
+    write_allocate: bool = True
+
+    def __post_init__(self) -> None:
+        if self.size_bytes <= 0:
+            raise ValueError("size_bytes must be greater than zero")
+        if self.line_size <= 0:
+            raise ValueError("line_size must be greater than zero")
+        if self.associativity <= 0:
+            raise ValueError("associativity must be greater than zero")
+        if self.hit_latency < 0:
+            raise ValueError("hit_latency cannot be negative")
+        if self.size_bytes % (self.line_size * self.associativity) != 0:
+            raise ValueError("Cache size must be divisible by line_size * associativity")
+
+
+@dataclass
+class CacheLine:
+    tag: int = -1
+    valid: bool = False
+    dirty: bool = False
+    last_used: int = 0
+
+
+@dataclass(frozen=True)
+class CacheEviction:
+    address: int
+    dirty: bool
+
+
+class CacheLevel:
+    """Set-associative cache metadata with LRU replacement."""
+
+    def __init__(self, config: CacheConfig) -> None:
+        self.config = config
+        self.num_sets = self.config.size_bytes // (self.config.line_size * self.config.associativity)
+        if self.num_sets <= 0:
+            raise ValueError("Derived number of sets must be positive")
+
+        self.sets: List[List[CacheLine]] = [
+            [CacheLine() for _ in range(self.config.associativity)] for _ in range(self.num_sets)
+        ]
+        self._use_counter = 0
+        self._hits = 0
+        self._misses = 0
+
+    @property
+    def hit_latency(self) -> int:
+        return self.config.hit_latency
+
+    @property
+    def line_size(self) -> int:
+        return self.config.line_size
+
+    def stats(self) -> Dict[str, int]:
+        return {"hits": self._hits, "misses": self._misses}
+
+    def _index_tag(self, address: int) -> Tuple[int, int]:
+        line_addr = address // self.config.line_size
+        index = line_addr % self.num_sets
+        tag = line_addr // self.num_sets
+        return index, tag
+
+    def _compose_address(self, index: int, tag: int) -> int:
+        line_addr = tag * self.num_sets + index
+        return line_addr * self.config.line_size
+
+    def lookup(self, address: int) -> Tuple[Optional[CacheLine], int]:
+        index, tag = self._index_tag(address)
+        set_lines = self.sets[index]
+        for line in set_lines:
+            if line.valid and line.tag == tag:
+                self._hits += 1
+                self._use_counter += 1
+                line.last_used = self._use_counter
+                return line, index
+        self._misses += 1
+        return None, index
+
+    def insert(self, index: int, address: int) -> Tuple[CacheLine, Optional[CacheEviction]]:
+        set_lines = self.sets[index]
+        for line in set_lines:
+            if not line.valid:
+                target = line
+                break
+        else:
+            target = min(set_lines, key=lambda entry: entry.last_used)
+
+        eviction: Optional[CacheEviction] = None
+        if target.valid:
+            eviction = CacheEviction(
+                address=self._compose_address(index, target.tag),
+                dirty=target.dirty,
+            )
+
+        _, tag = self._index_tag(address)
+        target.tag = tag
+        target.valid = True
+        target.dirty = False
+        self._use_counter += 1
+        target.last_used = self._use_counter
+        return target, eviction
+
+    def mark_dirty(self, line: CacheLine) -> None:
+        if self.config.write_back:
+            line.dirty = True
+
+    def reset(self) -> None:
+        self._use_counter = 0
+        self._hits = 0
+        self._misses = 0
+        for set_lines in self.sets:
+            for line in set_lines:
+                line.tag = -1
+                line.valid = False
+                line.dirty = False
+                line.last_used = 0
+
 class Bus:
     """Deterministic bus model with slice-aware bandwidth scheduling."""
 
@@ -366,14 +493,200 @@ class DRAM:
         return done_at
 
 
+DEFAULT_L1_CONFIG = CacheConfig(
+    name="L1",
+    size_bytes=32 * 1024,
+    line_size=64,
+    associativity=4,
+    hit_latency=4,
+)
+
+DEFAULT_L2_CONFIG = CacheConfig(
+    name="L2",
+    size_bytes=256 * 1024,
+    line_size=64,
+    associativity=8,
+    hit_latency=12,
+)
+
+
 class MemorySystem:
-    """Container for timing-aware memory components."""
+    """Deterministic cache hierarchy with bus/DRAM backing."""
 
-    def __init__(self, dram_config: Optional[DRAMConfig] = None):
+    def __init__(
+        self,
+        bus: Bus,
+        *,
+        dram_config: Optional[DRAMConfig] = None,
+        l1_config: Optional[CacheConfig] = None,
+        l2_config: Optional[CacheConfig] = None,
+    ) -> None:
+        self.bus = bus
         self.dram = DRAM(dram_config)
+        self._caches: List[CacheLevel] = []
+        if l1_config is None:
+            l1_config = DEFAULT_L1_CONFIG
+        if l2_config is None:
+            l2_config = DEFAULT_L2_CONFIG
 
-    def access_dram(self, address: int, size: int, *, request_time: Optional[int] = None) -> int:
-        return self.dram.access(address, size, request_time=request_time)
+        self._caches.append(CacheLevel(l1_config))
+        self._caches.append(CacheLevel(l2_config))
+        self._now = 0
 
-    def map_address(self, address: int) -> Tuple[int, int]:
-        return self.dram.map_address(address)
+    def reset(self) -> None:
+        self.dram.reset()
+        for cache in self._caches:
+            cache.reset()
+        self._now = 0
+
+    def cache_stats(self) -> Dict[str, Dict[str, int]]:
+        return {cache.config.name: cache.stats() for cache in self._caches}
+
+    def _resolve_start_time(self, request_time: Optional[int]) -> int:
+        if request_time is None:
+            return self._now
+        if request_time < 0:
+            raise ValueError("request_time cannot be negative")
+        if request_time < self._now:
+            raise ValueError("request_time cannot move time backwards")
+        return request_time
+
+    def _align_address(self, address: int, line_size: int) -> int:
+        if address < 0:
+            raise ValueError("Address must be non-negative")
+        return (address // line_size) * line_size
+
+    def _access_hierarchy(
+        self,
+        level_idx: int,
+        *,
+        address: int,
+        request_time: int,
+        access_type: str,
+        master_id: int,
+    ) -> int:
+        if level_idx >= len(self._caches):
+            return self._access_main_memory(address, request_time, master_id, access_type)
+
+        cache = self._caches[level_idx]
+        line_size = cache.line_size
+        aligned_address = self._align_address(address, line_size)
+        line, index = cache.lookup(aligned_address)
+        ready_time = request_time + cache.hit_latency
+
+        if line is not None:
+            if access_type == "write":
+                cache.mark_dirty(line)
+            return ready_time
+
+        next_ready = self._access_hierarchy(
+            level_idx + 1,
+            address=aligned_address,
+            request_time=request_time,
+            access_type="read",
+            master_id=master_id,
+        )
+        new_line, eviction = cache.insert(index, aligned_address)
+        if access_type == "write":
+            cache.mark_dirty(new_line)
+
+        fill_complete = max(next_ready, request_time) + cache.hit_latency
+
+        if eviction and eviction.dirty and cache.config.write_back:
+            writeback_done = self._access_hierarchy(
+                level_idx + 1,
+                address=eviction.address,
+                request_time=fill_complete,
+                access_type="write",
+                master_id=master_id,
+            )
+            fill_complete = max(fill_complete, writeback_done)
+
+        return fill_complete
+
+    def _access_main_memory(
+        self,
+        address: int,
+        request_time: int,
+        master_id: int,
+        _access_type: str,
+    ) -> int:
+        line_size = self._caches[-1].line_size if self._caches else DEFAULT_L2_CONFIG.line_size
+        size = line_size
+        self.bus.sync_time(request_time)
+        _, bus_done = self.bus.request(
+            master_id=master_id,
+            bytes=size,
+            request_at=request_time,
+        )
+        dram_done = self.dram.access(address, size, request_time=request_time)
+        return max(bus_done, dram_done)
+
+    def _process_range(
+        self,
+        *,
+        address: int,
+        size: int,
+        request_time: Optional[int],
+        access_type: str,
+        master_id: int,
+    ) -> int:
+        if size <= 0:
+            raise ValueError("size must be positive")
+
+        start_time = self._resolve_start_time(request_time)
+        done_at = start_time
+        remaining = size
+        current = address
+        line_size = self._caches[0].line_size if self._caches else DEFAULT_L1_CONFIG.line_size
+
+        while remaining > 0:
+            offset = current % line_size
+            chunk = min(line_size - offset, remaining)
+            done_at = max(
+                done_at,
+                self._access_hierarchy(
+                    0,
+                    address=current,
+                    request_time=done_at,
+                    access_type=access_type,
+                    master_id=master_id,
+                ),
+            )
+            current += chunk
+            remaining -= chunk
+
+        self._now = max(self._now, done_at)
+        return done_at
+
+    def load(
+        self,
+        address: int,
+        size: int,
+        *,
+        request_time: Optional[int] = None,
+        master_id: int = 0,
+    ) -> int:
+        return self._process_range(
+            address=address,
+            size=size,
+            request_time=request_time,
+            access_type="read",
+            master_id=master_id,
+        )
+
+    def store(
+        self,
+        address: int,
+        size: int,
+        *,
+        request_time: Optional[int] = None,
+        master_id: int = 0,
+    ) -> int:
+        return self._process_range(
+            address=address,
+            size=size,
+            request_time=request_time,
+            access_type="write",
+            master_id=master_id,
+        )

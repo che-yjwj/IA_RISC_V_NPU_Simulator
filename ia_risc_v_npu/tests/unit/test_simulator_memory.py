@@ -2,7 +2,7 @@ import math
 
 import pytest
 
-from src.simulator.memory import Bus, DRAMConfig, MemorySystem, SPM
+from src.simulator.memory import Bus, CacheConfig, DRAM, DRAMConfig, MemorySystem, SPM
 
 @pytest.fixture
 def spm():
@@ -18,7 +18,7 @@ def bus():
 @pytest.fixture
 def dram():
     config = DRAMConfig(banks=4, row_size=128, line_size=16, t_rp=10, t_rcd=6, t_cas=3)
-    return MemorySystem(dram_config=config).dram
+    return DRAM(config)
 
 def test_spm_initialization(spm):
     assert spm.size == 4 * 1024
@@ -175,3 +175,61 @@ def test_dram_config_validation():
         DRAMConfig(t_rp=-1)
     with pytest.raises(ValueError):
         DRAMConfig(data_bytes_per_cycle=0)
+
+
+def test_memory_system_cache_hit_latency():
+    bus = Bus(slice_bytes=64, bandwidth_bytes_per_cycle=64, grant_latency=1)
+    l1 = CacheConfig(name="L1", size_bytes=64, line_size=64, associativity=1, hit_latency=3)
+    l2 = CacheConfig(name="L2", size_bytes=128, line_size=64, associativity=1, hit_latency=9)
+    dram_cfg = DRAMConfig(banks=2, row_size=256, line_size=64, t_rp=2, t_rcd=2, t_cas=2, data_bytes_per_cycle=64)
+    memory = MemorySystem(bus, l1_config=l1, l2_config=l2, dram_config=dram_cfg)
+
+    miss_done = memory.load(address=0x0, size=4, request_time=0, master_id=0)
+    hit_done = memory.load(address=0x0, size=4, request_time=miss_done, master_id=0)
+
+    assert hit_done - miss_done == l1.hit_latency
+    stats = memory.cache_stats()
+    assert stats["L1"]["hits"] == 1
+    assert stats["L1"]["misses"] == 1
+
+
+def test_memory_system_writeback_on_eviction():
+    bus = Bus(slice_bytes=16, bandwidth_bytes_per_cycle=16, grant_latency=0)
+    l1 = CacheConfig(
+        name="L1",
+        size_bytes=32,
+        line_size=16,
+        associativity=1,
+        hit_latency=1,
+        write_back=True,
+    )
+    l2 = CacheConfig(
+        name="L2",
+        size_bytes=64,
+        line_size=16,
+        associativity=1,
+        hit_latency=4,
+        write_back=True,
+    )
+    dram_cfg = DRAMConfig(
+        banks=1,
+        row_size=64,
+        line_size=16,
+        t_rp=1,
+        t_rcd=1,
+        t_cas=1,
+        data_bytes_per_cycle=16,
+    )
+    memory = MemorySystem(bus, l1_config=l1, l2_config=l2, dram_config=dram_cfg)
+
+    done = memory.store(address=0, size=4, request_time=0, master_id=0)
+    done = memory.store(address=32, size=4, request_time=done, master_id=0)
+    memory.store(address=64, size=4, request_time=done, master_id=0)
+
+    metrics = bus.metrics
+    assert metrics.completed_requests == 4
+    stats = memory.cache_stats()
+    assert stats["L1"]["hits"] == 0
+    assert stats["L1"]["misses"] == 3
+    assert stats["L2"]["hits"] == 2
+    assert stats["L2"]["misses"] == 3

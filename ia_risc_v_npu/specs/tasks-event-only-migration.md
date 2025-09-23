@@ -54,9 +54,9 @@
 
 ## Phase 4 – 캐시 계층 (주 4–5)
 
-- [ ] L1/L2 태그/인덱스/연관도/교체정책(FIFO 또는 pseudo LRU)
+- [x] L1/L2 태그/인덱스/연관도/교체정책(FIFO 또는 pseudo LRU)
   - 수용기준: 히트/미스 판정과 라인 채움 이벤트 연결
-- [ ] `MemorySystem.load/store` 상위 API 제공
+- [x] `MemorySystem.load/store` 상위 API 제공
   - 수용기준: 동일 주소 접근 시 캐시 히트 지연 적용
 
 ---

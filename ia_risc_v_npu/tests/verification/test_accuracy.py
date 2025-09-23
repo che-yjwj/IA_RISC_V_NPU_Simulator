@@ -2,7 +2,7 @@
 import pytest
 from src.risc_v.engine import RISCVEngine
 from src.risc_v.instructions import alu, memory
-from src.simulator.memory import Bus
+from src.simulator.memory import Bus, MemorySystem
 
 # --- Instruction Constants ---
 OPCODE_R_TYPE = 0b0110011
@@ -88,7 +88,8 @@ class TestInstructionAccuracy:
         self.initial_registers[RS2_X6] = 0xDEADBEEF
         self.initial_registers[RS1_X7] = 200
 
-        self.main_engine = RISCVEngine(self.bus)
+        self.memory_system = MemorySystem(self.bus)
+        self.main_engine = RISCVEngine(self.bus, self.memory_system)
         self.ref_engine = ReferenceRISCVEngine([0]*32, self.bus)
         self.reset_states()
 
@@ -98,6 +99,7 @@ class TestInstructionAccuracy:
         self.ref_engine.registers = self.initial_registers[:]
         self.ref_engine.pc = 0
         self.dram[:] = b"\x00" * len(self.dram)
+        self.memory_system.reset()
 
     def compare_states(self):
         assert self.main_engine.pc == self.ref_engine.pc
