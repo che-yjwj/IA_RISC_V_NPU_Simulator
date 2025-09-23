@@ -265,6 +265,8 @@ def test_branch_forward_taken_mispredict_applies_penalty(engine):
     engine.execute_instruction()
 
     assert engine.pc == addr + 8
+    expected_time = engine.exec_timing.alu_latency + engine.branch_config.mispredict_penalty
+    assert engine.current_time == expected_time
     assert engine.pipeline_ready_at == engine.current_time
 
 
@@ -286,7 +288,7 @@ def test_load_use_dependency_introduces_stall(engine):
     load_ready = engine.register_ready_at[1]
     assert load_ready >= engine.last_memory_done_at
 
-    next_time = engine.last_memory_done_at
+    next_time = engine.current_time
     engine.begin_instruction(next_time)
     engine.execute_instruction()
 
@@ -323,6 +325,32 @@ def test_div_latency_respected(engine):
     assert engine.registers[8] == 6
     assert engine.current_time >= engine.exec_timing.div_latency
     assert engine.pipeline_ready_at >= engine.current_time
+
+
+def test_div_signed_truncates_toward_zero(engine):
+    div_inst = assemble_r_type(8, 9, 10, 0b100, 0b0000001)
+    engine.bus.write(0, div_inst.to_bytes(4, "little"))
+    engine.pc = 0
+    engine.registers[9] = np.uint32(-7 & 0xFFFFFFFF)
+    engine.registers[10] = np.uint32(3)
+
+    engine.begin_instruction(0)
+    engine.execute_instruction()
+
+    assert np.int32(engine.registers[8]) == -2
+
+
+def test_div_overflow_case_returns_min_int(engine):
+    div_inst = assemble_r_type(8, 9, 10, 0b100, 0b0000001)
+    engine.bus.write(0, div_inst.to_bytes(4, "little"))
+    engine.pc = 0
+    engine.registers[9] = np.uint32(0x80000000)
+    engine.registers[10] = np.uint32(0xFFFFFFFF)
+
+    engine.begin_instruction(0)
+    engine.execute_instruction()
+
+    assert engine.registers[8] == 0x80000000
 
 
 def test_fetch_icache_latency_drives_frontend_stall(engine):

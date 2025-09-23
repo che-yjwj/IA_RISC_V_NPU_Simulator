@@ -96,16 +96,9 @@ class RISCVEngine:
             self.pipeline_ready_at = ready
 
     def _ensure_registers_ready(self, regs: Iterable[int]) -> None:
-        max_ready = 0
-        for reg in regs:
-            if reg == 0:
-                continue
-            if self.register_ready_at[reg] > max_ready:
-                max_ready = self.register_ready_at[reg]
-        if max_ready > self.pipeline_ready_at:
-            self.pipeline_ready_at = max_ready
-        if self.current_time < self.pipeline_ready_at:
-            self.current_time = self.pipeline_ready_at
+        max_reg_ready = max((self.register_ready_at[reg] for reg in regs if reg != 0), default=0)
+        self.pipeline_ready_at = max(self.pipeline_ready_at, max_reg_ready)
+        self.current_time = max(self.current_time, self.pipeline_ready_at)
 
     def _advance_time(self, cycles: int) -> int:
         if cycles < 0:
