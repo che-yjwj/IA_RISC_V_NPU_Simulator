@@ -1,4 +1,6 @@
 import logging
+from dataclasses import dataclass
+from typing import Iterable, Optional
 
 from src.risc_v.instructions import alu, memory, control_flow
 import numpy as np
@@ -20,6 +22,7 @@ FUNCT3_AND = 0b111
 # Funct7 constants for R-type
 FUNCT7_ADD = 0b0000000
 FUNCT7_SUB = 0b0100000
+FUNCT7_MULDIV = 0b0000001
 
 # Funct3 constants for other types
 FUNCT3_LW = 0b010
@@ -31,8 +34,34 @@ LOGGER = logging.getLogger(__name__)
 WORD_SIZE_BYTES = 4
 
 
+@dataclass(frozen=True)
+class BranchPredictorConfig:
+    """Static branch prediction parameters."""
+
+    mispredict_penalty: int = 3
+    static_backwards_taken: bool = True
+
+
+@dataclass(frozen=True)
+class ExecutionTimingConfig:
+    """Microarchitectural latency model for the CPU pipeline."""
+
+    alu_latency: int = 1
+    load_use_stall: int = 1
+    mul_latency: int = 3
+    div_latency: int = 10
+
+
 class RISCVEngine:
-    def __init__(self, bus, memory_system, *, master_id: int = 0):
+    def __init__(
+        self,
+        bus,
+        memory_system,
+        *,
+        master_id: int = 0,
+        branch_config: Optional[BranchPredictorConfig] = None,
+        execution_timing: Optional[ExecutionTimingConfig] = None,
+    ):
         self.pc = 0
         self.registers = np.zeros(32, dtype=np.uint32)
         self.bus = bus
@@ -41,6 +70,10 @@ class RISCVEngine:
         self.instruction_count = 0
         self.current_time = 0
         self.last_memory_done_at = 0
+        self.pipeline_ready_at = 0
+        self.branch_config = branch_config or BranchPredictorConfig()
+        self.exec_timing = execution_timing or ExecutionTimingConfig()
+        self.register_ready_at = [0] * 32
 
         # Initialize registers for testing
         self.registers[2] = 10
@@ -49,8 +82,50 @@ class RISCVEngine:
     def begin_instruction(self, now: int) -> None:
         if now < 0:
             raise ValueError("now cannot be negative.")
-        self.current_time = now
-        self.last_memory_done_at = now
+        self.register_ready_at[0] = 0
+        ready_now = max(now, self.pipeline_ready_at)
+        self.current_time = ready_now
+        self.last_memory_done_at = ready_now
+        self.pipeline_ready_at = ready_now
+
+    def register_fetch_latency(self, latency: int, *, now: int) -> None:
+        if latency < 0:
+            raise ValueError("fetch latency cannot be negative")
+        ready = now + latency
+        if ready > self.pipeline_ready_at:
+            self.pipeline_ready_at = ready
+
+    def _ensure_registers_ready(self, regs: Iterable[int]) -> None:
+        max_reg_ready = max((self.register_ready_at[reg] for reg in regs if reg != 0), default=0)
+        self.pipeline_ready_at = max(self.pipeline_ready_at, max_reg_ready)
+        self.current_time = max(self.current_time, self.pipeline_ready_at)
+
+    def _advance_time(self, cycles: int) -> int:
+        if cycles < 0:
+            raise ValueError("cycles cannot be negative")
+        completion = self.current_time if cycles == 0 else self.current_time + cycles
+        self.current_time = completion
+        if completion > self.pipeline_ready_at:
+            self.pipeline_ready_at = completion
+        return completion
+
+    def _advance_to(self, target_time: int) -> int:
+        if target_time < 0:
+            raise ValueError("target_time cannot be negative")
+        if target_time > self.current_time:
+            self.current_time = target_time
+        if target_time > self.pipeline_ready_at:
+            self.pipeline_ready_at = target_time
+        return self.current_time
+
+    def _mark_register_ready(self, rd: int, ready_time: int) -> None:
+        if rd == 0:
+            return
+        if ready_time < 0:
+            raise ValueError("ready_time cannot be negative")
+        self.register_ready_at[rd] = max(self.register_ready_at[rd], ready_time)
+        if ready_time > self.pipeline_ready_at:
+            self.pipeline_ready_at = ready_time
 
     def _read_word(self, address):
         return int.from_bytes(self.bus.read(address, 4), 'little')
@@ -129,12 +204,29 @@ class RISCVEngine:
             imm -= (1 << 13)
         return opcode, funct3, rs1, rs2, imm
 
+    def _predict_branch(self, imm: int) -> bool:
+        if not self.branch_config.static_backwards_taken:
+            return False
+        return imm < 0
+
     def _execute_alu_instruction(self, funct3, rd, rs1, rs2, funct7):
         if rd == 0: # x0 is hardwired to zero, so no-op
             return
 
         result = 0
-        if funct3 == FUNCT3_ADD_SUB:
+        self._ensure_registers_ready([rs1, rs2])
+
+        latency = self.exec_timing.alu_latency
+        if funct7 == FUNCT7_MULDIV:
+            if funct3 == 0b000:
+                latency = self.exec_timing.mul_latency
+                result = alu.mul(self.registers[rs1], self.registers[rs2])
+            elif funct3 == 0b100:
+                latency = self.exec_timing.div_latency
+                result = alu.div(self.registers[rs1], self.registers[rs2])
+            else:
+                raise ValueError(f"Unsupported M-extension funct3={funct3}")
+        elif funct3 == FUNCT3_ADD_SUB:
             if funct7 == FUNCT7_ADD:
                 result = alu.add(self.registers[rs1], self.registers[rs2])
             elif funct7 == FUNCT7_SUB:
@@ -149,12 +241,16 @@ class RISCVEngine:
             result = alu.and_(self.registers[rs1], self.registers[rs2])
         else:
             raise ValueError(f"Unsupported ALU instruction: funct3={funct3}")
-        
-        self.registers[rd] = result & 0xFFFFFFFF
+
+        completion = self._advance_time(latency)
+        if rd != 0:
+            self.registers[rd] = result & 0xFFFFFFFF
+            self._mark_register_ready(rd, completion)
 
     def _execute_load_instruction(self, funct3, rd, rs1, imm):
         if funct3 == FUNCT3_LW:
             address = self.registers[rs1] + imm
+            self._ensure_registers_ready([rs1])
             done_at = self.memory_system.load(
                 address=address,
                 size=WORD_SIZE_BYTES,
@@ -163,14 +259,18 @@ class RISCVEngine:
             )
             if done_at > self.last_memory_done_at:
                 self.last_memory_done_at = done_at
+            ready_at = max(done_at, self.current_time + self.exec_timing.load_use_stall)
+            self._advance_to(ready_at)
             if rd != 0:
                 self.registers[rd] = memory.lw(self.bus, address)
+                self._mark_register_ready(rd, ready_at)
         else:
             raise ValueError(f"Unsupported load instruction: funct3={funct3}")
 
     def _execute_store_instruction(self, funct3, rs1, rs2, imm):
         if funct3 == FUNCT3_SW:
             address = self.registers[rs1] + imm
+            self._ensure_registers_ready([rs1, rs2])
             done_at = self.memory_system.store(
                 address=address,
                 size=WORD_SIZE_BYTES,
@@ -180,26 +280,35 @@ class RISCVEngine:
             if done_at > self.last_memory_done_at:
                 self.last_memory_done_at = done_at
             memory.sw(self.bus, address, self.registers[rs2])
+            self._advance_to(max(done_at, self.current_time + self.exec_timing.alu_latency))
         else:
             raise ValueError(f"Unsupported store instruction: funct3={funct3}")
 
     def _execute_fmadd_instruction(self, funct3, rd, rs1, rs2, rs3):
         if funct3 == FUNCT3_FMADD:
             if rd != 0:
+                self._ensure_registers_ready([rs1, rs2, rs3])
                 result = alu.fmadd(self.registers[rs1], self.registers[rs2], self.registers[rs3])
+                completion = self._advance_time(self.exec_timing.mul_latency)
                 self.registers[rd] = result & 0xFFFFFFFF
+                self._mark_register_ready(rd, completion)
         else:
             raise ValueError(f"Unsupported FMADD instruction: funct3={funct3}")
 
     def _execute_jal_instruction(self, rd, imm, original_pc):
         if rd != 0:
             self.registers[rd] = original_pc + 4
+            ready_time = self.current_time + self.exec_timing.alu_latency
+            self._mark_register_ready(rd, ready_time)
+        self._advance_time(self.exec_timing.alu_latency)
         self.pc = original_pc + imm
 
     def _execute_branch_instruction(self, funct3, rs1, rs2, imm, original_pc):
         val1 = self.registers[rs1]
         val2 = self.registers[rs2]
-        
+
+        self._ensure_registers_ready([rs1, rs2])
+
         branch_taken = False
         if funct3 == 0b000: # BEQ
             branch_taken = control_flow.beq(val1, val2)
@@ -217,6 +326,12 @@ class RISCVEngine:
         if branch_taken:
             self.pc = original_pc + imm
             LOGGER.debug("branch taken: 0x%08x -> 0x%08x", original_pc, self.pc)
+
+        predicted_taken = self._predict_branch(imm)
+        self._advance_time(self.exec_timing.alu_latency)
+        if predicted_taken != branch_taken:
+            penalty_ready = self.current_time + max(0, self.branch_config.mispredict_penalty)
+            self._advance_to(penalty_ready)
 
     def execute_instruction(self):
         self.begin_instruction(self.current_time)

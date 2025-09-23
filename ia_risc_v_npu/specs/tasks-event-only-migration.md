@@ -63,13 +63,13 @@
 
 ## Phase 5 – CPU 마이크로타이밍 (주 5–6)
 
-- [ ] 분기 예측/패널티(정적 backwards taken, mispredict_penalty)
+- [x] 분기 예측/패널티(정적 backwards taken, mispredict_penalty)
   - 수용기준: 분기 패턴별 사이클 차이 재현
-- [ ] 로드‑유즈 스톨(메모리 done_at과 의존 간격 기반)
+- [x] 로드‑유즈 스톨(메모리 done_at과 의존 간격 기반)
   - 수용기준: load→use 시 스톨 1cy 이상 삽입 검증
-- [ ] MUL/DIV 지연(구성값 반영)
+- [x] MUL/DIV 지연(구성값 반영)
   - 수용기준: 루프에서 CPI 변화 인지
-- [ ] I‑캐시 미스 프런트엔드 스톨
+- [x] I‑캐시 미스 프런트엔드 스톨
   - 수용기준: 미스율에 따른 페치 지연 반영
 
 ---
