@@ -251,6 +251,12 @@ class Bus:
         self._active_requests: List[BusRequest] = []
         self._now: int = 0
 
+    @property
+    def now(self) -> int:
+        """Return the last simulation time observed by the bus."""
+
+        return self._now
+
     def add_device(self, name: str, device: object, start_addr: int, end_addr: int) -> None:
         self.devices[name] = {
             "device": device,

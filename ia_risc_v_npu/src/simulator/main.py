@@ -19,6 +19,7 @@ from src.risc_v.engine import RISCVEngine
 from src.simulator.determinism import configure_deterministic_environment
 from src.simulator.events import EventScheduler
 from src.simulator.hooks import TimingHookSystem
+from src.npu.cluster import ClusterPolicy, NPUCluster
 from src.npu.model import NPU
 from src.simulator.memory import MemorySystem, SPM, Bus
 from src.simulator.mmio import MMIO
@@ -50,6 +51,7 @@ class SimulationReport:
 
 
 CPU_MASTER_ID = 0
+NPU_DMA_MASTER_ID = 1
 MIN_EVENT_DELAY = 1
 
 
@@ -68,7 +70,14 @@ class AdaptiveSimulator:
         self.dram = bytearray(DRAM_SIZE)
         self.spm = SPM(SPM_SIZE_KB)
         self.npu = NPU()
-        self.mmio = MMIO(self.npu)
+        self.npu_cluster = NPUCluster(
+            self.bus,
+            cores=2,
+            dma_master_id=NPU_DMA_MASTER_ID,
+            policy=ClusterPolicy.MIN_FINISH_TIME,
+            compute_engine=self.npu,
+        )
+        self.mmio = MMIO(self.npu_cluster)
         self.memory_system = MemorySystem(self.bus)
 
         # Connect devices to the bus
