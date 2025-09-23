@@ -1,8 +1,15 @@
 
 import pytest
 import numpy as np
-from src.risc_v.engine import RISCVEngine
+from src.risc_v.engine import (
+    RISCVEngine,
+    BranchPredictorConfig,
+    ExecutionTimingConfig,
+)
 from src.simulator.memory import Bus, MemorySystem
+
+OPCODE_R_TYPE = 0b0110011
+OPCODE_I_TYPE_LOAD = 0b0000011
 
 # Helper function to assemble B-type instructions
 def assemble_b_type(funct3, rs1, rs2, imm):
@@ -30,13 +37,45 @@ def assemble_j_type(rd, imm):
     return (imm20 << 31) | (imm19_12 << 12) | (imm11 << 20) | (imm10_1 << 21) | (rd << 7) | 0b1101111
 
 
+def assemble_r_type(rd, rs1, rs2, funct3, funct7):
+    return (
+        (funct7 << 25)
+        | (rs2 << 20)
+        | (rs1 << 15)
+        | (funct3 << 12)
+        | (rd << 7)
+        | OPCODE_R_TYPE
+    )
+
+
+def assemble_i_type_load(rd, rs1, imm):
+    encoded = imm & 0xFFF
+    return (
+        (encoded << 20)
+        | (rs1 << 15)
+        | (0b010 << 12)
+        | (rd << 7)
+        | OPCODE_I_TYPE_LOAD
+    )
+
+
 @pytest.fixture
 def engine():
     bus = Bus()
     dram = bytearray(1024)
     bus.add_device("dram", dram, 0x0000, len(dram) - 1)
     memory_system = MemorySystem(bus)
-    return RISCVEngine(bus, memory_system)
+    return RISCVEngine(
+        bus,
+        memory_system,
+        branch_config=BranchPredictorConfig(mispredict_penalty=5),
+        execution_timing=ExecutionTimingConfig(
+            alu_latency=1,
+            load_use_stall=1,
+            mul_latency=4,
+            div_latency=9,
+        ),
+    )
 
 def test_jal_positive_offset(engine):
     instruction = 0x014000ef
@@ -197,3 +236,105 @@ def test_bgeu_not_taken_unsigned(engine):
     engine.execute_instruction()
     
     assert engine.pc == 4
+
+
+def test_branch_backward_taken_no_mispredict(engine):
+    # Backwards branch taken should be predicted taken → no penalty
+    engine.registers[1] = 0
+    engine.registers[2] = 0
+    instruction = assemble_b_type(0b000, 1, 2, -8)
+    addr = 16
+    engine.bus.write(addr, instruction.to_bytes(4, "little"))
+    engine.pc = addr
+
+    engine.execute_instruction()
+
+    assert engine.pc == addr - 8
+    assert engine.pipeline_ready_at == engine.current_time
+
+
+def test_branch_forward_taken_mispredict_applies_penalty(engine):
+    # Forward branch that is taken should incur mispredict penalty
+    engine.registers[1] = 0
+    engine.registers[2] = 0
+    instruction = assemble_b_type(0b000, 1, 2, 8)
+    addr = 0
+    engine.bus.write(addr, instruction.to_bytes(4, "little"))
+    engine.pc = addr
+
+    engine.execute_instruction()
+
+    assert engine.pc == addr + 8
+    assert engine.pipeline_ready_at == engine.current_time
+
+
+def test_load_use_dependency_introduces_stall(engine):
+    data_value = 0xDEADBEEF
+    data_addr = 128
+    engine.bus.write(data_addr, data_value.to_bytes(4, "little"))
+
+    load_inst = assemble_i_type_load(1, 0, data_addr)
+    add_inst = assemble_r_type(2, 1, 0, 0b000, 0b0000000)
+
+    engine.bus.write(0, load_inst.to_bytes(4, "little"))
+    engine.bus.write(4, add_inst.to_bytes(4, "little"))
+    engine.pc = 0
+
+    engine.begin_instruction(0)
+    engine.execute_instruction()
+
+    load_ready = engine.register_ready_at[1]
+    assert load_ready >= engine.last_memory_done_at
+
+    next_time = engine.last_memory_done_at
+    engine.begin_instruction(next_time)
+    engine.execute_instruction()
+
+    assert engine.current_time >= load_ready
+    assert engine.registers[2] == data_value & 0xFFFFFFFF
+    assert engine.pipeline_ready_at >= engine.current_time
+
+
+def test_mul_latency_respected(engine):
+    mul_inst = assemble_r_type(5, 6, 7, 0b000, 0b0000001)
+    engine.bus.write(0, mul_inst.to_bytes(4, "little"))
+    engine.pc = 0
+    engine.registers[6] = 3
+    engine.registers[7] = 4
+
+    engine.begin_instruction(0)
+    engine.execute_instruction()
+
+    assert engine.registers[5] == 12
+    assert engine.current_time >= engine.exec_timing.mul_latency
+    assert engine.pipeline_ready_at >= engine.current_time
+
+
+def test_div_latency_respected(engine):
+    div_inst = assemble_r_type(8, 9, 10, 0b100, 0b0000001)
+    engine.bus.write(0, div_inst.to_bytes(4, "little"))
+    engine.pc = 0
+    engine.registers[9] = 18
+    engine.registers[10] = 3
+
+    engine.begin_instruction(0)
+    engine.execute_instruction()
+
+    assert engine.registers[8] == 6
+    assert engine.current_time >= engine.exec_timing.div_latency
+    assert engine.pipeline_ready_at >= engine.current_time
+
+
+def test_fetch_icache_latency_drives_frontend_stall(engine):
+    add_inst = assemble_r_type(3, 1, 2, 0b000, 0b0000000)
+    engine.bus.write(0, add_inst.to_bytes(4, "little"))
+    engine.pc = 0
+    engine.registers[1] = 1
+    engine.registers[2] = 2
+
+    engine.register_fetch_latency(4, now=0)
+    engine.begin_instruction(0)
+    engine.execute_instruction()
+
+    assert engine.current_time >= 4
+    assert engine.registers[3] == 3

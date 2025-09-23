@@ -132,8 +132,10 @@ class AdaptiveSimulator:
                 return
 
             latency = self.timing_hooks.fetch_hook(self.risc_v_engine.pc, 0)
+            self.risc_v_engine.register_fetch_latency(latency, now=scheduler.now)
             memory_delay = max(0, self.risc_v_engine.last_memory_done_at - scheduler.now)
-            next_delay = max(latency, memory_delay)
+            pipeline_delay = max(0, self.risc_v_engine.pipeline_ready_at - scheduler.now)
+            next_delay = max(latency, memory_delay, pipeline_delay)
             if next_delay <= 0:
                 next_delay = MIN_EVENT_DELAY
             scheduler.schedule_after(delay=next_delay, callback=execute_instruction_event)
