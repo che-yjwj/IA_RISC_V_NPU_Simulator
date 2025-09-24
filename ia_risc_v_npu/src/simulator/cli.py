@@ -15,19 +15,19 @@ try:  # pragma: no cover - import guarded for environments without pyelftools
 except ImportError:  # pragma: no cover - fallback handled at runtime
     ELFFile = None  # type: ignore[assignment]
 
-from src.simulator.main import AdaptiveSimulator, SimulationReport, DRAM_SIZE
+try:  # pragma: no cover - mirrors ELFFile guard
+    from elftools.elf.constants import SH_FLAGS  # type: ignore[no-redef]
+except ImportError:  # pragma: no cover - pyelftools optional at runtime
+    SH_FLAGS = None  # type: ignore[assignment]
+
+from src.simulator.main import AdaptiveSimulator, SimulationReport, DRAM_BASE, DRAM_SIZE
+from src.simulator.program import ProgramImage, ProgramSegment
 
 LOGGER = logging.getLogger(__name__)
 
 
 class CLIError(RuntimeError):
     """Raised when the CLI cannot complete the requested action."""
-
-
-@dataclass(slots=True)
-class ProgramImage:
-    instructions: List[int]
-    text_size: int
 
 
 @dataclass(slots=True)
@@ -72,6 +72,8 @@ def load_program_image(elf_path: Path) -> ProgramImage:
         with elf_path.open("rb") as handle:
             elf = ELFFile(handle)
             exec_sections: List[tuple[int, bytes]] = []
+            load_segments: List[ProgramSegment] = []
+            exec_flag = getattr(SH_FLAGS, "SHF_EXECINSTR", 0x4) if SH_FLAGS is not None else 0x4
 
             text_section = elf.get_section_by_name(".text")
             if text_section and text_section.data():
@@ -81,8 +83,24 @@ def load_program_image(elf_path: Path) -> ProgramImage:
                 for section in elf.iter_sections():
                     flags = int(section["sh_flags"])
                     data = section.data()
-                    if flags & 0x4 and data:  # SHF_EXECINSTR
+                    if flags & exec_flag and data:
                         exec_sections.append((section["sh_addr"], data))
+
+            for segment in elf.iter_segments():
+                if segment["p_type"] != "PT_LOAD":
+                    continue
+
+                raw_data = segment.data() or b""
+                mem_size = int(segment["p_memsz"])
+                if mem_size < len(raw_data):
+                    raise CLIError(
+                        "ELF load segment has memsz smaller than file payload"
+                    )
+
+                address = int(segment["p_paddr"] or segment["p_vaddr"])
+                load_segments.append(
+                    ProgramSegment(address=address, data=raw_data, mem_size=mem_size)
+                )
 
     except FileNotFoundError as exc:
         raise CLIError(f"ELF file not found: {elf_path}") from exc
@@ -91,6 +109,8 @@ def load_program_image(elf_path: Path) -> ProgramImage:
 
     if not exec_sections:
         raise CLIError("ELF file does not contain executable instructions")
+    if not load_segments:
+        raise CLIError("ELF file does not contain loadable segments")
 
     exec_sections.sort(key=lambda item: item[0])
     instructions: List[int] = []
@@ -98,7 +118,13 @@ def load_program_image(elf_path: Path) -> ProgramImage:
         instructions.extend(_extract_instruction_words(data))
 
     text_size = sum(len(data) for _, data in exec_sections)
-    return ProgramImage(instructions=instructions, text_size=text_size)
+    entry_point = int(elf.header["e_entry"])
+    return ProgramImage(
+        instructions=instructions,
+        text_size=text_size,
+        entry_point=entry_point,
+        segments=load_segments,
+    )
 
 
 def write_output(
@@ -136,7 +162,7 @@ def run_simulate(args: argparse.Namespace) -> int:
 
     program = load_program_image(args.elf_file)
     simulator = AdaptiveSimulator()
-    simulator.load_program(program.instructions)
+    simulator.load_program(program)
 
     LOGGER.debug("Loaded %s bytes (%s instructions)", program.text_size, len(program.instructions))
 
@@ -157,7 +183,14 @@ def _generate_synthetic_program(length: int) -> ProgramImage:
     add_instruction = 0x003100B3  # ADD x1, x2, x3
     program = [add_instruction] * length
     program.append(0)  # halt sentinel
-    return ProgramImage(instructions=program, text_size=len(program) * 4)
+    program_bytes = b"".join(int(word).to_bytes(4, "little", signed=False) for word in program)
+    segment = ProgramSegment(address=DRAM_BASE, data=program_bytes, mem_size=len(program_bytes))
+    return ProgramImage(
+        instructions=program,
+        text_size=len(program) * 4,
+        entry_point=segment.address,
+        segments=[segment],
+    )
 
 
 def _measure_performance(simulator: AdaptiveSimulator, max_cycles: int) -> tuple[SimulationReport, BenchmarkMetrics]:
@@ -181,7 +214,7 @@ def run_benchmark(args: argparse.Namespace) -> int:
         program = _generate_synthetic_program(args.instructions)
 
     simulator = AdaptiveSimulator()
-    simulator.load_program(program.instructions)
+    simulator.load_program(program)
 
     LOGGER.debug(
         "Benchmark program loaded: %s instructions (%s bytes)",

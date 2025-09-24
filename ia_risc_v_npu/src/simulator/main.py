@@ -6,7 +6,7 @@ import sys
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, Optional
+from typing import Dict, Iterable, Optional, Union
 
 # Ensure repository root is on sys.path when executed directly.
 if __package__ is None:
@@ -23,6 +23,7 @@ from src.npu.cluster import ClusterPolicy, NPUCluster
 from src.npu.model import NPU
 from src.simulator.memory import MemorySystem, SPM, Bus
 from src.simulator.mmio import MMIO
+from src.simulator.program import ProgramImage, ProgramSegment
 
 # Define memory map
 DRAM_BASE = 0x00000000
@@ -100,15 +101,50 @@ class AdaptiveSimulator:
 
     def load_program(
         self,
-        instructions: Iterable[int],
+        program: Union[Iterable[int], ProgramImage],
         *,
         base_address: int = DRAM_BASE,
     ) -> None:
-        addr = base_address
-        self.risc_v_engine.pc = base_address
-        for inst in instructions:
-            self.bus.write(addr, int(inst).to_bytes(4, "little", signed=False))
-            addr += 4
+        image = self._materialize_program_image(program, base_address)
+
+        self.risc_v_engine.pc = image.entry_point
+        for segment in image.segments:
+            if segment.mem_size == 0:
+                continue
+
+            if segment.data:
+                self.bus.write(segment.address, segment.data)
+
+            zero_padding = segment.mem_size - len(segment.data)
+            if zero_padding <= 0:
+                continue
+
+            addr = segment.address + len(segment.data)
+            remaining = zero_padding
+            zero_chunk = bytearray(min(4096, remaining))
+            while remaining > 0:
+                chunk = min(remaining, len(zero_chunk))
+                if chunk != len(zero_chunk):
+                    zero_chunk = bytearray(chunk)
+                self.bus.write(addr, zero_chunk)
+                addr += chunk
+                remaining -= chunk
+
+    def _materialize_program_image(
+        self, program: Union[Iterable[int], ProgramImage], base_address: int
+    ) -> ProgramImage:
+        if isinstance(program, ProgramImage):
+            return program
+
+        words = list(program)
+        program_bytes = b"".join(int(word).to_bytes(4, "little", signed=False) for word in words)
+        segment = ProgramSegment(address=base_address, data=program_bytes, mem_size=len(program_bytes))
+        return ProgramImage(
+            instructions=words,
+            text_size=len(program_bytes),
+            entry_point=base_address,
+            segments=[segment],
+        )
 
     async def run_simulation(self, max_cycles: int = 0) -> SimulationReport:
         self.halt = False

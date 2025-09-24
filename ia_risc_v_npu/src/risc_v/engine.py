@@ -75,10 +75,6 @@ class RISCVEngine:
         self.exec_timing = execution_timing or ExecutionTimingConfig()
         self.register_ready_at = [0] * 32
 
-        # Initialize registers for testing
-        self.registers[2] = 10
-        self.registers[3] = 20
-
     def begin_instruction(self, now: int) -> None:
         if now < 0:
             raise ValueError("now cannot be negative.")
