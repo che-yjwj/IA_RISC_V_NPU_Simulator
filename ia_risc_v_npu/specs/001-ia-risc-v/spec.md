@@ -1,3 +1,4 @@
+<!-- encoding: UTF-8 -->
 # Feature Specification: IA-based RISC-V+NPU Hybrid Simulator
 
 **Feature Branch**: `001-ia-risc-v`

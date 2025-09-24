@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """CNN shape utility helpers shared across simulator and workload generators."""
 
 from __future__ import annotations

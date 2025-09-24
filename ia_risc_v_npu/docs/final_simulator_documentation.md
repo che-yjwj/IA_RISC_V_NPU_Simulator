@@ -1,3 +1,4 @@
+<!-- encoding: UTF-8 -->
 # IA RISC-V + NPU Simulator: Final Documentation
 
 ## 1. Executive Summary
