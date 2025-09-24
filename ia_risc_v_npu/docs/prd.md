@@ -1,3 +1,4 @@
+<!-- encoding: UTF-8 -->
 # IA 기반 RISC-V+NPU 적응형 시뮬레이터 PRD v1.0
 
 ---

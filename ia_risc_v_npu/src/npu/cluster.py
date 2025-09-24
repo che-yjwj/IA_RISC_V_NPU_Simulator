@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """NPU 클러스터 및 DMA 파이프라인 스케줄러."""
 
 from __future__ import annotations
@@ -65,7 +66,7 @@ class NPUCluster:
         compute_engine: Optional[NPU] = None,
     ) -> None:
         if cores <= 0:
-            raise ValueError("cores must be a positive integer")
+            raise ValueError("코어 개수는 1 이상이어야 합니다.")
 
         self.bus = bus
         self.cores = cores
@@ -87,9 +88,9 @@ class NPUCluster:
         """작업을 스케줄링하고 완료 시각을 반환한다."""
 
         if task.input_bytes < 0 or task.output_bytes < 0:
-            raise ValueError("DMA byte counts must be non-negative")
+            raise ValueError("DMA 전송 크기는 음수가 될 수 없습니다.")
         if task.compute_cycles < 0:
-            raise ValueError("compute_cycles must be non-negative")
+            raise ValueError("compute_cycles는 음수가 될 수 없습니다.")
 
         effective_policy = policy or self.policy
         core_id = self._select_core(task, effective_policy)
@@ -138,7 +139,7 @@ class NPUCluster:
             return anchor, anchor
 
         if size_bytes < 0:
-            raise ValueError("DMA transfers cannot have negative size")
+            raise ValueError("DMA 전송 크기는 음수가 될 수 없습니다.")
 
         request_time = max(request_at, self.bus.now, self._dma_available_at)
         self.bus.sync_time(request_time)

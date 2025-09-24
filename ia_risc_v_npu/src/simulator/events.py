@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """이벤트 기반 시뮬레이션을 위한 최소 스케줄러."""
 from __future__ import annotations
 
@@ -38,6 +39,9 @@ class EventScheduler:
     def schedule(self, *, timestamp: int, callback: EventCallback) -> int:
         """주어진 시각에 콜백을 실행하도록 예약한다."""
 
+        if timestamp < self._now:
+            raise ValueError("timestamp는 현재 시각보다 작을 수 없습니다.")
+
         order = next(self._counter)
         event = _ScheduledEvent(timestamp=timestamp, order=order, callback=callback)
         heapq.heappush(self._queue, event)
@@ -52,6 +56,9 @@ class EventScheduler:
 
     def run(self, *, until: Optional[int] = None) -> None:
         """예약된 이벤트를 실행하며 시간 축을 진행한다."""
+
+        if until is not None and until < self._now:
+            raise ValueError("until은 현재 시각보다 작을 수 없습니다.")
 
         while self._queue:
             next_event = self._queue[0]
