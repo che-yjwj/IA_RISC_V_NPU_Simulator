@@ -66,3 +66,22 @@ def test_schedule_after_rejects_negative_delay() -> None:
     with pytest.raises(ValueError):
         scheduler.schedule_after(delay=-1, callback=lambda: None)
 
+
+def test_schedule_rejects_past_timestamp() -> None:
+    scheduler = EventScheduler()
+    scheduler.schedule(timestamp=5, callback=lambda: None)
+    scheduler.run(until=5)
+
+    with pytest.raises(ValueError):
+        scheduler.schedule(timestamp=4, callback=lambda: None)
+
+
+def test_run_until_rejects_time_regression() -> None:
+    scheduler = EventScheduler()
+    scheduler.schedule(timestamp=2, callback=lambda: None)
+    scheduler.run()
+
+    assert scheduler.now == 2
+
+    with pytest.raises(ValueError):
+        scheduler.run(until=1)
