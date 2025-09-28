@@ -49,7 +49,7 @@ The adaptive core uses a combination of timing hooks for fast, high-level latenc
 
 ### Running the Simulator
 
-Use the CLI entry point to execute an ELF workload.
+Use the CLI entry point to execute an ELF workload. The generated summary JSON now includes cache/bus/memory/NPU utilization metrics alongside cycles, instructions, and MIPS so you can compare runs and diagnose bottlenecks.
 
 ```bash
 python -m src.simulator.cli simulate build/program.elf --config configs/example.json --output results/summary.json
@@ -76,6 +76,12 @@ python -m src.simulator.cli benchmark --instructions 200000 --output results/ben
 ```
 
 The written JSON includes executed instruction count, elapsed seconds, and calculated MIPS so you can compare against the 12–20 MIPS goal.
+
+### Reporting & Accuracy Guard
+
+- Simulation summaries expose extended metrics: per-level cache hit/miss counts, average memory access latency (AMAT), bus transaction latency, fetch miss rates, stall breakdown, and NPU utilization. These fields are available both in CLI output and the optional `--output` JSON via `prepare_summary`.
+- Optional accuracy guard support validates the summary against a golden JSON snapshot before exiting. Configure it via the `accuracy_guard` block in the simulator config; exceeding the allowed deviation returns a non-zero exit code and embeds comparison details in the summary.
+- A runnable example lives in `ia_risc_v_npu/workloads/demos/accuracy_guard/` with a ready-to-use config, golden metrics, and README walkthrough.
 
 ## 5. Technology Stack
 
