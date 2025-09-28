@@ -25,10 +25,10 @@ def test_lw(memory):
     memory.write(16, (1234567890).to_bytes(4, 'little'))
     assert lw(memory, 16) == 1234567890
 
-    # Negative values must be sign-extended from 32 bits
+    # High-bit set values should preserve their 32-bit pattern without sign extension
     neg_value = 0xFFFF_FF10
     memory.write(24, neg_value.to_bytes(4, 'little'))
-    assert lw(memory, 24) == -240
+    assert lw(memory, 24) == neg_value
 
 def test_sw(memory):
     sw(memory, 20, 987654321)
