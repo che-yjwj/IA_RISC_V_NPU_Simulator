@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Tuple
 
 import sys
+import math
 
 import numpy as np
 
@@ -23,13 +24,95 @@ for path in (PACKAGE_ROOT, PROJECT_ROOT):
 from src.simulator.events import EventScheduler as BaseEventScheduler
 from src.simulator.main import AdaptiveSimulator
 from src.npu.cluster import ClusterPolicy, ClusterTask, NPUCluster
-from src.simulator.memory import Bus
+from src.simulator.memory import Bus, BusMetrics, BusRequest
 from workloads.cnn_workload import generate_cnn_workload
 
 # ABI register aliases (matches integration tests)
 REG_T0 = 5
 REG_T1 = 6
 REG_T2 = 7
+
+
+class VirtualBus:
+    """Bus variant that decouples DMA scheduling from simulator global time."""
+
+    def __init__(
+        self,
+        *,
+        slice_bytes: int = 32,
+        bandwidth_bytes_per_cycle: int = 16,
+        grant_latency: int = 1,
+    ) -> None:
+        if slice_bytes <= 0 or bandwidth_bytes_per_cycle <= 0:
+            raise ValueError("slice_bytes and bandwidth must be positive")
+
+        self.slice_bytes = slice_bytes
+        self.bandwidth_bytes_per_cycle = bandwidth_bytes_per_cycle
+        self.grant_latency = grant_latency
+
+        self.metrics = BusMetrics()
+        self._available_at = 0
+        self._active_until: List[int] = []
+        self._completed: List[BusRequest] = []
+
+    @property
+    def now(self) -> int:
+        return 0
+
+    def sync_time(self, now: int) -> None:
+        if now < 0:
+            raise ValueError("now cannot be negative")
+        # Intentionally ignore caller-provided time to avoid sequencing by global bus time.
+        return
+
+    def request(
+        self,
+        *,
+        master_id: int,
+        bytes: int,
+        request_at: int | None = None,
+    ) -> Tuple[int, int]:
+        if bytes <= 0:
+            raise ValueError("bytes must be greater than zero")
+
+        request_time = max(0, request_at or 0)
+        self._active_until = [deadline for deadline in self._active_until if deadline > request_time]
+        queue_depth = len(self._active_until) + 1
+        self.metrics.on_request(queue_depth)
+
+        grant_time = max(request_time, self._available_at)
+        start_time = grant_time + self.grant_latency
+        transfer_cycles = self._calculate_transfer_cycles(bytes)
+        done_at = start_time + transfer_cycles
+
+        request = BusRequest(master_id=master_id, size_bytes=bytes, request_at=request_time)
+        request.grant_at = grant_time
+        request.start_at = start_time
+        request.done_at = done_at
+        request.transfer_cycles = transfer_cycles
+        self._completed.append(request)
+
+        wait_cycles = max(0, grant_time - request_time)
+        self.metrics.on_grant(
+            wait_cycles=wait_cycles,
+            grant_latency=self.grant_latency,
+            transfer_cycles=transfer_cycles,
+        )
+
+        self._available_at = done_at
+        self._active_until.append(done_at)
+        return grant_time, done_at
+
+    def completed_requests(self) -> Tuple[BusRequest, ...]:
+        return tuple(self._completed)
+
+    def _calculate_transfer_cycles(self, size_bytes: int) -> int:
+        full_slices, remainder = divmod(size_bytes, self.slice_bytes)
+        slice_cycles = math.ceil(self.slice_bytes / self.bandwidth_bytes_per_cycle)
+        total = full_slices * slice_cycles
+        if remainder:
+            total += math.ceil(remainder / self.bandwidth_bytes_per_cycle)
+        return total
 
 
 class ProfilingEventScheduler(BaseEventScheduler):
@@ -175,7 +258,7 @@ def profile_cnn_workload(input_shape: Tuple[int, ...], kernel_shape: Tuple[int, 
     }
 
 
-def _summarize_requests(bus: Bus) -> List[Dict[str, Any]]:
+def _summarize_requests(bus: Any) -> List[Dict[str, Any]]:
     summary: List[Dict[str, Any]] = []
     for req in bus.completed_requests():
         summary.append(
@@ -297,6 +380,48 @@ def profile_cpu_npu_contention() -> Dict[str, Any]:
     }
 
 
+def profile_virtual_npu_dma(tasks: List[ClusterTask]) -> Dict[str, Any]:
+    bus = VirtualBus()
+    cluster = NPUCluster(bus, cores=2, dma_master_id=1, policy=ClusterPolicy.MIN_FINISH_TIME)
+
+    timeline: List[Dict[str, Any]] = []
+    for task in tasks:
+        result = cluster.submit(task)
+        timeline.append(
+            {
+                "task": task.name,
+                "issue_at": task.issue_at,
+                "input_grant_at": result.input_grant_at,
+                "input_done_at": result.input_done_at,
+                "compute_start_at": result.compute_start_at,
+                "compute_done_at": result.compute_done_at,
+                "output_grant_at": result.output_grant_at,
+                "output_done_at": result.output_done_at,
+                "done_at": result.done_at,
+                "core_id": result.core_id,
+            }
+        )
+
+    requests = _summarize_requests(bus)
+    bus_metrics = bus.metrics.snapshot()
+
+    return {
+        "tasks": [
+            {
+                "name": task.name,
+                "input_bytes": task.input_bytes,
+                "output_bytes": task.output_bytes,
+                "compute_cycles": task.compute_cycles,
+                "issue_at": task.issue_at,
+            }
+            for task in tasks
+        ],
+        "timeline": timeline,
+        "requests": requests,
+        "bus_metrics": bus_metrics,
+    }
+
+
 def main() -> None:
     scenarios = [
         ((1, 3, 3), (1, 1, 2, 2)),
@@ -331,11 +456,13 @@ def main() -> None:
     npu_results = profile_npu_dma(npu_tasks)
 
     contention = profile_cpu_npu_contention()
+    virtual_npu = profile_virtual_npu_dma(npu_tasks)
 
     payload = {
         "cpu_cnn": cnn_results,
         "npu_dma": npu_results,
         "cpu_npu_contention": contention,
+        "virtual_npu_dma": virtual_npu,
     }
 
     print(json.dumps(payload, indent=2, sort_keys=True))

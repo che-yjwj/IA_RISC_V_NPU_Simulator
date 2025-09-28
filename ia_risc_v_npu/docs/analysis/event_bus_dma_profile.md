@@ -31,6 +31,11 @@
 - CPU 요청 가운데 일부가 DMA 완료에 밀려 `grant_at`이 `request_at`보다 뒤로 이동하며 실제 대기 시간을 관찰 (`ia_risc_v_npu/workloads/profiling/event_bus_profile.json:360`)
 - NPU 출력 DMA는 여전히 연속적으로 후속 입력 DMA를 지연시키므로, CPU 경합 환경에서도 DMA 겹침이 제한됨
 
+## Virtual DMA 스케줄러 실험
+- VirtualBus 프로토타입(`workloads/profiling/event_bus_profile.py:33`)은 `bus.now` 의존성을 제거해 입력 DMA 요청이 본래 이슈 시각(예: 40, 171 사이클)에 기록되도록 함 (`ia_risc_v_npu/workloads/profiling/event_bus_profile.json:512`)
+- 그러나 버스 자체가 단일 자원으로 순차 처리되므로 grant 시각은 여전히 154/308 사이클에 고정되고 대기 시간이 크게 증가 → 시간 재생만으로는 겹침이 보장되지 않음을 확인
+- 입력 프리페치를 실현하려면 다중 작업을 동시에 큐잉하고, 이벤트 기반 DMA 완료를 처리해 compute가 진행되는 동안 후속 입력을 발행할 수 있는 스케줄링 계층이 필요
+
 ## DMA 파이프라인 겹침 요구사항
 - 입출력 채널을 독립적으로 추적(예: `_dma_available_at_input`, `_dma_available_at_output`)하고, 다음 작업 입력을 미리 발행할 큐·정책이 필요
 - DMA 완료를 비동기 이벤트(스케줄러 등록)로 노출해 compute와 전송을 동시에 모델링하고, CPU 루프와의 결정성 유지 규칙을 정의해야 함
