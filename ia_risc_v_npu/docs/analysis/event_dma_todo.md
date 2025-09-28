@@ -13,4 +13,4 @@
 ## 3. 검증 및 문서화
 - [x] 프로파일링 스크립트 결과 갱신 및 비교(virtual vs real)
 - [x] 단위/통합 테스트 추가 또는 기존 테스트 보강
-- [ ] PR 요약 및 문서 업데이트 (설계/README 등 필요한 부분)
+- [x] PR 요약 및 문서 업데이트 (설계/README 등 필요한 부분) — `docs/analysis/event_bus_dma_profile.md`에 최종 결과 요약 추가, 브랜치 설명 초안 정리 완료
