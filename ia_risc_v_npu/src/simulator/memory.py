@@ -578,7 +578,7 @@ class MemorySystem:
             "total_requests": total_requests,
             "total_latency_cycles": total_latency,
             "average_latency_cycles": average_latency,
-            "bus_wait_cycles": self._stats["bus_latency_cycles"],
+            "bus_transaction_latency_cycles": self._stats["bus_transaction_latency_cycles"],
             "dram_wait_cycles": self._stats["dram_latency_cycles"],
         }
 
@@ -587,7 +587,7 @@ class MemorySystem:
             "load_requests": 0,
             "store_requests": 0,
             "total_latency_cycles": 0,
-            "bus_latency_cycles": 0,
+            "bus_transaction_latency_cycles": 0,
             "dram_latency_cycles": 0,
         }
 
@@ -678,7 +678,7 @@ class MemorySystem:
         )
         dram_done = self.dram.access(address, size, request_time=request_time)
         completion = max(bus_done, dram_done)
-        self._stats["bus_latency_cycles"] += max(0, bus_done - request_time)
+        self._stats["bus_transaction_latency_cycles"] += max(0, bus_done - request_time)
         self._stats["dram_latency_cycles"] += max(0, dram_done - request_time)
         return completion
 
