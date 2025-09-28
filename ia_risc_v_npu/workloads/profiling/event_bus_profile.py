@@ -22,7 +22,8 @@ for path in (PACKAGE_ROOT, PROJECT_ROOT):
 
 from src.simulator.events import EventScheduler as BaseEventScheduler
 from src.simulator.main import AdaptiveSimulator
-from src.npu.cluster import ClusterTask
+from src.npu.cluster import ClusterPolicy, ClusterTask, NPUCluster
+from src.simulator.memory import Bus
 from workloads.cnn_workload import generate_cnn_workload
 
 # ABI register aliases (matches integration tests)
@@ -174,9 +175,9 @@ def profile_cnn_workload(input_shape: Tuple[int, ...], kernel_shape: Tuple[int, 
     }
 
 
-def _summarize_requests(simulator: AdaptiveSimulator) -> List[Dict[str, Any]]:
+def _summarize_requests(bus: Bus) -> List[Dict[str, Any]]:
     summary: List[Dict[str, Any]] = []
-    for req in simulator.bus.completed_requests():
+    for req in bus.completed_requests():
         summary.append(
             {
                 "master_id": req.master_id,
@@ -213,7 +214,7 @@ def profile_npu_dma(tasks: List[ClusterTask]) -> Dict[str, Any]:
         )
 
     bus_summary = _summarize_bus(simulator)
-    requests = _summarize_requests(simulator)
+    requests = _summarize_requests(simulator.bus)
 
     return {
         "tasks": [
@@ -229,6 +230,70 @@ def profile_npu_dma(tasks: List[ClusterTask]) -> Dict[str, Any]:
         "timeline": timeline,
         "bus": bus_summary,
         "requests": requests,
+    }
+
+
+def profile_cpu_npu_contention() -> Dict[str, Any]:
+    bus = Bus()
+    cluster = NPUCluster(bus, cores=2, dma_master_id=1, policy=ClusterPolicy.ROUND_ROBIN)
+
+    cpu_schedule = [0, 20, 40, 60, 80, 100]
+    cpu_results: List[Dict[str, Any]] = []
+
+    for idx, request_at in enumerate(cpu_schedule):
+        bus.sync_time(request_at)
+        grant_at, done_at = bus.request(master_id=0, bytes=64, request_at=request_at)
+        cpu_results.append(
+            {
+                "request_id": idx,
+                "request_at": request_at,
+                "grant_at": grant_at,
+                "done_at": done_at,
+            }
+        )
+
+    npu_tasks = [
+        ClusterTask(input_bytes=256, output_bytes=128, compute_cycles=60, issue_at=5, name="npu_0"),
+        ClusterTask(input_bytes=128, output_bytes=128, compute_cycles=80, issue_at=45, name="npu_1"),
+        ClusterTask(input_bytes=192, output_bytes=192, compute_cycles=100, issue_at=85, name="npu_2"),
+    ]
+
+    npu_timeline: List[Dict[str, Any]] = []
+    for task in npu_tasks:
+        result = cluster.submit(task)
+        npu_timeline.append(
+            {
+                "task": task.name,
+                "issue_at": task.issue_at,
+                "input_grant_at": result.input_grant_at,
+                "input_done_at": result.input_done_at,
+                "compute_start_at": result.compute_start_at,
+                "compute_done_at": result.compute_done_at,
+                "output_grant_at": result.output_grant_at,
+                "output_done_at": result.output_done_at,
+                "done_at": result.done_at,
+                "core_id": result.core_id,
+            }
+        )
+
+    requests = _summarize_requests(cluster.bus)
+    bus_metrics = cluster.bus.metrics.snapshot()
+
+    return {
+        "cpu_requests": cpu_results,
+        "npu_tasks": [
+            {
+                "name": task.name,
+                "input_bytes": task.input_bytes,
+                "output_bytes": task.output_bytes,
+                "compute_cycles": task.compute_cycles,
+                "issue_at": task.issue_at,
+            }
+            for task in npu_tasks
+        ],
+        "npu_timeline": npu_timeline,
+        "requests": requests,
+        "bus_metrics": bus_metrics,
     }
 
 
@@ -265,9 +330,12 @@ def main() -> None:
     ]
     npu_results = profile_npu_dma(npu_tasks)
 
+    contention = profile_cpu_npu_contention()
+
     payload = {
         "cpu_cnn": cnn_results,
         "npu_dma": npu_results,
+        "cpu_npu_contention": contention,
     }
 
     print(json.dumps(payload, indent=2, sort_keys=True))

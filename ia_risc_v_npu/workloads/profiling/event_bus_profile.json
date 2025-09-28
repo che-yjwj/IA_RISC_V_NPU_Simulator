@@ -35,7 +35,7 @@
         2,
         2
       ],
-      "mips": 0.044210504537038044,
+      "mips": 0.04507431718633864,
       "scheduler": {
         "callbacks": {
           "execute_instruction_event": 17
@@ -82,7 +82,7 @@
         2,
         2
       ],
-      "mips": 0.07273546097049821,
+      "mips": 0.07197754807874092,
       "scheduler": {
         "callbacks": {
           "execute_instruction_event": 217
@@ -129,7 +129,7 @@
         3,
         3
       ],
-      "mips": 0.07072544830770232,
+      "mips": 0.07087677442571036,
       "scheduler": {
         "callbacks": {
           "execute_instruction_event": 163
@@ -142,6 +142,227 @@
       }
     }
   ],
+  "cpu_npu_contention": {
+    "bus_metrics": {
+      "avg_queue_depth": 1.25,
+      "avg_transfer_cycles": 7.333333333333333,
+      "avg_wait_cycles": 1.9166666666666667,
+      "completed_requests": 12,
+      "max_queue_depth": 2,
+      "total_grant_latency_cycles": 12,
+      "total_transfer_cycles": 88,
+      "total_wait_cycles": 23
+    },
+    "cpu_requests": [
+      {
+        "done_at": 5,
+        "grant_at": 0,
+        "request_at": 0,
+        "request_id": 0
+      },
+      {
+        "done_at": 25,
+        "grant_at": 20,
+        "request_at": 20,
+        "request_id": 1
+      },
+      {
+        "done_at": 45,
+        "grant_at": 40,
+        "request_at": 40,
+        "request_id": 2
+      },
+      {
+        "done_at": 65,
+        "grant_at": 60,
+        "request_at": 60,
+        "request_id": 3
+      },
+      {
+        "done_at": 85,
+        "grant_at": 80,
+        "request_at": 80,
+        "request_id": 4
+      },
+      {
+        "done_at": 105,
+        "grant_at": 100,
+        "request_at": 100,
+        "request_id": 5
+      }
+    ],
+    "npu_tasks": [
+      {
+        "compute_cycles": 60,
+        "input_bytes": 256,
+        "issue_at": 5,
+        "name": "npu_0",
+        "output_bytes": 128
+      },
+      {
+        "compute_cycles": 80,
+        "input_bytes": 128,
+        "issue_at": 45,
+        "name": "npu_1",
+        "output_bytes": 128
+      },
+      {
+        "compute_cycles": 100,
+        "input_bytes": 192,
+        "issue_at": 85,
+        "name": "npu_2",
+        "output_bytes": 192
+      }
+    ],
+    "npu_timeline": [
+      {
+        "compute_done_at": 182,
+        "compute_start_at": 122,
+        "core_id": 0,
+        "done_at": 191,
+        "input_done_at": 122,
+        "input_grant_at": 105,
+        "issue_at": 5,
+        "output_done_at": 191,
+        "output_grant_at": 182,
+        "task": "npu_0"
+      },
+      {
+        "compute_done_at": 280,
+        "compute_start_at": 200,
+        "core_id": 1,
+        "done_at": 289,
+        "input_done_at": 200,
+        "input_grant_at": 191,
+        "issue_at": 45,
+        "output_done_at": 289,
+        "output_grant_at": 280,
+        "task": "npu_1"
+      },
+      {
+        "compute_done_at": 402,
+        "compute_start_at": 302,
+        "core_id": 0,
+        "done_at": 415,
+        "input_done_at": 302,
+        "input_grant_at": 289,
+        "issue_at": 85,
+        "output_done_at": 415,
+        "output_grant_at": 402,
+        "task": "npu_2"
+      }
+    ],
+    "requests": [
+      {
+        "done_at": 5,
+        "grant_at": 0,
+        "master_id": 0,
+        "request_at": 0,
+        "size_bytes": 64,
+        "start_at": 1,
+        "transfer_cycles": 4
+      },
+      {
+        "done_at": 25,
+        "grant_at": 20,
+        "master_id": 0,
+        "request_at": 20,
+        "size_bytes": 64,
+        "start_at": 21,
+        "transfer_cycles": 4
+      },
+      {
+        "done_at": 45,
+        "grant_at": 40,
+        "master_id": 0,
+        "request_at": 40,
+        "size_bytes": 64,
+        "start_at": 41,
+        "transfer_cycles": 4
+      },
+      {
+        "done_at": 65,
+        "grant_at": 60,
+        "master_id": 0,
+        "request_at": 60,
+        "size_bytes": 64,
+        "start_at": 61,
+        "transfer_cycles": 4
+      },
+      {
+        "done_at": 85,
+        "grant_at": 80,
+        "master_id": 0,
+        "request_at": 80,
+        "size_bytes": 64,
+        "start_at": 81,
+        "transfer_cycles": 4
+      },
+      {
+        "done_at": 105,
+        "grant_at": 100,
+        "master_id": 0,
+        "request_at": 100,
+        "size_bytes": 64,
+        "start_at": 101,
+        "transfer_cycles": 4
+      },
+      {
+        "done_at": 122,
+        "grant_at": 105,
+        "master_id": 1,
+        "request_at": 100,
+        "size_bytes": 256,
+        "start_at": 106,
+        "transfer_cycles": 16
+      },
+      {
+        "done_at": 191,
+        "grant_at": 182,
+        "master_id": 1,
+        "request_at": 182,
+        "size_bytes": 128,
+        "start_at": 183,
+        "transfer_cycles": 8
+      },
+      {
+        "done_at": 200,
+        "grant_at": 191,
+        "master_id": 1,
+        "request_at": 182,
+        "size_bytes": 128,
+        "start_at": 192,
+        "transfer_cycles": 8
+      },
+      {
+        "done_at": 289,
+        "grant_at": 280,
+        "master_id": 1,
+        "request_at": 280,
+        "size_bytes": 128,
+        "start_at": 281,
+        "transfer_cycles": 8
+      },
+      {
+        "done_at": 302,
+        "grant_at": 289,
+        "master_id": 1,
+        "request_at": 280,
+        "size_bytes": 192,
+        "start_at": 290,
+        "transfer_cycles": 12
+      },
+      {
+        "done_at": 415,
+        "grant_at": 402,
+        "master_id": 1,
+        "request_at": 402,
+        "size_bytes": 192,
+        "start_at": 403,
+        "transfer_cycles": 12
+      }
+    ]
+  },
   "npu_dma": {
     "bus": {
       "bus_metrics": {

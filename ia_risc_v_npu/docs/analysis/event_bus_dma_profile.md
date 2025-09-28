@@ -25,6 +25,12 @@
 - 채널 분리 후 버스 통계는 `avg_queue_depth = 1.33`, `avg_wait_cycles = 5.67`로 상승했고 큐 깊이가 2까지 늘어나 출발 시점 겹침을 감지했으나, 실질적 겹침(연산과 다음 입력/출력 동시 진행)은 아직 실현되지 않음
 - 현 구현은 `_dma_available_at`을 채널별로 분리했으나 버스가 단일 타임라인을 사용해 요청 순서를 고정하기 때문에, 실제 겹침을 위해서는 이벤트 기반 DMA 완료 처리 또는 사전 스케줄링으로 요청 순서를 재배치할 추가 작업이 필요함
 
+## CPU+NPU 버스 경합 실험
+- Synthetic 시나리오: 마스터 0(CPU) 요청 6회(64B씩)와 NPU DMA 작업 3개(입력/출력 128~256B)를 동일 버스에서 스케줄링(`workloads/profiling/event_bus_profile.py:112`)
+- 결과: 버스 평균 대기 4.33 사이클, 최대 큐 깊이 3으로 CPU와 NPU 요청이 동시에 대기함을 확인 (`ia_risc_v_npu/workloads/profiling/event_bus_profile.json:400`)
+- CPU 요청 가운데 일부가 DMA 완료에 밀려 `grant_at`이 `request_at`보다 뒤로 이동하며 실제 대기 시간을 관찰 (`ia_risc_v_npu/workloads/profiling/event_bus_profile.json:360`)
+- NPU 출력 DMA는 여전히 연속적으로 후속 입력 DMA를 지연시키므로, CPU 경합 환경에서도 DMA 겹침이 제한됨
+
 ## DMA 파이프라인 겹침 요구사항
 - 입출력 채널을 독립적으로 추적(예: `_dma_available_at_input`, `_dma_available_at_output`)하고, 다음 작업 입력을 미리 발행할 큐·정책이 필요
 - DMA 완료를 비동기 이벤트(스케줄러 등록)로 노출해 compute와 전송을 동시에 모델링하고, CPU 루프와의 결정성 유지 규칙을 정의해야 함
