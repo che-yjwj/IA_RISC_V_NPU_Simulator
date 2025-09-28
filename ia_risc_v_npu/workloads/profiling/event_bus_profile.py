@@ -275,16 +275,34 @@ def _summarize_requests(bus: Any) -> List[Dict[str, Any]]:
     return summary
 
 
+def _flush_cluster(cluster: NPUCluster, *, horizon: int | None = None) -> None:
+    if horizon is None:
+        horizon = max(
+            (result.task.issue_at + result.task.compute_cycles for result in cluster.history),
+            default=0,
+        )
+        horizon += 1_000
+
+    cluster.flush_deferred_dma(horizon)
+
+    bus = cluster.bus
+    if hasattr(bus, "sync_time"):
+        bus.sync_time(horizon)
+
+
 def profile_npu_dma(tasks: List[ClusterTask]) -> Dict[str, Any]:
     simulator = AdaptiveSimulator()
-    timeline: List[Dict[str, Any]] = []
+    results = [simulator.npu_cluster.submit(task) for task in tasks]
 
-    for task in tasks:
-        result = simulator.npu_cluster.submit(task)
+    horizon = max((task.issue_at + task.compute_cycles for task in tasks), default=0) + 1_000
+    _flush_cluster(simulator.npu_cluster, horizon=horizon)
+
+    timeline: List[Dict[str, Any]] = []
+    for result in results:
         timeline.append(
             {
-                "task": task.name,
-                "issue_at": task.issue_at,
+                "task": result.task.name,
+                "issue_at": result.task.issue_at,
                 "input_grant_at": result.input_grant_at,
                 "input_done_at": result.input_done_at,
                 "compute_start_at": result.compute_start_at,
@@ -341,13 +359,17 @@ def profile_cpu_npu_contention() -> Dict[str, Any]:
         ClusterTask(input_bytes=192, output_bytes=192, compute_cycles=100, issue_at=85, name="npu_2"),
     ]
 
+    results = [cluster.submit(task) for task in npu_tasks]
+
+    horizon = max((task.issue_at + task.compute_cycles for task in npu_tasks), default=0) + 1_000
+    _flush_cluster(cluster, horizon=horizon)
+
     npu_timeline: List[Dict[str, Any]] = []
-    for task in npu_tasks:
-        result = cluster.submit(task)
+    for result in results:
         npu_timeline.append(
             {
-                "task": task.name,
-                "issue_at": task.issue_at,
+                "task": result.task.name,
+                "issue_at": result.task.issue_at,
                 "input_grant_at": result.input_grant_at,
                 "input_done_at": result.input_done_at,
                 "compute_start_at": result.compute_start_at,
@@ -384,13 +406,17 @@ def profile_virtual_npu_dma(tasks: List[ClusterTask]) -> Dict[str, Any]:
     bus = VirtualBus()
     cluster = NPUCluster(bus, cores=2, dma_master_id=1, policy=ClusterPolicy.MIN_FINISH_TIME)
 
+    results = [cluster.submit(task) for task in tasks]
+
+    horizon = max((task.issue_at + task.compute_cycles for task in tasks), default=0) + 1_000
+    _flush_cluster(cluster, horizon=horizon)
+
     timeline: List[Dict[str, Any]] = []
-    for task in tasks:
-        result = cluster.submit(task)
+    for result in results:
         timeline.append(
             {
-                "task": task.name,
-                "issue_at": task.issue_at,
+                "task": result.task.name,
+                "issue_at": result.task.issue_at,
                 "input_grant_at": result.input_grant_at,
                 "input_done_at": result.input_done_at,
                 "compute_start_at": result.compute_start_at,

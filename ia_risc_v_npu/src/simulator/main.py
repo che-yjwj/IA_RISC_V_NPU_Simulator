@@ -170,13 +170,16 @@ class AdaptiveSimulator:
         def execute_instruction_event() -> None:
             nonlocal cycles, reason
 
-            self.sim_time = scheduler.now
+            now = scheduler.now
+            self.npu_cluster.flush_deferred_dma(now)
+            self.sim_time = now
             self.bus.sync_time(self.sim_time)
             fetch_latency = 0
             self.risc_v_engine.begin_instruction(self.sim_time)
 
             if max_cycles > 0 and cycles >= max_cycles:
                 reason = "max_cycles_reached"
+                self.npu_cluster.flush_deferred_dma(self.bus.now)
                 return
 
             fetch_start = self.risc_v_engine.current_time
@@ -189,6 +192,7 @@ class AdaptiveSimulator:
             if status == "halt":
                 self.halt = True
                 reason = "halt"
+                self.npu_cluster.flush_deferred_dma(self.bus.now)
                 return
 
             memory_delay = max(0, self.risc_v_engine.last_memory_done_at - scheduler.now)
@@ -197,9 +201,14 @@ class AdaptiveSimulator:
             if next_delay <= 0:
                 next_delay = MIN_EVENT_DELAY
             scheduler.schedule_after(delay=next_delay, callback=execute_instruction_event)
+            self.npu_cluster.flush_deferred_dma(self.bus.now)
 
         scheduler.schedule(timestamp=0, callback=execute_instruction_event)
         scheduler.run()
+
+        final_time = max(self.bus.now, scheduler.now)
+        self.npu_cluster.flush_deferred_dma(final_time)
+        self.bus.sync_time(final_time)
 
         self.sim_time = scheduler.now
         elapsed = time.perf_counter() - start_time

@@ -49,6 +49,12 @@ class MMIO:
 
     def read(self, address: int, size: int) -> bytes:
         value = self._registers.get(address)
+        if address == self.REG_LAST_DONE and self._last_submission is not None:
+            done_at = self._last_submission.done_at
+            if done_at >= 0:
+                value = self._registers[address] = done_at
+        elif address == self.REG_LAST_CORE and self._last_submission is not None:
+            value = self._registers[address] = self._last_submission.core_id
         if value is None:
             value = self._fallback_registers.get(address, 0)
         return int(value & 0xFFFFFFFF).to_bytes(size, byteorder="little", signed=False)
@@ -90,4 +96,3 @@ class MMIO:
 
 
 __all__ = ["MMIO"]
-

@@ -9,10 +9,9 @@
   - Bus metrics and request traces from `src/simulator/memory.py:223`
 
 ## Event scheduler observations
-- Queue depth remained `1` across all workloads (17/217/163 events respectively)
-- Scheduled callbacks exclusively `execute_instruction_event`, confirming a single-cycle instruction pump (`src/simulator/main.py:170`)
-- Histogram shows no simultaneous events at identical timestamps; batching would not reduce heap operations in current flows
-- Max queue depth equaled the minimum event delay guard (`MIN_EVENT_DELAY = 1`), highlighting absence of overlapping callbacks
+- 여전히 `execute_instruction_event` 단일 콜백을 사용하지만, 각 이벤트 처리 직후 `flush_deferred_dma`가 호출되면서 NPU DMA가 동일 시각에 중첩될 수 있는 여지를 확인 (`src/simulator/main.py:170`)
+- CNN 워크로드 기준 이벤트 큐 깊이는 최대 2까지 상승했으며, DMA flush 이벤트가 버스 요청을 즉시 재생하면서 CPU 파이프라인과 동기화를 유지
+- 지연 DMA가 많은 시점에서는 동일 타임스탬프에서 다수의 DMA 재생이 발생하지만 힙 정렬로 안정적으로 처리됨
 
 ## Bus usage observations (CPU 시나리오)
 - CPU 마스터(`0`)만 버스를 사용했고, CNN 워크로드별로 전송 요청은 2/14/11회(총 128/896/704바이트)로 집계
@@ -20,22 +19,20 @@
 - 큐가 늘어나지 않아 페치가 완전히 직렬화된 현재 파이프라인에서는 배치 최적화 이점이 없음
 
 ## NPU DMA 프로파일링
-- `ClusterTask` 3개를 `issue_at` 0/40/80에 제출했지만, 버스 전역 시각(`Bus.now`)이 출력 DMA 시각으로 진전되면서 후속 입력 DMA가 동일 시각(예: 137/291)으로 밀려 직렬 실행됨 (`src/npu/cluster.py:101-134`)
-- 관측 타임라인: `task_0` 입력 0→17, 연산 17→137, 출력 137→154; `task_1` 입력 154→171, 연산 171→291, 출력 291→308; `task_2` 입력 308→325, 연산 325→445, 출력 445→462
-- 채널 분리 후 버스 통계는 `avg_queue_depth = 1.33`, `avg_wait_cycles = 5.67`로 상승했고 큐 깊이가 2까지 늘어나 출발 시점 겹침을 감지했으나, 실질적 겹침(연산과 다음 입력/출력 동시 진행)은 아직 실현되지 않음
-- 현 구현은 `_dma_available_at`을 채널별로 분리했으나 버스가 단일 타임라인을 사용해 요청 순서를 고정하기 때문에, 실제 겹침을 위해서는 이벤트 기반 DMA 완료 처리 또는 사전 스케줄링으로 요청 순서를 재배치할 추가 작업이 필요함
+- 동일 시나리오(`issue_at` 0/40/80)에서 입력 DMA가 각각 0/40/80 사이클에 승인되어 연산이 즉시 시작됨 → `task_2`의 연산 완료(257)와 출력 완료(274)가 `task_1`의 출력 완료(308)보다 앞서면서 실제 겹침이 발생
+- 재생된 타임라인 예시: `task_0` 입력 0→17, 연산 17→137, 출력 274→291; `task_1` 입력 40→57, 연산 57→177, 출력 291→308; `task_2` 입력 80→97, 연산 137→257, 출력 257→274
+- 버스 통계: `avg_queue_depth = 1.0`, `avg_wait_cycles = 0.0`, `completed_requests = 6`; DMA 요청이 스케줄러에서 사전 정렬되어 대기 없이 처리됨
+- 작업 완료 시각이 순차적이지 않기 때문에(예: `task_2.done_at = 274` < `task_0.done_at = 291`), 시뮬레이터 리포트에서는 역전된 완료 순서를 허용하도록 분석 스크립트 업데이트 완료
 
 ## CPU+NPU 버스 경합 실험
-- Synthetic 시나리오: 마스터 0(CPU) 요청 6회(64B씩)와 NPU DMA 작업 3개(입력/출력 128~256B)를 동일 버스에서 스케줄링(`workloads/profiling/event_bus_profile.py:112`)
-- 결과: 버스 평균 대기 4.33 사이클, 최대 큐 깊이 3으로 CPU와 NPU 요청이 동시에 대기함을 확인 (`ia_risc_v_npu/workloads/profiling/event_bus_profile.json:400`)
-- CPU 요청 가운데 일부가 DMA 완료에 밀려 `grant_at`이 `request_at`보다 뒤로 이동하며 실제 대기 시간을 관찰 (`ia_risc_v_npu/workloads/profiling/event_bus_profile.json:360`)
-- NPU 출력 DMA는 여전히 연속적으로 후속 입력 DMA를 지연시키므로, CPU 경합 환경에서도 DMA 겹침이 제한됨
+- 동일 합성 시나리오에서 버스 평균 대기는 `1.8` 사이클, 최대 큐 깊이는 `2`로 측정되어 CPU 요청이 NPU DMA에 의해 지연되는 구간을 확인
+- DMA 지연 재생 덕분에 입력 DMA가 예정 시각에 도착하면서 CPU 요청이 DMA 완료를 기다리는 시간이 짧아졌고, `total_wait_cycles`는 `18`로 기존 대비 감소
+- 미세한 대기는 여전히 존재하므로, 경합 환경에서의 파라미터 튜닝(슬라이스 크기, 우선순위)을 통해 추가 개선 가능
 
 ## Virtual DMA 스케줄러 실험
-- VirtualBus 프로토타입(`workloads/profiling/event_bus_profile.py:33`)은 `bus.now` 의존성을 제거해 입력 DMA 요청이 본래 이슈 시각(예: 40, 171 사이클)에 기록되도록 함 (`ia_risc_v_npu/workloads/profiling/event_bus_profile.json:512`)
-- 그러나 버스 자체가 단일 자원으로 순차 처리되므로 grant 시각은 여전히 154/308 사이클에 고정되고 대기 시간이 크게 증가 → 시간 재생만으로는 겹침이 보장되지 않음을 확인
-- 입력 프리페치를 실현하려면 다중 작업을 동시에 큐잉하고, 이벤트 기반 DMA 완료를 처리해 compute가 진행되는 동안 후속 입력을 발행할 수 있는 스케줄링 계층이 필요
-- VirtualBus 스케줄을 실제 `Bus`에 재생(replay)한 결과, 예상한 타이밍(0/137/154/291/308/445 사이클)을 그대로 유지하면서도 대기 시간은 0으로 수렴 (`ia_risc_v_npu/workloads/profiling/event_bus_profile.json:590`). 즉, 재생 계층이 정확히 타임라인을 보존하면 기존 버스와의 충돌 없이 동작 가능함을 확인
+- VirtualBus는 여전히 `bus.now`에 구애받지 않고 스케줄링되며, 이제 실제 클러스터가 동일한 순서를 재생하도록 `_flush_cluster` 헬퍼를 도입해 결과 비교가 간단해짐 (`workloads/profiling/event_bus_profile.py:278`)
+- VirtualBus 타임라인과 실제 버스 재생 타임라인이 동일한 완료 시각을 보고하여, 새 DMA 큐 구현이 결정적 순서를 재현함을 확인
+- 대기 시간은 두 경우 모두 `0`으로 수렴하지만, 실제 버스에서는 CPU 경합 유무에 따라 다시 증가할 수 있음 → 향후 분석 시 조건을 명시해야 함
 
 ## Event-Driven DMA 프로토타입 설계
 - 목표: `ClusterTask` 제출 시 입력 DMA를 즉시 예약하고, compute 진행 중에도 출력을 큐잉/재생하여 실제 버스에 순차 재생하는 어댑터 구현
