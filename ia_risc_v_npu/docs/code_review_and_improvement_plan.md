@@ -8,43 +8,74 @@ This document outlines key recommendations for improving the RISC-V NPU simulato
 
 ### 2.1. Test Environment Restoration and Enhancement (Priority: Critical)
 
-**Problem:**
-The `pytest` test suite is currently non-functional due to `ModuleNotFoundError` errors, preventing any automated verification of code changes. Additionally, tests are being terminated by the OS's OOM (Out-Of-Memory) killer, suggesting they are too resource-intensive.
+**Observations**
+- Running `pytest ia_risc_v_npu/tests/unit -q` currently fails with `ModuleNotFoundError: No module named 'src'` because the simulator packages are not installable and the runner cannot resolve `src.*` or `scripts.*`.
+- Integration workloads such as `ia_risc_v_npu/tests/integration/test_multilayer_cnn.py` allocate sizeable tensors and previously exhausted CI memory budgets.
 
-**Solution:**
-1.  **Resolve `PYTHONPATH` Issue:** Implement a standard Python project setup to ensure tests can run without manual environment variable configuration. This can be achieved by:
-    *   Configuring `pythonpaths` in the `pytest.ini` file.
-    *   Structuring the project to be installable in "editable" mode (`pip install -e .`).
-2.  **Refactor and Optimize Tests:**
-    *   Break down large, resource-heavy integration tests into smaller, focused unit tests for each component (`NPUCluster`, `Bus`, `MemorySystem`, etc.).
-    *   This will reduce the memory footprint of the test suite, prevent OOM errors, and allow for more precise identification of failures.
+**Checklist**
+- [ ] Extend `ia_risc_v_npu/pyproject.toml` with `[build-system]`/`[project]` metadata so the repository can be installed in editable mode.
+- [ ] Document the editable install flow (`pip install -e ia_risc_v_npu`) in `README.md` and `docs/development.md` so contributors drop the `PYTHONPATH` export.
+- [ ] Add explicit `__init__.py` files under `ia_risc_v_npu/src/`, `ia_risc_v_npu/src/npu/`, `ia_risc_v_npu/src/risc_v/`, `ia_risc_v_npu/src/simulator/`, and any other package directories that pytest imports.
+- [ ] Remove the `pythonpath = ia_risc_v_npu` override from `pytest.ini` once packaging is in place.
+- [ ] Add a pre-commit or CI smoke command that runs `pytest tests/unit -vv` after performing the editable install to catch path regressions early.
+- [ ] Measure peak memory usage of `tests/integration/test_multilayer_cnn.py` (and similar cases) to identify the sections that trigger OOM.
+- [ ] Extract large tensor preparation into reusable fixtures or synthetic stubs so unit tests validate behavior without materializing full workloads.
+- [ ] Retain a single high-level integration run with reduced tensor sizes to keep golden coverage while staying inside CI resource limits.
 
 ### 2.2. Centralized Configuration Management (Priority: High)
 
-**Problem:**
-Critical simulation parameters such as NPU core count, cache sizes, and memory timing values are hard-coded directly within the source code (e.g., in `src/simulator/main.py`). This makes it difficult to run different experiments without modifying the code.
+**Observations**
+- `src/simulator/cli.py` validates JSON configs, yet `src/simulator/main.py` still constructs the bus, caches, DRAM, and NPU with hard-coded defaults, so runtime tuning has no effect.
+- Workloads in `workloads/` must patch sources to explore new hardware permutations, slowing iteration.
 
-**Solution:**
-*   Externalize all simulation parameters into a dedicated configuration file (e.g., `config.yaml` or `config.json`).
-*   The simulator should load this file at startup to configure its components. This will allow researchers and developers to easily define and switch between different hardware configurations and scenarios.
+**Checklist**
+- [ ] Update `AdaptiveSimulator.__init__` to accept a `config: dict` parameter produced by `validate_simulator_config`.
+- [ ] Refactor simulator setup to read bus/cache/DRAM/SPM/NPU parameters from the supplied config instead of the current module constants.
+- [ ] Ensure deterministic options (`seed`, BLAS threads) are applied before component construction, matching the config values.
+- [ ] Pass the loaded config from `run_simulate` and `run_benchmark` into `AdaptiveSimulator`, including honoring `max_cycles` overrides.
+- [ ] Extend `tests/unit/simulator/test_config_validation.py` with assertions that edited config knobs alter instantiated component attributes.
+- [ ] Add new unit coverage for `AdaptiveSimulator` verifying cache/bus parameters change when the config values change.
+- [ ] Publish reference JSON configs under `workloads/<scenario>/configs/` and annotate their usage in the workload README files.
+- [ ] Add documentation to `docs/` describing how to swap hardware profiles via the CLI without modifying Python modules.
 
 ### 2.3. Refactor "Magic Numbers" (Priority: Medium)
 
-**Problem:**
-The code uses hard-coded integer literals ("magic numbers") to represent system-wide identifiers, such as `CPU_MASTER_ID = 0` and `NPU_DMA_MASTER_ID = 1`. This reduces readability and increases the risk of errors if these values need to be changed.
+**Observations**
+- Identifiers such as `CPU_MASTER_ID = 0`, `NPU_DMA_MASTER_ID = 1`, and memory-map constants in `src/simulator/main.py` leak throughout the code and tests, making refactors risky.
+- Similar literals appear in bus metrics and event scheduler tests, duplicating intent.
 
-**Solution:**
-*   Replace these magic numbers with a dedicated `Enum` (e.g., `MasterID`, `DeviceID`).
-*   Using named identifiers like `MasterID.CPU` and `MasterID.NPU_DMA` will make the code more self-documenting and easier to maintain.
+**Checklist**
+- [ ] Create a shared `src/simulator/identifiers.py` (or similar) that defines enums for bus masters, address ranges, and memory-mapped devices.
+- [ ] Replace raw literals such as `CPU_MASTER_ID = 0` and `DRAM_BASE = 0x0` in `AdaptiveSimulator` with references to the new enums/constants.
+- [ ] Update `Bus` and `NPUCluster` constructors to take enum values (with backward-compatible fallbacks) and adjust call sites accordingly.
+- [ ] Migrate unit tests to compare against enum members (`BusMasterID.CPU`) in assertions and fixtures.
+- [ ] Add regression tests that fail if mismatched enum values are provided, guaranteeing future contributors keep identifiers aligned.
+- [ ] Document the enums in developer docs so new modules extend the shared identifiers rather than inventing new magic numbers.
 
 ### 2.4. Enhanced Logging for Debugging (Priority: Low)
 
-**Problem:**
-The current level of logging is insufficient for debugging the complex, asynchronous interactions within the simulator. When unexpected behavior occurs, tracing the sequence of events can be challenging.
+**Observations**
+- `Bus` exposes metrics but publishes almost no runtime logging, and `NPUCluster`/`MemorySystem` operate silently, hindering async debugging.
+- Developers currently instrument ad-hoc prints when triaging pipeline stalls or cache issues.
 
-**Solution:**
-*   Implement detailed, multi-level logging in key components:
-    *   **Bus:** Log request queuing, granting, and completion.
-    *   **NPUCluster:** Log task submission, DMA queue state changes, and `flush` events.
-    *   **MemorySystem:** Log cache hits, misses, evictions, and write-backs.
-*   Using different log levels (e.g., `DEBUG`, `INFO`) will allow for fine-grained control over the verbosity of the output during debugging.
+**Checklist**
+- [ ] Add structured `LOGGER.debug` calls inside `Bus.request`, `_schedule`, and `sync_time` to trace grant/complete timings and queue depth.
+- [ ] Instrument `NPUCluster.submit`, `flush_deferred_dma`, and `metrics` to emit task-level lifecycle events when debug logging is enabled.
+- [ ] Extend cache miss handling in `MemorySystem` to log evictions, write-backs, and latency contributions at `DEBUG` level.
+- [ ] Modify `AdaptiveSimulator` to accept optional logger instances (or a factory) and propagate them to bus/NPU/memory components.
+- [ ] Introduce a CLI flag (e.g., `--log-level`, `--trace-bus`) that toggles the detailed logging without editing code.
+- [ ] Update developer docs with sample logging configurations and snippets showing how to enable targeted tracing during performance triage.
+
+### 2.5. Development Workflow & CI Hygiene (Priority: Medium)
+
+**Observations**
+- Tests import modules directly from `scripts/`, but packaging metadata is not yet defined, and developer docs describe `python` rather than `python3` entry points.
+- Tooling hooks (black/ruff) are configured but not enforced in CI or contributor guidance, and benchmark runs are manual.
+- Workload assets are generated ad-hoc, risking drift between developers.
+
+**Checklist**
+- [ ] Ensure the new packaging metadata includes the `scripts` package so `tests/unit/test_deterministic_env_script.py` passes after installation.
+- [ ] Update onboarding docs (`README.md`, `docs/development.md`) with the editable install workflow, explicit `python3` usage, and common CLI/test commands.
+- [ ] Add CI or pre-commit jobs to run `black --check` and `ruff`, aligning with the existing `pyproject.toml` configuration.
+- [ ] Document a lightweight benchmark smoke test (e.g., `python -m src.simulator.cli benchmark --instructions 1000`) and consider wiring it as an optional CI stage to catch major regressions.
+- [ ] Provide deterministic workload generation scripts under `workloads/` along with instructions for regenerating large tensors to keep version control lean.
