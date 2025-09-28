@@ -1,7 +1,8 @@
-import numpy as np
+import asyncio
 
 from src.simulator.determinism import configure_deterministic_environment
 from src.simulator.main import AdaptiveSimulator
+from src.simulator.cli import prepare_summary
 
 
 def test_configure_deterministic_environment_sets_env():
@@ -19,16 +20,20 @@ def test_configure_deterministic_environment_sets_env():
         assert env.get(key) == value
 
 
-def test_adaptive_simulator_produces_repeatable_random_choices():
-    # Force deterministic baseline before constructing the simulators.
-    configure_deterministic_environment(force=True, seed=42)
+def _run_fetch_summary(seed: int) -> dict:
+    configure_deterministic_environment(force=True, seed=seed)
+    simulator = AdaptiveSimulator()
+    program = [0x003100B3] * 8
+    simulator.load_program(program)
 
-    sim_a = AdaptiveSimulator()
-    choices_a = np.copy(sim_a.timing_hooks.random_choices)
+    async def scenario() -> dict:
+        report = await simulator.run_simulation(max_cycles=16)
+        return prepare_summary(report, simulator.risc_v_engine.instruction_count)["fetch_metrics"]
 
-    # Force re-configuration to reset the RNG state for a true apples-to-apples comparison
-    configure_deterministic_environment(force=True, seed=42)
-    sim_b = AdaptiveSimulator()
-    choices_b = np.copy(sim_b.timing_hooks.random_choices)
+    return asyncio.run(scenario())
 
-    assert np.array_equal(choices_a, choices_b)
+
+def test_adaptive_simulator_fetch_metrics_repeatable():
+    metrics_a = _run_fetch_summary(seed=7)
+    metrics_b = _run_fetch_summary(seed=7)
+    assert metrics_a == metrics_b

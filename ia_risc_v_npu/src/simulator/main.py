@@ -15,10 +15,9 @@ if __package__ is None:
     if project_root_str not in sys.path:
         sys.path.insert(0, project_root_str)
 
-from src.risc_v.engine import RISCVEngine
+from src.risc_v.engine import RISCVEngine, WORD_SIZE_BYTES
 from src.simulator.determinism import configure_deterministic_environment
 from src.simulator.events import EventScheduler
-from src.simulator.hooks import TimingHookSystem
 from src.npu.cluster import ClusterPolicy, NPUCluster
 from src.npu.model import NPU
 from src.simulator.memory import MemorySystem, SPM, Bus
@@ -67,10 +66,9 @@ class AdaptiveSimulator:
     def __init__(
         self,
         *,
-        timing_hooks: Optional[TimingHookSystem] = None,
         logger: Optional[logging.Logger] = None,
     ) -> None:
-        # Ensure deterministic seeding before any timing hooks or models allocate RNG state.
+        # Ensure deterministic seeding before any timing models allocate RNG state.
         configure_deterministic_environment()
         self.bus = Bus()
         self.dram = bytearray(DRAM_SIZE)
@@ -96,13 +94,19 @@ class AdaptiveSimulator:
             self.memory_system,
             master_id=CPU_MASTER_ID,
         )
-        self.timing_hooks = timing_hooks or TimingHookSystem()
         self.scheduler: Optional[EventScheduler] = None
         # self.event_system = EventBasedSystem() # This will be implemented later
         # self.fidelity_controller = FidelityController() # This will be implemented later
         self.halt = False
         self.sim_time = 0
         self.logger = logger or logging.getLogger(__name__)
+        self._fetch_stats = {
+            "fetches": 0,
+            "misses": 0,
+            "total_latency": 0,
+            "total_penalty": 0,
+        }
+        self._fetch_hit_latency = self.memory_system.front_hit_latency()
 
     def load_program(
         self,
@@ -158,6 +162,7 @@ class AdaptiveSimulator:
         cycles = 0
         reason = "completed"
         start_time = time.perf_counter()
+        self._reset_fetch_stats()
 
         scheduler = EventScheduler()
         self.scheduler = scheduler
@@ -167,11 +172,16 @@ class AdaptiveSimulator:
 
             self.sim_time = scheduler.now
             self.bus.sync_time(self.sim_time)
+            fetch_latency = 0
             self.risc_v_engine.begin_instruction(self.sim_time)
 
             if max_cycles > 0 and cycles >= max_cycles:
                 reason = "max_cycles_reached"
                 return
+
+            fetch_start = self.risc_v_engine.current_time
+            fetch_latency = self._issue_fetch(fetch_start)
+            self.risc_v_engine.register_fetch_latency(fetch_latency, now=fetch_start)
 
             status = self.risc_v_engine.execute_instruction()
             cycles += 1
@@ -181,11 +191,9 @@ class AdaptiveSimulator:
                 reason = "halt"
                 return
 
-            latency = self.timing_hooks.fetch_hook(self.risc_v_engine.pc, 0)
-            self.risc_v_engine.register_fetch_latency(latency, now=scheduler.now)
             memory_delay = max(0, self.risc_v_engine.last_memory_done_at - scheduler.now)
             pipeline_delay = max(0, self.risc_v_engine.pipeline_ready_at - scheduler.now)
-            next_delay = max(latency, memory_delay, pipeline_delay)
+            next_delay = max(fetch_latency, memory_delay, pipeline_delay)
             if next_delay <= 0:
                 next_delay = MIN_EVENT_DELAY
             scheduler.schedule_after(delay=next_delay, callback=execute_instruction_event)
@@ -198,7 +206,7 @@ class AdaptiveSimulator:
         cache_metrics = self.memory_system.cache_metrics()
         memory_metrics = self.memory_system.memory_metrics()
         bus_metrics = self.bus.metrics.snapshot()
-        fetch_metrics = self.timing_hooks.metrics() if hasattr(self.timing_hooks, "metrics") else {}
+        fetch_metrics = self._fetch_metrics()
         npu_metrics = self.npu_cluster.metrics(sim_time=self.sim_time)
         stall_breakdown = {
             "icache": fetch_metrics.get("miss_penalty_cycles", 0.0),
@@ -220,6 +228,46 @@ class AdaptiveSimulator:
             npu_metrics=npu_metrics,
             fetch_metrics=fetch_metrics,
         )
+
+    def _issue_fetch(self, start_time: int) -> int:
+        done_at = self.memory_system.load(
+            address=self.risc_v_engine.pc,
+            size=WORD_SIZE_BYTES,
+            request_time=start_time,
+            master_id=CPU_MASTER_ID,
+        )
+        latency = max(0, done_at - start_time)
+        self._record_fetch_latency(latency)
+        return latency
+
+    def _record_fetch_latency(self, latency: int) -> None:
+        self._fetch_stats["fetches"] += 1
+        self._fetch_stats["total_latency"] += latency
+        penalty = max(0, latency - self._fetch_hit_latency)
+        if penalty > 0:
+            self._fetch_stats["misses"] += 1
+            self._fetch_stats["total_penalty"] += penalty
+
+    def _reset_fetch_stats(self) -> None:
+        for key in self._fetch_stats:
+            self._fetch_stats[key] = 0
+
+    def _fetch_metrics(self) -> Dict[str, float | int]:
+        fetches = self._fetch_stats["fetches"]
+        misses = self._fetch_stats["misses"]
+        total_latency = self._fetch_stats["total_latency"]
+        total_penalty = self._fetch_stats["total_penalty"]
+        miss_rate = (misses / fetches) if fetches else 0.0
+        hit_rate = 1.0 - miss_rate if fetches else 0.0
+        average_latency = (total_latency / fetches) if fetches else 0.0
+        return {
+            "fetches": fetches,
+            "misses": misses,
+            "hit_rate": hit_rate,
+            "miss_rate": miss_rate,
+            "average_latency": average_latency,
+            "miss_penalty_cycles": total_penalty,
+        }
 
 
 async def demo(max_cycles: int = 200_000) -> SimulationReport:

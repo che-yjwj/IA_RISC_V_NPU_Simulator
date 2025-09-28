@@ -101,10 +101,14 @@
 
 ## Phase 8 – 테스트/벤치/정리 (주 10–12)
 
-- [ ] 결정성 테스트: 동일 입력 다회 실행 동일 타임라인
-- [ ] 성능 벤치: 8–12 MIPS 범위 확인(간단 ADD 워크로드 기준)
-- [ ] 문서 갱신: README, PRD 링크, 기술 설계서/작업 문서 최신화
-- [ ] 레거시 훅 코드 제거 및 주석 정리
+- [x] 결정성 테스트: 동일 입력 다회 실행 동일 타임라인
+  - 완료: `tests/integration/test_deterministic_simulation.py`에서 동일 워크로드를 두 번 실행해 `prepare_summary` 해시를 비교하도록 추가.
+- [x] 성능 벤치: 8–12 MIPS 범위 확인(간단 ADD 워크로드 기준)
+  - 완료: CLI `benchmark`에 `--min-mips/--max-mips` 가드를 도입하고 `tests/performance/test_benchmark_gate.py`로 통과/실패 시나리오 검증.
+- [x] 문서 갱신: README, PRD 링크, 기술 설계서/작업 문서 최신화
+  - 완료: README, `docs/final_simulator_documentation.md`, `docs/prd.md`에 이벤트 전용 파이프라인, 결정성 회귀, MIPS 가드 설명 반영.
+- [x] 레거시 훅 코드 제거 및 주석 정리
+  - 완료: `TimingHookSystem`과 관련 유닛 테스트를 제거하고 `AdaptiveSimulator`가 메모리 계층을 통해 페치 지연과 메트릭을 산출하도록 재구성.
 
 ---
 
@@ -121,8 +125,7 @@
 
 ## 코드 연결 고리(참고)
 
-- 스케줄러 진입점: ia_risc_v_npu/src/simulator/main.py:40
-- 훅 제거 대상: ia_risc_v_npu/src/simulator/hooks.py:4
+- 스케줄러 진입점 및 페치 경로: ia_risc_v_npu/src/simulator/main.py:40
 - 버스/메모리: ia_risc_v_npu/src/simulator/memory.py:1
 - CPU IA: ia_risc_v_npu/src/risc_v/engine.py:1
 - NPU 모델(현행 단일): ia_risc_v_npu/src/npu/model.py:1

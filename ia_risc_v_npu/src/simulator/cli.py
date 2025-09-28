@@ -249,6 +249,30 @@ def _measure_performance(simulator: AdaptiveSimulator, max_cycles: int) -> tuple
     return result, metrics
 
 
+def _evaluate_mips_guard(
+    metrics: BenchmarkMetrics,
+    *,
+    min_mips: float | None,
+    max_mips: float | None,
+) -> dict[str, float | bool | None] | None:
+    if min_mips is None and max_mips is None:
+        return None
+
+    measured = metrics.mips
+    passed = True
+    if min_mips is not None and measured < min_mips:
+        passed = False
+    if max_mips is not None and measured > max_mips:
+        passed = False
+
+    return {
+        "min_mips": min_mips,
+        "max_mips": max_mips,
+        "measured_mips": measured,
+        "passed": passed,
+    }
+
+
 def run_benchmark(args: argparse.Namespace) -> int:
     configure_logging(args.verbose)
     config = load_config(args.config)
@@ -298,6 +322,24 @@ def run_benchmark(args: argparse.Namespace) -> int:
         summary["accuracy_guard"] = guard_outcome.payload
         exit_code = 0 if guard_outcome.passed else 1
 
+    min_mips = getattr(args, "min_mips", None)
+    max_mips = getattr(args, "max_mips", None)
+    mips_guard = _evaluate_mips_guard(
+        metrics,
+        min_mips=min_mips,
+        max_mips=max_mips,
+    )
+    if mips_guard is not None:
+        summary["mips_guard"] = mips_guard
+        if not mips_guard["passed"]:
+            LOGGER.error(
+                "Measured MIPS %.2f outside guard range (min=%s, max=%s)",
+                metrics.mips,
+                args.min_mips,
+                args.max_mips,
+            )
+            exit_code = 1
+
     write_output(summary, args.output)
     return exit_code
 
@@ -337,6 +379,18 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=0,
         help="Optional cycle cap for the benchmark run",
+    )
+    benchmark_parser.add_argument(
+        "--min-mips",
+        type=float,
+        default=None,
+        help="Fail the benchmark if measured MIPS falls below this threshold",
+    )
+    benchmark_parser.add_argument(
+        "--max-mips",
+        type=float,
+        default=None,
+        help="Fail the benchmark if measured MIPS exceeds this threshold",
     )
     benchmark_parser.add_argument(
         "--config", type=Path, default=None, help="Path to a JSON config file with simulation options"
