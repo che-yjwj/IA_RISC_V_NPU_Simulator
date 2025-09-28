@@ -191,6 +191,10 @@ def test_memory_system_cache_hit_latency():
     stats = memory.cache_stats()
     assert stats["L1"]["hits"] == 1
     assert stats["L1"]["misses"] == 1
+    metrics = memory.memory_metrics()
+    assert metrics["total_requests"] == 2
+    assert metrics["load_requests"] == 2
+    assert metrics["average_latency_cycles"] >= 0
 
 
 def test_memory_system_writeback_on_eviction():
@@ -233,3 +237,6 @@ def test_memory_system_writeback_on_eviction():
     assert stats["L1"]["misses"] == 3
     assert stats["L2"]["hits"] == 2
     assert stats["L2"]["misses"] == 3
+    mem_metrics = memory.memory_metrics()
+    assert mem_metrics["total_requests"] == 3
+    assert mem_metrics["store_requests"] == 3

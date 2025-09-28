@@ -78,6 +78,9 @@ class NPUCluster:
         self._rr_index = 0
         self._dma_available_at = 0
         self.history: list[SubmissionResult] = []
+        self._total_compute_cycles = 0
+        self._total_wait_cycles = 0
+        self._last_completion = 0
 
     def submit(
         self,
@@ -102,6 +105,9 @@ class NPUCluster:
 
         compute_start_at = max(self.core_free_at[core_id], input_done_at)
         compute_done_at = compute_start_at + task.compute_cycles
+        wait_cycles = max(0, compute_start_at - task.issue_at)
+        self._total_wait_cycles += wait_cycles
+        self._total_compute_cycles += max(0, task.compute_cycles)
 
         if task.operation is not None:
             task.operation(self.compute_engine)
@@ -113,6 +119,7 @@ class NPUCluster:
 
         done_at = max(compute_done_at, output_done_at)
         self.core_free_at[core_id] = done_at
+        self._last_completion = max(self._last_completion, done_at)
 
         result = SubmissionResult(
             task=task,
@@ -131,6 +138,21 @@ class NPUCluster:
 
         self.history.append(result)
         return result
+
+    def metrics(self, *, sim_time: int | None = None) -> dict[str, float | int]:
+        horizon = sim_time if sim_time and sim_time > 0 else self._last_completion
+        capacity = horizon * self.cores if horizon > 0 else 0
+        utilization = (
+            self._total_compute_cycles / capacity if capacity > 0 else 0.0
+        )
+        return {
+            "cores": self.cores,
+            "tasks": len(self.history),
+            "utilization": utilization,
+            "compute_cycles": self._total_compute_cycles,
+            "wait_cycles": self._total_wait_cycles,
+            "horizon_cycles": horizon,
+        }
 
     def _perform_dma(self, *, size_bytes: int, request_at: int) -> tuple[int, int]:
         if size_bytes == 0:
