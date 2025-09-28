@@ -76,7 +76,10 @@ class NPUCluster:
 
         self.core_free_at = [0 for _ in range(cores)]
         self._rr_index = 0
-        self._dma_available_at = 0
+        self._dma_available_at = {
+            "input": 0,
+            "output": 0,
+        }
         self.history: list[SubmissionResult] = []
         self._total_compute_cycles = 0
         self._total_wait_cycles = 0
@@ -101,6 +104,7 @@ class NPUCluster:
         input_grant_at, input_done_at = self._perform_dma(
             size_bytes=task.input_bytes,
             request_at=task.issue_at,
+            channel="input",
         )
 
         compute_start_at = max(self.core_free_at[core_id], input_done_at)
@@ -115,6 +119,7 @@ class NPUCluster:
         output_grant_at, output_done_at = self._perform_dma(
             size_bytes=task.output_bytes,
             request_at=compute_done_at,
+            channel="output",
         )
 
         done_at = max(compute_done_at, output_done_at)
@@ -154,23 +159,26 @@ class NPUCluster:
             "horizon_cycles": horizon,
         }
 
-    def _perform_dma(self, *, size_bytes: int, request_at: int) -> tuple[int, int]:
+    def _perform_dma(self, *, size_bytes: int, request_at: int, channel: str) -> tuple[int, int]:
+        if channel not in self._dma_available_at:
+            raise ValueError(f"Unknown DMA channel: {channel}")
+
         if size_bytes == 0:
-            anchor = max(request_at, self.bus.now, self._dma_available_at)
-            self._dma_available_at = anchor
+            anchor = max(request_at, self.bus.now, self._dma_available_at[channel])
+            self._dma_available_at[channel] = anchor
             return anchor, anchor
 
         if size_bytes < 0:
             raise ValueError("DMA 전송 크기는 음수가 될 수 없습니다.")
 
-        request_time = max(request_at, self.bus.now, self._dma_available_at)
+        request_time = max(request_at, self.bus.now, self._dma_available_at[channel])
         self.bus.sync_time(request_time)
         grant_at, done_at = self.bus.request(
             master_id=self.dma_master_id,
             bytes=size_bytes,
             request_at=request_time,
         )
-        self._dma_available_at = done_at
+        self._dma_available_at[channel] = done_at
         return grant_at, done_at
 
     def _select_core(self, task: ClusterTask, policy: ClusterPolicy) -> int:
