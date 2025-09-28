@@ -1,0 +1,25 @@
+{
+  "cycles": 2,
+  "instructions_executed": 2,
+  "sim_time": 1,
+  "miss_rates": {
+    "l1": 0.0,
+    "l2": 0.0,
+    "icache": 0.0
+  },
+  "bus_metrics": {
+    "completed_requests": 0
+  },
+  "memory_metrics": {
+    "total_requests": 0
+  },
+  "npu_metrics": {
+    "cores": 2,
+    "tasks": 0
+  },
+  "fetch_metrics": {
+    "fetches": 1,
+    "hit_rate": 1.0,
+    "miss_rate": 0.0
+  }
+}

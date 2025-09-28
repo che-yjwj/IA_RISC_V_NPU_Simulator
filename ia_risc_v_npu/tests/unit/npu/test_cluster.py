@@ -103,3 +103,24 @@ def test_submit_handles_zero_dma_and_invokes_operation() -> None:
     assert result.compute_done_at == result.compute_start_at + 7
     assert result.output_done_at == result.compute_done_at
     assert bus.metrics.completed_requests == 0
+
+
+def test_cluster_metrics_reports_utilisation() -> None:
+    bus = _make_bus()
+    cluster = NPUCluster(bus, cores=2)
+
+    task = ClusterTask(
+        name="conv",
+        input_bytes=32,
+        output_bytes=16,
+        compute_cycles=12,
+        issue_at=5,
+    )
+
+    cluster.submit(task)
+    metrics = cluster.metrics(sim_time=40)
+
+    assert metrics["cores"] == 2
+    assert metrics["tasks"] == 1
+    assert 0.0 <= metrics["utilization"] <= 1.0
+    assert metrics["wait_cycles"] >= 0

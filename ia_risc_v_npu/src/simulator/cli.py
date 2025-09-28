@@ -20,6 +20,12 @@ try:  # pragma: no cover - mirrors ELFFile guard
 except ImportError:  # pragma: no cover - pyelftools optional at runtime
     SH_FLAGS = None  # type: ignore[assignment]
 
+from src.simulator.accuracy import AccuracyGuardError, evaluate_accuracy_guard
+from src.simulator.config import (
+    ConfigValidationError,
+    default_simulator_config,
+    validate_simulator_config,
+)
 from src.simulator.main import AdaptiveSimulator, SimulationReport, DRAM_BASE, DRAM_SIZE
 from src.simulator.program import ProgramImage, ProgramSegment
 
@@ -44,7 +50,7 @@ def configure_logging(verbose: bool) -> None:
 
 def load_config(config_path: Optional[Path]) -> dict:
     if not config_path:
-        return {}
+        return default_simulator_config()
     try:
         with config_path.open("r", encoding="utf-8") as handle:
             data = json.load(handle)
@@ -55,7 +61,11 @@ def load_config(config_path: Optional[Path]) -> dict:
 
     if not isinstance(data, dict):
         raise CLIError("Config file must contain a JSON object")
-    return data
+
+    try:
+        return validate_simulator_config(data)
+    except ConfigValidationError as exc:
+        raise CLIError(f"Invalid configuration: {exc}") from exc
 
 
 def _extract_instruction_words(data: bytes) -> List[int]:
@@ -127,25 +137,47 @@ def load_program_image(elf_path: Path) -> ProgramImage:
     )
 
 
-def write_output(
+def prepare_summary(
     result: SimulationReport,
-    output_path: Optional[Path],
     instruction_count: int,
     *,
     extra: Optional[dict] = None,
-) -> None:
+) -> dict:
     summary = {
         "cycles": result.cycles,
         "halted": result.halted,
         "reason": result.reason,
         "sim_time": result.sim_time,
         "instructions_executed": instruction_count,
+        "elapsed_seconds": result.elapsed_seconds,
+        "mips": result.mips,
         "bus_metrics": result.bus_metrics,
+        "cache_metrics": result.cache_metrics,
+        "memory_metrics": result.memory_metrics,
+        "stall_breakdown": result.stall_breakdown,
+        "npu_metrics": result.npu_metrics,
+        "fetch_metrics": result.fetch_metrics,
     }
+    miss_rates = {
+        name.lower(): metrics.get("miss_rate", 0.0)
+        for name, metrics in result.cache_metrics.items()
+    }
+    if result.fetch_metrics:
+        miss_rates["icache"] = result.fetch_metrics.get("miss_rate", 0.0)
+    summary["miss_rates"] = miss_rates
+    summary["amat_cycles"] = result.memory_metrics.get("average_latency_cycles", 0.0)
+    summary["npu_util"] = result.npu_metrics.get("utilization", 0.0)
     if extra:
         summary.update(extra)
+    return summary
+
+
+def write_output(summary: dict, output_path: Optional[Path]) -> None:
     LOGGER.info(
-        "Simulation finished: cycles=%s halted=%s reason=%s", result.cycles, result.halted, result.reason
+        "Simulation finished: cycles=%s halted=%s reason=%s",
+        summary.get("cycles"),
+        summary.get("halted"),
+        summary.get("reason"),
     )
     if output_path:
         try:
@@ -167,8 +199,22 @@ def run_simulate(args: argparse.Namespace) -> int:
     LOGGER.debug("Loaded %s bytes (%s instructions)", program.text_size, len(program.instructions))
 
     result = asyncio.run(simulator.run_simulation(max_cycles=max_cycles))
-    write_output(result, args.output, simulator.risc_v_engine.instruction_count)
-    return 0
+    summary = prepare_summary(result, simulator.risc_v_engine.instruction_count)
+
+    guard_config = config.get("accuracy_guard", {})
+    base_path = args.config.parent if args.config else Path.cwd()
+    try:
+        guard_outcome = evaluate_accuracy_guard(summary, guard_config, base_path=base_path)
+    except AccuracyGuardError as exc:
+        raise CLIError(str(exc)) from exc
+
+    exit_code = 0
+    if guard_outcome is not None:
+        summary["accuracy_guard"] = guard_outcome.payload
+        exit_code = 0 if guard_outcome.passed else 1
+
+    write_output(summary, args.output)
+    return exit_code
 
 
 def _generate_synthetic_program(length: int) -> ProgramImage:
@@ -231,16 +277,29 @@ def run_benchmark(args: argparse.Namespace) -> int:
         metrics.mips,
     )
 
-    write_output(
+    summary = prepare_summary(
         result,
-        args.output,
         simulator.risc_v_engine.instruction_count,
         extra={
             "elapsed_seconds": metrics.elapsed_seconds,
             "mips": metrics.mips,
         },
     )
-    return 0
+
+    guard_config = config.get("accuracy_guard", {})
+    base_path = args.config.parent if args.config else Path.cwd()
+    try:
+        guard_outcome = evaluate_accuracy_guard(summary, guard_config, base_path=base_path)
+    except AccuracyGuardError as exc:
+        raise CLIError(str(exc)) from exc
+
+    exit_code = 0
+    if guard_outcome is not None:
+        summary["accuracy_guard"] = guard_outcome.payload
+        exit_code = 0 if guard_outcome.passed else 1
+
+    write_output(summary, args.output)
+    return exit_code
 
 
 def build_parser() -> argparse.ArgumentParser:

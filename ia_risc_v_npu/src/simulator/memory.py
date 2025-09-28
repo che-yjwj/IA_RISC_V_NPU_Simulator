@@ -87,6 +87,9 @@ class BusMetrics:
             "avg_transfer_cycles": self.average_transfer_cycles(),
             "avg_queue_depth": self.average_queue_depth(),
             "max_queue_depth": self.max_queue_depth,
+            "total_wait_cycles": self.total_wait_cycles,
+            "total_transfer_cycles": self.total_transfer_cycles,
+            "total_grant_latency_cycles": self.total_grant_latency_cycles,
         }
 
 
@@ -538,15 +541,63 @@ class MemorySystem:
         self._caches.append(CacheLevel(l1_config))
         self._caches.append(CacheLevel(l2_config))
         self._now = 0
+        self._reset_stats()
 
     def reset(self) -> None:
         self.dram.reset()
         for cache in self._caches:
             cache.reset()
         self._now = 0
+        self._reset_stats()
 
     def cache_stats(self) -> Dict[str, Dict[str, int]]:
         return {cache.config.name: cache.stats() for cache in self._caches}
+
+    def cache_metrics(self) -> Dict[str, Dict[str, float | int]]:
+        metrics: Dict[str, Dict[str, float | int]] = {}
+        for cache in self._caches:
+            counters = cache.stats()
+            total = counters["hits"] + counters["misses"]
+            miss_rate = counters["misses"] / total if total else 0.0
+            metrics[cache.config.name] = {
+                "hits": counters["hits"],
+                "misses": counters["misses"],
+                "miss_rate": miss_rate,
+            }
+        return metrics
+
+    def memory_metrics(self) -> Dict[str, float | int]:
+        load_requests = self._stats["load_requests"]
+        store_requests = self._stats["store_requests"]
+        total_requests = load_requests + store_requests
+        total_latency = self._stats["total_latency_cycles"]
+        average_latency = total_latency / total_requests if total_requests else 0.0
+        return {
+            "load_requests": load_requests,
+            "store_requests": store_requests,
+            "total_requests": total_requests,
+            "total_latency_cycles": total_latency,
+            "average_latency_cycles": average_latency,
+            "bus_transaction_latency_cycles": self._stats["bus_transaction_latency_cycles"],
+            "dram_wait_cycles": self._stats["dram_latency_cycles"],
+        }
+
+    def _reset_stats(self) -> None:
+        self._stats = {
+            "load_requests": 0,
+            "store_requests": 0,
+            "total_latency_cycles": 0,
+            "bus_transaction_latency_cycles": 0,
+            "dram_latency_cycles": 0,
+        }
+
+    def _record_access(self, *, access_type: str, start_time: int, done_at: int) -> None:
+        latency = max(0, done_at - start_time)
+        self._stats["total_latency_cycles"] += latency
+        if access_type == "read":
+            self._stats["load_requests"] += 1
+        else:
+            self._stats["store_requests"] += 1
 
     def _resolve_start_time(self, request_time: Optional[int]) -> int:
         if request_time is None:
@@ -626,7 +677,10 @@ class MemorySystem:
             request_at=request_time,
         )
         dram_done = self.dram.access(address, size, request_time=request_time)
-        return max(bus_done, dram_done)
+        completion = max(bus_done, dram_done)
+        self._stats["bus_transaction_latency_cycles"] += max(0, bus_done - request_time)
+        self._stats["dram_latency_cycles"] += max(0, dram_done - request_time)
+        return completion
 
     def _process_range(
         self,
@@ -663,6 +717,7 @@ class MemorySystem:
             remaining -= chunk
 
         self._now = max(self._now, done_at)
+        self._record_access(access_type=access_type, start_time=start_time, done_at=done_at)
         return done_at
 
     def load(

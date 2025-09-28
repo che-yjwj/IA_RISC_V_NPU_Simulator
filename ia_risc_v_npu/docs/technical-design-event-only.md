@@ -128,15 +128,22 @@ API
 
 검증
 - 필수 키 타입/범위 확인, 누락 시 실패. schema_version 예약.
+- 구현: `src/simulator/config.validate_simulator_config`가 JSON을 정규화하고 잘못된 값은 `ConfigValidationError`로 거부.
 
 CLI 연계
 - simulate/benchmark 명령의 --config를 위 스키마로 검증 후 주입.
 - 결정성 모드: OPENBLAS_NUM_THREADS/MKL_NUM_THREADS=1 강제, numpy RNG 시드 설정.
 
 리포트
-- cycles, instructions, sim_time, mips, cpi
-- miss_rates(L1/L2), AMAT, stall_breakdown{icache,dram,bus,npu_wait}
-- npu_util, top_bottlenecks(상위 리소스 대기 비중)
+- cycles, instructions, sim_time, elapsed_seconds, mips
+- bus_metrics(대기/전송 집계), cache_metrics(히트/미스·miss_rate), memory_metrics(average_latency, bus_transaction_latency)
+- fetch_metrics(미스율, miss_penalty), stall_breakdown{icache,bus,dram,npu_wait}, npu_metrics(utilization 포함)
+- `prepare_summary`가 CLI/파일 출력에 miss_rates·AMAT·npu_util 계산을 포함
+
+정확도 가드
+- 구성: `accuracy_guard.enabled/golds_path/max_average_deviation/max_single_deviation`
+- 구현: `src/simulator/accuracy.evaluate_accuracy_guard`가 골든 요약(JSON)을 평탄화하여 편차 계산, 기준 초과 시 CLI 종료코드 1 반환 후 요약에 `accuracy_guard` 섹션 기록
+- 샘플: `workloads/demos/accuracy_guard/`에 구성/골든/README 제공
 
 ---
 

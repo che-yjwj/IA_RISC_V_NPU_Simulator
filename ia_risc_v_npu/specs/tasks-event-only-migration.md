@@ -87,12 +87,15 @@
 
 ## Phase 7 – 구성/리포트/정확도 가드 (주 8–10)
 
-- [ ] JSON 스키마 검증기(필수키/범위/열거형), schema_version 예약
+- [x] JSON 스키마 검증기(필수키/범위/열거형), schema_version 예약
   - 수용기준: 잘못된 구성 시 시뮬레이터 시작 실패
-- [ ] 리포트 확장: miss_rates, AMAT, stall_breakdown, npu_util
+  - 완료: `src/simulator/config.py`에서 기본값/검증 로직 제공, CLI 로딩 시 `ConfigValidationError`로 실패 처리
+- [x] 리포트 확장: miss_rates, AMAT, stall_breakdown, npu_util
   - 수용기준: CLI 출력/파일에 지표 포함
-- [ ] 정확도 가드 파이프라인(골든 대비 편차 계산)
+  - 완료: `SimulationReport`에 캐시/메모리/NPU/페치 메트릭 추가, `prepare_summary`가 miss_rates·AMAT·stall_breakdown·npu_util 계산/노출
+- [x] 정확도 가드 파이프라인(골든 대비 편차 계산)
   - 수용기준: 임계 초과 시 실패 코드 반환 및 요약 출력
+  - 완료: `src/simulator/accuracy.py` 도입, CLI에서 골든 요약 비교 후 실패 시 종료코드 1 반환 및 `accuracy_guard` 섹션 기록. 데모 워크로드(`workloads/demos/accuracy_guard/`)로 사용법 예시 제공
 
 ---
 

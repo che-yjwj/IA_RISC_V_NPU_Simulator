@@ -74,10 +74,21 @@ class FakeELF:
 
 def test_load_config_reads_json(tmp_path):
     config_path = tmp_path / "config.json"
-    config_path.write_text(json.dumps({"max_cycles": 10}), encoding="utf-8")
+    config_path.write_text(
+        json.dumps({
+            "max_cycles": 10,
+            "cpu": {"execution": {"mul_latency": 5}},
+        }),
+        encoding="utf-8",
+    )
 
     data = load_config(config_path)
-    assert data == {"max_cycles": 10}
+    assert data["schema_version"] == 1
+    assert data["max_cycles"] == 10
+    assert data["cpu"]["execution"]["mul_latency"] == 5
+    # Defaults remain intact for unspecified keys
+    assert data["cpu"]["execution"]["div_latency"] == 10
+    assert data["cache"]["l1"]["size_bytes"] == 32 * 1024
 
 
 def test_load_program_image_uses_text_section(tmp_path, monkeypatch):
@@ -127,6 +138,14 @@ def test_load_program_image_requires_load_segments(tmp_path, monkeypatch):
         load_program_image(elf_path)
 
 
+def test_load_config_invalid_schema(tmp_path):
+    config_path = tmp_path / "invalid.json"
+    config_path.write_text(json.dumps({"schema_version": 999}), encoding="utf-8")
+
+    with pytest.raises(CLIError):
+        load_config(config_path)
+
+
 def test_run_simulate_writes_summary(tmp_path, monkeypatch):
     elf_path = tmp_path / "program.elf"
     elf_path.write_bytes(b"ELF")
@@ -156,6 +175,12 @@ def test_run_simulate_writes_summary(tmp_path, monkeypatch):
     assert summary["reason"] == "halt"
     assert summary["instructions_executed"] == 1
     assert "bus_metrics" in summary
+    assert "miss_rates" in summary
+    assert "l1" in summary["miss_rates"]
+    assert "amat_cycles" in summary
+    assert "stall_breakdown" in summary
+    assert "npu_util" in summary
+    assert "accuracy_guard" not in summary
 
 
 def test_run_benchmark_synthetic(tmp_path):
@@ -179,3 +204,101 @@ def test_run_benchmark_synthetic(tmp_path):
     assert summary["mips"] > 0
     assert summary["elapsed_seconds"] > 0
     assert "bus_metrics" in summary
+    assert "miss_rates" in summary
+    assert "amat_cycles" in summary
+    assert "npu_util" in summary
+
+
+def _make_program_image() -> ProgramImage:
+    segment = ProgramSegment(address=0, data=(0).to_bytes(4, "little"), mem_size=4)
+    return ProgramImage(
+        instructions=[0],
+        text_size=4,
+        entry_point=0,
+        segments=[segment],
+    )
+
+
+def test_run_simulate_with_accuracy_guard_pass(tmp_path, monkeypatch):
+    elf_path = tmp_path / "program.elf"
+    elf_path.write_bytes(b"ELF")
+    output_path = tmp_path / "summary.json"
+    golden_path = tmp_path / "golden.json"
+
+    program_image = _make_program_image()
+    monkeypatch.setattr("src.simulator.cli.load_program_image", lambda _: program_image)
+
+    # Expected metrics aligned with the simulated program
+    golden_path.write_text(
+        json.dumps({"cycles": 1, "instructions_executed": 1}),
+        encoding="utf-8",
+    )
+
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "accuracy_guard": {
+                    "enabled": True,
+                    "golds_path": golden_path.name,
+                    "max_average_deviation": 0.2,
+                    "max_single_deviation": 0.2,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    args = argparse.Namespace(
+        elf_file=elf_path,
+        config=config_path,
+        output=output_path,
+        verbose=False,
+    )
+
+    exit_code = run_simulate(args)
+    assert exit_code == 0
+
+    summary = json.loads(output_path.read_text(encoding="utf-8"))
+    assert summary["accuracy_guard"]["status"] == "ok"
+    assert summary["accuracy_guard"]["golds_path"].endswith(golden_path.name)
+
+
+def test_run_simulate_with_accuracy_guard_failure(tmp_path, monkeypatch):
+    elf_path = tmp_path / "program.elf"
+    elf_path.write_bytes(b"ELF")
+    output_path = tmp_path / "summary.json"
+    golden_path = tmp_path / "golden.json"
+
+    program_image = _make_program_image()
+    monkeypatch.setattr("src.simulator.cli.load_program_image", lambda _: program_image)
+
+    golden_path.write_text(json.dumps({"cycles": 9999}), encoding="utf-8")
+
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        json.dumps(
+            {
+                "accuracy_guard": {
+                    "enabled": True,
+                    "golds_path": golden_path.name,
+                    "max_average_deviation": 0.01,
+                    "max_single_deviation": 0.01,
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    args = argparse.Namespace(
+        elf_file=elf_path,
+        config=config_path,
+        output=output_path,
+        verbose=False,
+    )
+
+    exit_code = run_simulate(args)
+    assert exit_code == 1
+
+    summary = json.loads(output_path.read_text(encoding="utf-8"))
+    assert summary["accuracy_guard"]["status"] == "failed"
