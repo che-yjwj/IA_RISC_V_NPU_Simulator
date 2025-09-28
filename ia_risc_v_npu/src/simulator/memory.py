@@ -641,10 +641,11 @@ class MemorySystem:
                 cache.mark_dirty(line)
             return ready_time
 
+        lower_request_time = ready_time  # Pay this level's latency before descending.
         next_ready = self._access_hierarchy(
             level_idx + 1,
             address=aligned_address,
-            request_time=ready_time,
+            request_time=lower_request_time,
             access_type="read",
             master_id=master_id,
         )
@@ -652,7 +653,8 @@ class MemorySystem:
         if access_type == "write":
             cache.mark_dirty(new_line)
 
-        fill_complete = max(next_ready, ready_time) + cache.hit_latency
+        fill_start = max(next_ready, lower_request_time)
+        fill_complete = fill_start + cache.hit_latency
 
         if eviction and eviction.dirty and cache.config.write_back:
             writeback_done = self._access_hierarchy(
