@@ -1,0 +1,4 @@
+- [x] 높음 – `alu.div`에서 `np.int32` 사용 시 NumPy 미임포트 위험 → 모듈 임포트 상태를 검증하고 회귀 테스트를 추가했습니다 (`src/risc_v/instructions/alu.py`, `tests/unit/risc_v/instructions/test_alu.py`).
+- [x] 높음 – `lw`가 부호 확장을 수행하지 않음 → 32비트 로드의 부호 확장을 구현하고 음수 경로 테스트를 추가했습니다 (`src/risc_v/instructions/memory.py`, `tests/unit/risc_v/instructions/test_memory.py`).
+- [x] 중간 – 캐시 미스 타이밍이 낙관적 → L1 태그 조회 지연 이후에 하위 계층을 접근하도록 수정했습니다 (`src/simulator/memory.py`).
+- [x] 낮음 – NPU 풀링이 불필요한 복사를 유발 → 벡터 연산이 직접 NumPy 결과를 반환하도록 조정해 중복 복사를 제거했습니다 (`src/npu/model.py`).

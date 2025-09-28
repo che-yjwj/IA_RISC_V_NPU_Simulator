@@ -1,5 +1,5 @@
 import pytest
-from src.risc_v.instructions.alu import add, sub, and_, or_, xor
+from src.risc_v.instructions.alu import add, sub, and_, or_, xor, div
 
 def test_add():
     assert add(1, 2) == 3
@@ -15,3 +15,9 @@ def test_or():
 
 def test_xor():
     assert xor(0b1010, 0b1100) == 0b0110
+
+
+def test_div_handles_numpy_casting():
+    assert div(10, 2) == 5
+    assert div(-10, 2) == -5
+    assert div(10, -3) == -3

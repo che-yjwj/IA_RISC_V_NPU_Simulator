@@ -36,24 +36,16 @@ class NPU:
             self.return_array_to_pool(arr)
 
     def v_add(self, a, b):
-        with self.get_pooled_array(a.shape) as result:
-            np.add(a, b, out=result)
-            return result.copy() # Return a copy to prevent issues if caller holds reference
+        return np.add(a, b)
 
     def v_sub(self, a, b):
-        with self.get_pooled_array(a.shape) as result:
-            np.subtract(a, b, out=result)
-            return result.copy()
+        return np.subtract(a, b)
 
     def v_mul(self, a, b):
-        with self.get_pooled_array(a.shape) as result:
-            np.multiply(a, b, out=result)
-            return result.copy()
+        return np.multiply(a, b)
 
     def v_div(self, a, b):
-        with self.get_pooled_array(a.shape) as result:
-            np.divide(a, b, out=result)
-            return result.copy()
+        return np.divide(a, b)
 
     def execute_operation(self, operation):
         op_type = operation.get("type")
@@ -66,5 +58,4 @@ class NPU:
             raise ValueError(f"Invalid or insufficient operands for operation {op_type}. Expected 2, got {len(operands) if isinstance(operands, list) else 'none'}")
 
         op_func = self._operations[op_type]
-        # The context manager in v_* methods handles returning the array to the pool
         return op_func(operands[0], operands[1])

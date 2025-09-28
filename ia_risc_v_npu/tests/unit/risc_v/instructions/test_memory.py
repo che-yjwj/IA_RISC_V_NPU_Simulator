@@ -25,6 +25,11 @@ def test_lw(memory):
     memory.write(16, (1234567890).to_bytes(4, 'little'))
     assert lw(memory, 16) == 1234567890
 
+    # Negative values must be sign-extended from 32 bits
+    neg_value = 0xFFFF_FF10
+    memory.write(24, neg_value.to_bytes(4, 'little'))
+    assert lw(memory, 24) == -240
+
 def test_sw(memory):
     sw(memory, 20, 987654321)
     assert int.from_bytes(memory.read(20, 4), 'little') == 987654321
