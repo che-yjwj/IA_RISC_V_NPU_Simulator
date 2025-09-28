@@ -258,7 +258,8 @@ class RISCVEngine:
             ready_at = max(done_at, self.current_time + self.exec_timing.load_use_stall)
             self._advance_to(ready_at)
             if rd != 0:
-                self.registers[rd] = memory.lw(self.bus, address)
+                loaded = memory.lw(self.bus, address)
+                self.registers[rd] = loaded & 0xFFFFFFFF
                 self._mark_register_ready(rd, ready_at)
         else:
             raise ValueError(f"Unsupported load instruction: funct3={funct3}")

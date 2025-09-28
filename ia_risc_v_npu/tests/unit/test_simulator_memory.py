@@ -197,6 +197,39 @@ def test_memory_system_cache_hit_latency():
     assert metrics["average_latency_cycles"] >= 0
 
 
+def test_memory_system_l1_miss_l2_hit_latency_accounts_for_front_penalty():
+    bus = Bus(slice_bytes=64, bandwidth_bytes_per_cycle=64, grant_latency=0)
+    l1 = CacheConfig(name="L1", size_bytes=64, line_size=64, associativity=1, hit_latency=1)
+    l2 = CacheConfig(name="L2", size_bytes=128, line_size=64, associativity=1, hit_latency=10)
+    dram_cfg = DRAMConfig(
+        banks=1,
+        row_size=64,
+        line_size=64,
+        t_rp=0,
+        t_rcd=0,
+        t_cas=0,
+        data_bytes_per_cycle=64,
+    )
+    memory = MemorySystem(bus, l1_config=l1, l2_config=l2, dram_config=dram_cfg)
+
+    aligned_address = 0
+    l2_cache = memory._caches[1]
+    index = (aligned_address // l2.line_size) % l2_cache.num_sets
+    l2_cache.insert(index, aligned_address)
+
+    done_at = memory.load(address=aligned_address, size=4, request_time=0, master_id=0)
+
+    expected_latency = l1.hit_latency + l2.hit_latency + l1.hit_latency
+    assert done_at == expected_latency
+
+    stats = memory.cache_stats()
+    assert stats["L1"]["hits"] == 0
+    assert stats["L1"]["misses"] == 1
+    assert stats["L2"]["hits"] == 1
+    assert stats["L2"]["misses"] == 0
+    assert bus.metrics.completed_requests == 0
+
+
 def test_memory_system_writeback_on_eviction():
     bus = Bus(slice_bytes=16, bandwidth_bytes_per_cycle=16, grant_latency=0)
     l1 = CacheConfig(
