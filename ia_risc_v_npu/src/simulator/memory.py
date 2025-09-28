@@ -566,6 +566,11 @@ class MemorySystem:
             }
         return metrics
 
+    def front_hit_latency(self) -> int:
+        if not self._caches:
+            return DEFAULT_L1_CONFIG.hit_latency
+        return self._caches[0].hit_latency
+
     def memory_metrics(self) -> Dict[str, float | int]:
         load_requests = self._stats["load_requests"]
         store_requests = self._stats["store_requests"]

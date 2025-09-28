@@ -11,7 +11,7 @@
 - **시뮬레이터 코어 (`src/simulator/main.py`)**: RISC-V 엔진, 버스, MMIO, NPU 모델을 묶어 비동기 루프(`asyncio`) 위에서 실행. `SimulationReport` 구조체로 실행 통계 반환.
 - **RISC-V IA 엔진 (`src/risc_v/engine.py`)**: RV64I 명령어 집합을 명령어 정확 수준으로 구현. 분기, 메모리, ALU 명령어는 전용 모듈(`instructions/*`)에서 정의.
 - **NPU 모델 (`src/npu/model.py`)**: 벡터 연산, GEMM, Scratchpad Memory(SPM) 연동. 버스/메모리 모델 (`src/simulator/memory.py`)과 직접 통신.
-- **적응형 훅/컨트롤러**: `TimingHookSystem`과 `adaptive_controller`가 시뮬레이션 레벨 전환(Lev0↔Lev1)을 조율.
+- **이벤트 스케줄러/메모리 계층**: 단일 이벤트 루프가 명령어 페치, 버스 중재, 캐시 계층, DRAM 타이밍을 순차적으로 해석하여 결정적 타임라인을 생성.
 - **CLI (`src/simulator/cli.py`)**: `simulate`, `benchmark` 명령으로 프로그램 실행, 결과 저장, MIPS 측정과 같은 워크플로우를 캡슐화.
 - **워크로드 & 유틸리티 (`workloads/`, `cnn_runtime.py`)**: CNN 레이어 기반 성능/정확도 검증을 위한 벤치마크 입력 생성.
 
@@ -38,11 +38,12 @@
    - `--output`: 결과 요약(JSON) 저장. 미지정 시 표준 출력 로그로만 제공.
 3. **벤치마크 실행 (합성 프로그램)**
    ```bash
-   python3 -m src.simulator.cli benchmark --instructions 200000 --output out/benchmark.json
+   python3 -m src.simulator.cli benchmark --instructions 200000 --min-mips 0.05 --max-mips 0.10 --output out/benchmark.json
    ```
    - `--instructions`: 합성 ADD 명령어 수. DRAM 용량(1MB) 이내로 자동 검증.
    - `--max-cycles`: 실행 사이클 상한. 기본 0(무제한).
-   - 결과 JSON은 실행 시간, 실행 명령어 수, 계산된 MIPS 포함.
+   - `--min-mips`/`--max-mips`: 측정된 MIPS가 허용 범위를 벗어나면 실패하도록 가드(실측 기준에 맞춰 조정 권장).
+   - 결과 JSON은 실행 시간, 실행 명령어 수, 계산된 MIPS, `mips_guard` 결과를 포함.
 4. **테스트 실행**
    - 단위/통합 테스트: `python3 -m pytest tests/unit` / `python3 -m pytest tests/integration`
    - 정확도 테스트: `python3 -m pytest tests/verification/test_accuracy.py`
@@ -61,8 +62,8 @@
   - 메모리(LD/LW/SD/SW): 1.76~2.32 µs/호출.
   - NPU 벡터(VADD/VSUB/VMUL/VDIV, 1024 요소): 9.5~9.8 µs/호출.
 - **CLI `benchmark` (합성 200k ADD, `benchmark_summary.json`)**:
-  - 경과 시간 0.706 s, 실행 명령어 200,001, 산출 MIPS 0.28.
-  - 적응형 후크/레벨 전환이 포함된 전체 루프 성능을 정량화.
+  - 경과 시간 3.58 s, 실행 명령어 200,001, 산출 MIPS 0.06.
+  - `mips_guard` 파라미터로 목표 범위(예: 8~12 MIPS)를 선언할 수 있으며, 범위 위반 시 종료 코드로 탐지.
 - 결과 파일 위치:
   - `ia_risc_v_npu/performance_results.json`
   - `ia_risc_v_npu/benchmark_summary.json`

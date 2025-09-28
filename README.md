@@ -11,11 +11,9 @@ The target is to achieve a simulation speed of 12-20 MIPS with an accuracy of ±
 ## 2. Key Features
 
 -   **RISC-V IA Engine**: A functional instruction-accurate model of the RV64I instruction set.
--   **2-Level Adaptive Simulation**:
-    -   **Level 0 (Fast Mode)**: Utilizes timing hooks and statistical models for high-speed simulation (15-20 MIPS).
-    -   **Level 1 (Accurate Mode)**: Employs a detailed, event-based simulation for high-accuracy analysis of specific regions of interest (3-8 MIPS).
+-   **Deterministic Event Pipeline**: Instruction fetch, cache hierarchy, DRAM, and bus arbitration are modeled through the unified event scheduler—no legacy timing hooks remain.
 -   **NPU Model**: Includes models for GEMM (General Matrix Multiply), vector units, and local memory (SPM).
--   **Adaptive Fidelity Control**: A controller that dynamically switches between simulation levels based on instruction complexity and execution context to balance speed and accuracy.
+-   **Adaptive Fidelity Control**: A controller that dynamically switches between simulation fidelity modes based on instruction complexity and execution context to balance speed and accuracy.
 
 ## 3. System Architecture
 
@@ -25,7 +23,7 @@ The simulator is composed of three main layers:
 2.  **Adaptive Simulator Core**: The heart of the simulator, featuring the RISC-V IA engine, an `asyncio`-based event manager, and the adaptive fidelity controller.
 3.  **Hardware Models**: Abstract models for the NPU, memory system, and bus interconnects.
 
-The adaptive core uses a combination of timing hooks for fast, high-level latency estimation (Lev0) and a discrete event-based system for detailed, accurate simulation when required (Lev1).
+The adaptive core now relies entirely on the discrete event scheduler. Instruction fetch, cache fills, and DRAM latencies are resolved through the shared memory subsystem so that repeat runs produce identical timelines.
 
 ## 4. Getting Started
 
@@ -59,7 +57,7 @@ python -m src.simulator.cli simulate build/program.elf --config configs/example.
 
 ### Deterministic Environment
 
-Use the deterministic helper to pin BLAS threads and RNG seeds before running tooling:
+Use the deterministic helper to pin BLAS threads and RNG seeds before running tooling. A regression test (`tests/integration/test_deterministic_simulation.py`) hashes two simulation runs to guarantee identical timelines for identical inputs.
 
 ```bash
 python -m scripts.deterministic_env -- python -m pytest -q
@@ -69,13 +67,13 @@ Pass `--repeat 3 --verify` to execute a command multiple times and assert the ca
 
 ### Measuring Performance (T032)
 
-Benchmark wall-clock throughput and capture MIPS metrics.
+Benchmark wall-clock throughput and capture MIPS metrics. Optionally gate the run with explicit minimum/maximum thresholds.
 
 ```bash
-python -m src.simulator.cli benchmark --instructions 200000 --output results/benchmark.json
+python -m src.simulator.cli benchmark --instructions 200000 --min-mips 0.05 --max-mips 0.10 --output results/benchmark.json
 ```
 
-The written JSON includes executed instruction count, elapsed seconds, and calculated MIPS so you can compare against the 12–20 MIPS goal.
+The written JSON includes executed instruction count, elapsed seconds, calculated MIPS, and the `mips_guard` section documenting whether the run stayed within the configured bounds (adjust the thresholds to match your calibrated baseline or target window).
 
 ### Reporting & Accuracy Guard
 

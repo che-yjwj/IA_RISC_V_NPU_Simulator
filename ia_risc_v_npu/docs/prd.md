@@ -220,6 +220,8 @@ class EventBasedSystem:
 
 ## AdaptiveSimulator
 
+> **현황 메모 (Phase 8)**: 초기 설계는 `TimingHookSystem`을 활용하는 2-레벨 구조를 전제로 했다. 이벤트 전용 마이그레이션 이후(Phase 8)에는 동일 인터페이스를 이벤트 스케줄러+메모리 계층이 대체하며, 훅 기반 구현은 더 이상 사용되지 않는다. 아래 스니펫은 역사적 참고용으로만 유지된다.
+
 `pythonclass AdaptiveSimulator:
     def __init__(self, config_path: str):
         self.risc_v_engine = RISCVEngine()
@@ -237,6 +239,8 @@ class EventBasedSystem:
         return SimulationResult(...)`
 
 ## RISCVEngine
+
+> **현황 메모 (Phase 8)**: 실제 구현에서는 명령어 페치/디코드/실행 지연이 버스·캐시·DRAM 이벤트로 모델링되며, 훅 호출 대신 `MemorySystem`을 통해 계산된다.
 
 `pythonclass RISCVEngine:
     def __init__(self):
