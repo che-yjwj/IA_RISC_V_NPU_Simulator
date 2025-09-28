@@ -28,9 +28,9 @@ CPU/Frontend → Instruction Queue → Dispatch → Memory Access Queue ↔ DRAM
 
 | 큐 종류 | Blocking Mode | Non-Blocking Mode | 모델링 포인트 |
 | --- | --- | --- | --- |
-| Instruction Queue | Dependent inst. stall | Independent inst. 실행 | Dispatch 정책 (in-order, OOO) |
-| Memory Access Queue | Memory ready 전 stall | Prefetch / double buffering | Bus contention, bank conflict |
-| Register Queue | Operand 준비 대기 | Ready inst. 먼저 실행 | Scoreboard, Tomasulo-like 모델 |
+| Instruction Queue | 의존 명령어 스톨 | 독립 명령어 실행 | Dispatch 정책 (in-order, OOO) |
+| Memory Access Queue | 메모리 준비 전 스톨 | 프리페치 / 더블 버퍼링 | Bus 경합, 뱅크 충돌 |
+| Register Queue | 피연산자 준비 대기 | 준비된 명령어 우선 실행 | Scoreboard, Tomasulo-like 모델 |
 
 ## 5. 큐 vs DES 비교
 

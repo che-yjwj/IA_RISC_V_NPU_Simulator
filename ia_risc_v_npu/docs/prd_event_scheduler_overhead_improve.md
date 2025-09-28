@@ -1,4 +1,4 @@
-heduler`는 Python의 heapq와 dataclass 객체를 사용하여 고빈도 이벤트 처리에서 오버헤드가 발생합니다. [1](https://www.notion.so/27b6cc566b0b80d99a6decc320178e78?pvs=21)  스케줄링 오버헤드를 줄이기 위한 방법:
+Scheduler`는 Python의 heapq와 dataclass 객체를 사용하여 고빈도 이벤트 처리에서 오버헤드가 발생합니다. [1](https://www.notion.so/27b6cc566b0b80d99a6decc320178e78?pvs=21)  스케줄링 오버헤드를 줄이기 위한 방법:
 
 1. **이벤트 배치 처리**: 동일한 타임스탬프의 여러 이벤트를 단일 힙 연산으로 처리
 2. **데이터 구조 최적화**: 현재 dataclass 기반 `_ScheduledEvent`를 경량 튜플이나 NumPy 배열로 대체
@@ -6,7 +6,7 @@ heduler`는 Python의 heapq와 dataclass 객체를 사용하여 고빈도 이벤
 
 ## Python 언어 제약 완화
 
-프로젝트는 12-20 MIPS 성능을 목표로 하면서 Python 성능 제약에 직면하고 있습니다. [2](https://www.notion.so/27b6cc566b0b80d99a6decc320178e78?pvs=21)  주요 최적화 전략:
+프로젝트는 12-15 MIPS 성능을 목표로 하면서 Python 성능 제약에 직면하고 있습니다. [2](https://www.notion.so/27b6cc566b0b80d99a6decc320178e78?pvs=21)  주요 최적화 전략:
 
 1. **Numba JIT 컴파일**: 핵심 이벤트 스케줄링 및 처리 함수, 특히 힙 연산과 콜백 실행에 Numba 데코레이터 적용
 2. **NumPy 벡터화**: DMA 슬라이스 연산 등에서 가능한 경우 NumPy 배열을 사용한 대량 이벤트 처리
