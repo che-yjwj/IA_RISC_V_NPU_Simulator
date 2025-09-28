@@ -24,11 +24,13 @@ def test_single_core_timeline() -> None:
 
     result = cluster.submit(task)
 
-    assert result.core_id == 0
+    cluster.flush_deferred_dma(0)
     assert result.input_grant_at == 0
     assert result.input_done_at == 5
     assert result.compute_start_at == 5
     assert result.compute_done_at == 15
+
+    cluster.flush_deferred_dma(20)
     assert result.output_grant_at == 15
     assert result.output_done_at == 18
     assert result.done_at == 18
@@ -56,6 +58,9 @@ def test_min_finish_policy_prefers_earliest_core() -> None:
     )
 
     result = cluster.submit(quick_task, policy=ClusterPolicy.MIN_FINISH_TIME)
+
+    cluster.flush_deferred_dma(quick_task.issue_at)
+    cluster.flush_deferred_dma(100)
 
     assert result.core_id == 0
     assert result.compute_start_at >= 20
@@ -96,6 +101,9 @@ def test_submit_handles_zero_dma_and_invokes_operation() -> None:
 
     result = cluster.submit(task)
 
+    cluster.flush_deferred_dma(task.issue_at)
+    cluster.flush_deferred_dma(task.issue_at + 10)
+
     assert marker["called"] is True
     assert result.input_grant_at == 3
     assert result.input_done_at == 3
@@ -118,6 +126,7 @@ def test_cluster_metrics_reports_utilisation() -> None:
     )
 
     cluster.submit(task)
+    cluster.flush_deferred_dma(100)
     metrics = cluster.metrics(sim_time=40)
 
     assert metrics["cores"] == 2

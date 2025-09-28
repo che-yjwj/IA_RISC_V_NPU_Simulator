@@ -1,0 +1,697 @@
+{
+  "cpu_cnn": [
+    {
+      "bus": {
+        "bus_metrics": {
+          "avg_queue_depth": 1.0,
+          "avg_transfer_cycles": 4.0,
+          "avg_wait_cycles": 0.0,
+          "completed_requests": 2,
+          "max_queue_depth": 1,
+          "total_grant_latency_cycles": 2,
+          "total_transfer_cycles": 8,
+          "total_wait_cycles": 0
+        },
+        "bytes_transferred": {
+          "0": 128
+        },
+        "completed_requests": {
+          "0": 2
+        },
+        "total_wait_cycles": {
+          "0": 0
+        }
+      },
+      "cycles": 17,
+      "input_shape": [
+        1,
+        3,
+        3
+      ],
+      "instructions": 17,
+      "kernel_shape": [
+        1,
+        1,
+        2,
+        2
+      ],
+      "mips": 0.04341275941840789,
+      "scheduler": {
+        "callbacks": {
+          "execute_instruction_event": 17
+        },
+        "events_scheduled": 17,
+        "max_queue_depth": 1,
+        "queue_depth_histogram": {
+          "1": 17
+        }
+      }
+    },
+    {
+      "bus": {
+        "bus_metrics": {
+          "avg_queue_depth": 1.0,
+          "avg_transfer_cycles": 4.0,
+          "avg_wait_cycles": 0.0,
+          "completed_requests": 14,
+          "max_queue_depth": 1,
+          "total_grant_latency_cycles": 14,
+          "total_transfer_cycles": 56,
+          "total_wait_cycles": 0
+        },
+        "bytes_transferred": {
+          "0": 896
+        },
+        "completed_requests": {
+          "0": 14
+        },
+        "total_wait_cycles": {
+          "0": 0
+        }
+      },
+      "cycles": 217,
+      "input_shape": [
+        2,
+        4,
+        4
+      ],
+      "instructions": 217,
+      "kernel_shape": [
+        3,
+        2,
+        2,
+        2
+      ],
+      "mips": 0.07136338149544832,
+      "scheduler": {
+        "callbacks": {
+          "execute_instruction_event": 217
+        },
+        "events_scheduled": 217,
+        "max_queue_depth": 1,
+        "queue_depth_histogram": {
+          "1": 217
+        }
+      }
+    },
+    {
+      "bus": {
+        "bus_metrics": {
+          "avg_queue_depth": 1.0,
+          "avg_transfer_cycles": 4.0,
+          "avg_wait_cycles": 0.0,
+          "completed_requests": 11,
+          "max_queue_depth": 1,
+          "total_grant_latency_cycles": 11,
+          "total_transfer_cycles": 44,
+          "total_wait_cycles": 0
+        },
+        "bytes_transferred": {
+          "0": 704
+        },
+        "completed_requests": {
+          "0": 11
+        },
+        "total_wait_cycles": {
+          "0": 0
+        }
+      },
+      "cycles": 163,
+      "input_shape": [
+        1,
+        5,
+        5
+      ],
+      "instructions": 163,
+      "kernel_shape": [
+        2,
+        1,
+        3,
+        3
+      ],
+      "mips": 0.07025210704721047,
+      "scheduler": {
+        "callbacks": {
+          "execute_instruction_event": 163
+        },
+        "events_scheduled": 163,
+        "max_queue_depth": 1,
+        "queue_depth_histogram": {
+          "1": 163
+        }
+      }
+    }
+  ],
+  "cpu_npu_contention": {
+    "bus_metrics": {
+      "avg_queue_depth": 1.25,
+      "avg_transfer_cycles": 7.333333333333333,
+      "avg_wait_cycles": 1.9166666666666667,
+      "completed_requests": 12,
+      "max_queue_depth": 2,
+      "total_grant_latency_cycles": 12,
+      "total_transfer_cycles": 88,
+      "total_wait_cycles": 23
+    },
+    "cpu_requests": [
+      {
+        "done_at": 5,
+        "grant_at": 0,
+        "request_at": 0,
+        "request_id": 0
+      },
+      {
+        "done_at": 25,
+        "grant_at": 20,
+        "request_at": 20,
+        "request_id": 1
+      },
+      {
+        "done_at": 45,
+        "grant_at": 40,
+        "request_at": 40,
+        "request_id": 2
+      },
+      {
+        "done_at": 65,
+        "grant_at": 60,
+        "request_at": 60,
+        "request_id": 3
+      },
+      {
+        "done_at": 85,
+        "grant_at": 80,
+        "request_at": 80,
+        "request_id": 4
+      },
+      {
+        "done_at": 105,
+        "grant_at": 100,
+        "request_at": 100,
+        "request_id": 5
+      }
+    ],
+    "npu_tasks": [
+      {
+        "compute_cycles": 60,
+        "input_bytes": 256,
+        "issue_at": 5,
+        "name": "npu_0",
+        "output_bytes": 128
+      },
+      {
+        "compute_cycles": 80,
+        "input_bytes": 128,
+        "issue_at": 45,
+        "name": "npu_1",
+        "output_bytes": 128
+      },
+      {
+        "compute_cycles": 100,
+        "input_bytes": 192,
+        "issue_at": 85,
+        "name": "npu_2",
+        "output_bytes": 192
+      }
+    ],
+    "npu_timeline": [
+      {
+        "compute_done_at": 182,
+        "compute_start_at": 122,
+        "core_id": 0,
+        "done_at": 191,
+        "input_done_at": 122,
+        "input_grant_at": 105,
+        "issue_at": 5,
+        "output_done_at": 191,
+        "output_grant_at": 182,
+        "task": "npu_0"
+      },
+      {
+        "compute_done_at": 280,
+        "compute_start_at": 200,
+        "core_id": 1,
+        "done_at": 289,
+        "input_done_at": 200,
+        "input_grant_at": 191,
+        "issue_at": 45,
+        "output_done_at": 289,
+        "output_grant_at": 280,
+        "task": "npu_1"
+      },
+      {
+        "compute_done_at": 402,
+        "compute_start_at": 302,
+        "core_id": 0,
+        "done_at": 415,
+        "input_done_at": 302,
+        "input_grant_at": 289,
+        "issue_at": 85,
+        "output_done_at": 415,
+        "output_grant_at": 402,
+        "task": "npu_2"
+      }
+    ],
+    "requests": [
+      {
+        "done_at": 5,
+        "grant_at": 0,
+        "master_id": 0,
+        "request_at": 0,
+        "size_bytes": 64,
+        "start_at": 1,
+        "transfer_cycles": 4
+      },
+      {
+        "done_at": 25,
+        "grant_at": 20,
+        "master_id": 0,
+        "request_at": 20,
+        "size_bytes": 64,
+        "start_at": 21,
+        "transfer_cycles": 4
+      },
+      {
+        "done_at": 45,
+        "grant_at": 40,
+        "master_id": 0,
+        "request_at": 40,
+        "size_bytes": 64,
+        "start_at": 41,
+        "transfer_cycles": 4
+      },
+      {
+        "done_at": 65,
+        "grant_at": 60,
+        "master_id": 0,
+        "request_at": 60,
+        "size_bytes": 64,
+        "start_at": 61,
+        "transfer_cycles": 4
+      },
+      {
+        "done_at": 85,
+        "grant_at": 80,
+        "master_id": 0,
+        "request_at": 80,
+        "size_bytes": 64,
+        "start_at": 81,
+        "transfer_cycles": 4
+      },
+      {
+        "done_at": 105,
+        "grant_at": 100,
+        "master_id": 0,
+        "request_at": 100,
+        "size_bytes": 64,
+        "start_at": 101,
+        "transfer_cycles": 4
+      },
+      {
+        "done_at": 122,
+        "grant_at": 105,
+        "master_id": 1,
+        "request_at": 100,
+        "size_bytes": 256,
+        "start_at": 106,
+        "transfer_cycles": 16
+      },
+      {
+        "done_at": 191,
+        "grant_at": 182,
+        "master_id": 1,
+        "request_at": 182,
+        "size_bytes": 128,
+        "start_at": 183,
+        "transfer_cycles": 8
+      },
+      {
+        "done_at": 200,
+        "grant_at": 191,
+        "master_id": 1,
+        "request_at": 182,
+        "size_bytes": 128,
+        "start_at": 192,
+        "transfer_cycles": 8
+      },
+      {
+        "done_at": 289,
+        "grant_at": 280,
+        "master_id": 1,
+        "request_at": 280,
+        "size_bytes": 128,
+        "start_at": 281,
+        "transfer_cycles": 8
+      },
+      {
+        "done_at": 302,
+        "grant_at": 289,
+        "master_id": 1,
+        "request_at": 280,
+        "size_bytes": 192,
+        "start_at": 290,
+        "transfer_cycles": 12
+      },
+      {
+        "done_at": 415,
+        "grant_at": 402,
+        "master_id": 1,
+        "request_at": 402,
+        "size_bytes": 192,
+        "start_at": 403,
+        "transfer_cycles": 12
+      }
+    ]
+  },
+  "npu_dma": {
+    "bus": {
+      "bus_metrics": {
+        "avg_queue_depth": 1.3333333333333333,
+        "avg_transfer_cycles": 16.0,
+        "avg_wait_cycles": 5.666666666666667,
+        "completed_requests": 6,
+        "max_queue_depth": 2,
+        "total_grant_latency_cycles": 6,
+        "total_transfer_cycles": 96,
+        "total_wait_cycles": 34
+      },
+      "bytes_transferred": {
+        "1": 1536
+      },
+      "completed_requests": {
+        "1": 6
+      },
+      "total_wait_cycles": {
+        "1": 34
+      }
+    },
+    "requests": [
+      {
+        "done_at": 17,
+        "grant_at": 0,
+        "master_id": 1,
+        "request_at": 0,
+        "size_bytes": 256,
+        "start_at": 1,
+        "transfer_cycles": 16
+      },
+      {
+        "done_at": 154,
+        "grant_at": 137,
+        "master_id": 1,
+        "request_at": 137,
+        "size_bytes": 256,
+        "start_at": 138,
+        "transfer_cycles": 16
+      },
+      {
+        "done_at": 171,
+        "grant_at": 154,
+        "master_id": 1,
+        "request_at": 137,
+        "size_bytes": 256,
+        "start_at": 155,
+        "transfer_cycles": 16
+      },
+      {
+        "done_at": 308,
+        "grant_at": 291,
+        "master_id": 1,
+        "request_at": 291,
+        "size_bytes": 256,
+        "start_at": 292,
+        "transfer_cycles": 16
+      },
+      {
+        "done_at": 325,
+        "grant_at": 308,
+        "master_id": 1,
+        "request_at": 291,
+        "size_bytes": 256,
+        "start_at": 309,
+        "transfer_cycles": 16
+      },
+      {
+        "done_at": 462,
+        "grant_at": 445,
+        "master_id": 1,
+        "request_at": 445,
+        "size_bytes": 256,
+        "start_at": 446,
+        "transfer_cycles": 16
+      }
+    ],
+    "tasks": [
+      {
+        "compute_cycles": 120,
+        "input_bytes": 256,
+        "issue_at": 0,
+        "name": "task_0",
+        "output_bytes": 256
+      },
+      {
+        "compute_cycles": 120,
+        "input_bytes": 256,
+        "issue_at": 40,
+        "name": "task_1",
+        "output_bytes": 256
+      },
+      {
+        "compute_cycles": 120,
+        "input_bytes": 256,
+        "issue_at": 80,
+        "name": "task_2",
+        "output_bytes": 256
+      }
+    ],
+    "timeline": [
+      {
+        "compute_done_at": 137,
+        "compute_start_at": 17,
+        "core_id": 0,
+        "done_at": 154,
+        "input_done_at": 17,
+        "input_grant_at": 0,
+        "issue_at": 0,
+        "output_done_at": 154,
+        "output_grant_at": 137,
+        "task": "task_0"
+      },
+      {
+        "compute_done_at": 291,
+        "compute_start_at": 171,
+        "core_id": 1,
+        "done_at": 308,
+        "input_done_at": 171,
+        "input_grant_at": 154,
+        "issue_at": 40,
+        "output_done_at": 308,
+        "output_grant_at": 291,
+        "task": "task_1"
+      },
+      {
+        "compute_done_at": 445,
+        "compute_start_at": 325,
+        "core_id": 0,
+        "done_at": 462,
+        "input_done_at": 325,
+        "input_grant_at": 308,
+        "issue_at": 80,
+        "output_done_at": 462,
+        "output_grant_at": 445,
+        "task": "task_2"
+      }
+    ]
+  },
+  "virtual_npu_dma": {
+    "bus_metrics": {
+      "avg_queue_depth": 1.3333333333333333,
+      "avg_transfer_cycles": 16.0,
+      "avg_wait_cycles": 41.833333333333336,
+      "completed_requests": 6,
+      "max_queue_depth": 2,
+      "total_grant_latency_cycles": 6,
+      "total_transfer_cycles": 96,
+      "total_wait_cycles": 251
+    },
+    "requests": [
+      {
+        "done_at": 17,
+        "grant_at": 0,
+        "master_id": 1,
+        "request_at": 0,
+        "size_bytes": 256,
+        "start_at": 1,
+        "transfer_cycles": 16
+      },
+      {
+        "done_at": 154,
+        "grant_at": 137,
+        "master_id": 1,
+        "request_at": 137,
+        "size_bytes": 256,
+        "start_at": 138,
+        "transfer_cycles": 16
+      },
+      {
+        "done_at": 171,
+        "grant_at": 154,
+        "master_id": 1,
+        "request_at": 40,
+        "size_bytes": 256,
+        "start_at": 155,
+        "transfer_cycles": 16
+      },
+      {
+        "done_at": 308,
+        "grant_at": 291,
+        "master_id": 1,
+        "request_at": 291,
+        "size_bytes": 256,
+        "start_at": 292,
+        "transfer_cycles": 16
+      },
+      {
+        "done_at": 325,
+        "grant_at": 308,
+        "master_id": 1,
+        "request_at": 171,
+        "size_bytes": 256,
+        "start_at": 309,
+        "transfer_cycles": 16
+      },
+      {
+        "done_at": 462,
+        "grant_at": 445,
+        "master_id": 1,
+        "request_at": 445,
+        "size_bytes": 256,
+        "start_at": 446,
+        "transfer_cycles": 16
+      }
+    ],
+    "tasks": [
+      {
+        "compute_cycles": 120,
+        "input_bytes": 256,
+        "issue_at": 0,
+        "name": "task_0",
+        "output_bytes": 256
+      },
+      {
+        "compute_cycles": 120,
+        "input_bytes": 256,
+        "issue_at": 40,
+        "name": "task_1",
+        "output_bytes": 256
+      },
+      {
+        "compute_cycles": 120,
+        "input_bytes": 256,
+        "issue_at": 80,
+        "name": "task_2",
+        "output_bytes": 256
+      }
+    ],
+    "timeline": [
+      {
+        "compute_done_at": 137,
+        "compute_start_at": 17,
+        "core_id": 0,
+        "done_at": 154,
+        "input_done_at": 17,
+        "input_grant_at": 0,
+        "issue_at": 0,
+        "output_done_at": 154,
+        "output_grant_at": 137,
+        "task": "task_0"
+      },
+      {
+        "compute_done_at": 291,
+        "compute_start_at": 171,
+        "core_id": 1,
+        "done_at": 308,
+        "input_done_at": 171,
+        "input_grant_at": 154,
+        "issue_at": 40,
+        "output_done_at": 308,
+        "output_grant_at": 291,
+        "task": "task_1"
+      },
+      {
+        "compute_done_at": 445,
+        "compute_start_at": 325,
+        "core_id": 0,
+        "done_at": 462,
+        "input_done_at": 325,
+        "input_grant_at": 308,
+        "issue_at": 80,
+        "output_done_at": 462,
+        "output_grant_at": 445,
+        "task": "task_2"
+      }
+    ]
+  },
+  "virtual_replay": {
+    "bus_metrics": {
+      "avg_queue_depth": 1.0,
+      "avg_transfer_cycles": 16.0,
+      "avg_wait_cycles": 0.0,
+      "completed_requests": 6,
+      "max_queue_depth": 1,
+      "total_grant_latency_cycles": 6,
+      "total_transfer_cycles": 96,
+      "total_wait_cycles": 0
+    },
+    "requests": [
+      {
+        "master_id": 1,
+        "original_done": 17,
+        "original_grant": 0,
+        "replay_done": 17,
+        "replay_grant": 0,
+        "size_bytes": 256
+      },
+      {
+        "master_id": 1,
+        "original_done": 154,
+        "original_grant": 137,
+        "replay_done": 154,
+        "replay_grant": 137,
+        "size_bytes": 256
+      },
+      {
+        "master_id": 1,
+        "original_done": 171,
+        "original_grant": 154,
+        "replay_done": 171,
+        "replay_grant": 154,
+        "size_bytes": 256
+      },
+      {
+        "master_id": 1,
+        "original_done": 308,
+        "original_grant": 291,
+        "replay_done": 308,
+        "replay_grant": 291,
+        "size_bytes": 256
+      },
+      {
+        "master_id": 1,
+        "original_done": 325,
+        "original_grant": 308,
+        "replay_done": 325,
+        "replay_grant": 308,
+        "size_bytes": 256
+      },
+      {
+        "master_id": 1,
+        "original_done": 462,
+        "original_grant": 445,
+        "replay_done": 462,
+        "replay_grant": 445,
+        "size_bytes": 256
+      }
+    ]
+  }
+}

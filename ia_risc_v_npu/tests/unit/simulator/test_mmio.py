@@ -29,6 +29,9 @@ def test_mmio_launches_task_and_updates_status() -> None:
 
     _write(mmio, MMIO.REG_CONTROL, MMIO.CONTROL_LAUNCH)
 
+    cluster.flush_deferred_dma(0)
+    cluster.flush_deferred_dma(1_000)
+
     submission = mmio.last_submission
     assert submission is not None
     assert submission.task.input_bytes == 32
@@ -70,6 +73,9 @@ def test_issue_at_defers_dma_request_time() -> None:
     _write(mmio, MMIO.REG_COMPUTE_CYCLES, 2)
     _write(mmio, MMIO.REG_ISSUE_AT, 25)
     _write(mmio, MMIO.REG_CONTROL, MMIO.CONTROL_LAUNCH)
+
+    cluster.flush_deferred_dma(25)
+    cluster.flush_deferred_dma(1_000)
 
     submission = mmio.last_submission
     assert submission is not None
