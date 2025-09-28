@@ -249,8 +249,12 @@ class AdaptiveSimulator:
             self._fetch_stats["total_penalty"] += penalty
 
     def _reset_fetch_stats(self) -> None:
-        for key in self._fetch_stats:
-            self._fetch_stats[key] = 0
+        self._fetch_stats = {
+            "fetches": 0,
+            "misses": 0,
+            "total_latency": 0,
+            "total_penalty": 0,
+        }
 
     def _fetch_metrics(self) -> Dict[str, float | int]:
         fetches = self._fetch_stats["fetches"]
@@ -258,7 +262,7 @@ class AdaptiveSimulator:
         total_latency = self._fetch_stats["total_latency"]
         total_penalty = self._fetch_stats["total_penalty"]
         miss_rate = (misses / fetches) if fetches else 0.0
-        hit_rate = 1.0 - miss_rate if fetches else 0.0
+        hit_rate = 1.0 - miss_rate
         average_latency = (total_latency / fetches) if fetches else 0.0
         return {
             "fetches": fetches,
