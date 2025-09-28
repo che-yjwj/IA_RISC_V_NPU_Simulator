@@ -422,6 +422,46 @@ def profile_virtual_npu_dma(tasks: List[ClusterTask]) -> Dict[str, Any]:
     }
 
 
+def replay_virtual_dma(
+    requests: List[Dict[str, Any]],
+    *,
+    slice_bytes: int = 32,
+    bandwidth_bytes_per_cycle: int = 16,
+    grant_latency: int = 1,
+) -> Dict[str, Any]:
+    bus = Bus(
+        slice_bytes=slice_bytes,
+        bandwidth_bytes_per_cycle=bandwidth_bytes_per_cycle,
+        grant_latency=grant_latency,
+    )
+    replay_log: List[Dict[str, Any]] = []
+
+    for entry in sorted(requests, key=lambda item: (item.get("grant_at", 0), item.get("request_at", 0))):
+        request_at = entry.get("grant_at", entry.get("request_at", 0))
+        issue_time = max(bus.now, request_at)
+        bus.sync_time(issue_time)
+        grant_at, done_at = bus.request(
+            master_id=entry.get("master_id", 1),
+            bytes=entry.get("size_bytes", 0),
+            request_at=issue_time,
+        )
+        replay_log.append(
+            {
+                "original_grant": entry.get("grant_at"),
+                "original_done": entry.get("done_at"),
+                "replay_grant": grant_at,
+                "replay_done": done_at,
+                "size_bytes": entry.get("size_bytes"),
+                "master_id": entry.get("master_id"),
+            }
+        )
+
+    return {
+        "requests": replay_log,
+        "bus_metrics": bus.metrics.snapshot(),
+    }
+
+
 def main() -> None:
     scenarios = [
         ((1, 3, 3), (1, 1, 2, 2)),
@@ -457,12 +497,14 @@ def main() -> None:
 
     contention = profile_cpu_npu_contention()
     virtual_npu = profile_virtual_npu_dma(npu_tasks)
+    virtual_replay = replay_virtual_dma(virtual_npu["requests"])
 
     payload = {
         "cpu_cnn": cnn_results,
         "npu_dma": npu_results,
         "cpu_npu_contention": contention,
         "virtual_npu_dma": virtual_npu,
+        "virtual_replay": virtual_replay,
     }
 
     print(json.dumps(payload, indent=2, sort_keys=True))

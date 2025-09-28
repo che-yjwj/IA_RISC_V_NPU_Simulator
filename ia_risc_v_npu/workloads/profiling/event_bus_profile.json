@@ -35,7 +35,7 @@
         2,
         2
       ],
-      "mips": 0.04387412661611124,
+      "mips": 0.04341275941840789,
       "scheduler": {
         "callbacks": {
           "execute_instruction_event": 17
@@ -82,7 +82,7 @@
         2,
         2
       ],
-      "mips": 0.07113695298528423,
+      "mips": 0.07136338149544832,
       "scheduler": {
         "callbacks": {
           "execute_instruction_event": 217
@@ -129,7 +129,7 @@
         3,
         3
       ],
-      "mips": 0.06906104333521355,
+      "mips": 0.07025210704721047,
       "scheduler": {
         "callbacks": {
           "execute_instruction_event": 163
@@ -629,6 +629,68 @@
         "output_done_at": 462,
         "output_grant_at": 445,
         "task": "task_2"
+      }
+    ]
+  },
+  "virtual_replay": {
+    "bus_metrics": {
+      "avg_queue_depth": 1.0,
+      "avg_transfer_cycles": 16.0,
+      "avg_wait_cycles": 0.0,
+      "completed_requests": 6,
+      "max_queue_depth": 1,
+      "total_grant_latency_cycles": 6,
+      "total_transfer_cycles": 96,
+      "total_wait_cycles": 0
+    },
+    "requests": [
+      {
+        "master_id": 1,
+        "original_done": 17,
+        "original_grant": 0,
+        "replay_done": 17,
+        "replay_grant": 0,
+        "size_bytes": 256
+      },
+      {
+        "master_id": 1,
+        "original_done": 154,
+        "original_grant": 137,
+        "replay_done": 154,
+        "replay_grant": 137,
+        "size_bytes": 256
+      },
+      {
+        "master_id": 1,
+        "original_done": 171,
+        "original_grant": 154,
+        "replay_done": 171,
+        "replay_grant": 154,
+        "size_bytes": 256
+      },
+      {
+        "master_id": 1,
+        "original_done": 308,
+        "original_grant": 291,
+        "replay_done": 308,
+        "replay_grant": 291,
+        "size_bytes": 256
+      },
+      {
+        "master_id": 1,
+        "original_done": 325,
+        "original_grant": 308,
+        "replay_done": 325,
+        "replay_grant": 308,
+        "size_bytes": 256
+      },
+      {
+        "master_id": 1,
+        "original_done": 462,
+        "original_grant": 445,
+        "replay_done": 462,
+        "replay_grant": 445,
+        "size_bytes": 256
       }
     ]
   }

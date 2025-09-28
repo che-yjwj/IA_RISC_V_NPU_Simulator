@@ -35,6 +35,18 @@
 - VirtualBus 프로토타입(`workloads/profiling/event_bus_profile.py:33`)은 `bus.now` 의존성을 제거해 입력 DMA 요청이 본래 이슈 시각(예: 40, 171 사이클)에 기록되도록 함 (`ia_risc_v_npu/workloads/profiling/event_bus_profile.json:512`)
 - 그러나 버스 자체가 단일 자원으로 순차 처리되므로 grant 시각은 여전히 154/308 사이클에 고정되고 대기 시간이 크게 증가 → 시간 재생만으로는 겹침이 보장되지 않음을 확인
 - 입력 프리페치를 실현하려면 다중 작업을 동시에 큐잉하고, 이벤트 기반 DMA 완료를 처리해 compute가 진행되는 동안 후속 입력을 발행할 수 있는 스케줄링 계층이 필요
+- VirtualBus 스케줄을 실제 `Bus`에 재생(replay)한 결과, 예상한 타이밍(0/137/154/291/308/445 사이클)을 그대로 유지하면서도 대기 시간은 0으로 수렴 (`ia_risc_v_npu/workloads/profiling/event_bus_profile.json:590`). 즉, 재생 계층이 정확히 타임라인을 보존하면 기존 버스와의 충돌 없이 동작 가능함을 확인
+
+## Event-Driven DMA 프로토타입 설계
+- 목표: `ClusterTask` 제출 시 입력 DMA를 즉시 예약하고, compute 진행 중에도 출력을 큐잉/재생하여 실제 버스에 순차 재생하는 어댑터 구현
+- 구성 요소:
+  - `NPUCluster` 내부에 `pending_dma` 큐를 추가하고, 실제 버스 호출 대신 이벤트 객체(`DeferredDMA`)를 축적
+  - 시뮬레이터 메인 루프에서 주기적으로 `flush_deferred_dma(now)` 호출해, 현재 시각 이하로 예정된 DMA를 실제 버스 (`Bus.request`)로 재생
+  - 재생 시 글로벌 결정성을 위해 `(scheduled_at, issue_order)` 순으로 정렬, 동시간대 충돌은 채널 우선순위(input→output)로 해결
+  - DMA 완료 시각을 콜백으로 전달해 compute 파이프라인이 업데이트되도록 `CompletionCallback` 삽입
+- 추가 고려사항:
+  - CPU fetch/메모리 요청과 충돌 시에도 동일한 `Bus` 인터페이스를 이용하므로, flush가 시뮬레이터 메인 이벤트와 같은 tick에서 실행되어야 함
+  - 버스 재생 후에는 VirtualBus 결과와 비교해 겹침이 발생하는지 프로파일링 필요
 
 ## DMA 파이프라인 겹침 요구사항
 - 입출력 채널을 독립적으로 추적(예: `_dma_available_at_input`, `_dma_available_at_output`)하고, 다음 작업 입력을 미리 발행할 큐·정책이 필요
