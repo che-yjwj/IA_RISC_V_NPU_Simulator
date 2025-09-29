@@ -25,6 +25,22 @@
   ```bash
   python3 -m pytest
   ```
+- Tune the CNN integration workload size when triaging resource usage:
+  ```bash
+  CNN_TEST_PAYLOAD_SCALE=0.1 python3 -m pytest \
+      tests/integration/test_multilayer_cnn.py -q
+  ```
+  Alternatively, pass `--cnn-payload-scale` to override the default 0.05 ratio.
+- Override hardware profiles by editing the JSON passed to `--config`:
+  ```json
+  {
+    "cache": {"l1": {"size_bytes": 16384}},
+    "bus": {"grant_latency": 2},
+    "dram": {"t_cas": 18},
+    "npu": {"cores": 4, "policy": "rr"}
+  }
+  ```
+  Each field is validated via `src.simulator.config.validate_simulator_config`, so invalid values raise actionable errors.
 - Quick performance smoke test (keeps workloads small for CI):
   ```bash
   python3 -m src.simulator.cli benchmark --instructions 1000

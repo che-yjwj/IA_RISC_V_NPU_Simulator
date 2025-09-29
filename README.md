@@ -51,9 +51,10 @@ The adaptive core now relies entirely on the discrete event scheduler. Instructi
     python3 -m pip install -e ia_risc_v_npu[dev]
     ```
 
-    This command exposes the `src/` packages (`npu`, `risc_v`, `simulator`) and
-    the helper scripts without requiring manual `PYTHONPATH` exports. The
-    optional `[dev]` extra brings in the pytest stack used by the repository.
+    This command exposes the `src/` packages (`npu`, `risc_v`, `simulator`), the
+    `workloads` generators, and the helper scripts without requiring manual
+    `PYTHONPATH` exports. The optional `[dev]` extra brings in the pytest stack
+    used by the repository.
 
 ### Running the Simulator
 
@@ -64,6 +65,25 @@ python -m src.simulator.cli simulate build/program.elf --config configs/example.
 ```
 
 *Note: The simulator expects a RISC-V ELF binary; configuration is optional but accepted via `--config`.*
+
+### Configuring Hardware Profiles
+
+Hardware knobs are controlled through the JSON configuration passed via `--config`. A minimal example adjusts cache sizes, bus bandwidth, DRAM timings, and the NPU policy without touching Python code:
+
+```json
+{
+  "cache": {
+    "l1": {"size_bytes": 16384, "hit_latency": 6},
+    "l2": {"associativity": 16}
+  },
+  "bus": {"slice_bytes": 48, "bandwidth_bytes_per_cycle": 24},
+  "dram": {"t_cas": 18},
+  "npu": {"cores": 3, "policy": "rr"},
+  "determinism": {"seed": 123, "blas_threads": 4}
+}
+```
+
+All unspecified fields fall back to the defaults documented in `src/simulator/config.py`.
 
 ### Deterministic Environment
 
