@@ -37,13 +37,23 @@ The adaptive core now relies entirely on the discrete event scheduler. Instructi
 1.  **Clone the repository:**
     ```bash
     git clone https://github.com/your-username/IA_RISC_V_NPU_Simulator.git
-    cd IA_RISC_V_NPU_Simulator/ia_risc_v_npu
+    cd IA_RISC_V_NPU_Simulator
     ```
 
-2.  **Install dependencies:**
+2.  **Create and activate an isolated environment (recommended):**
     ```bash
-    pip install -r requirements.txt
+    python3 -m venv .venv
+    source .venv/bin/activate
     ```
+
+3.  **Install the simulator in editable mode:**
+    ```bash
+    python3 -m pip install -e ia_risc_v_npu[dev]
+    ```
+
+    This command exposes the `src/` packages (`npu`, `risc_v`, `simulator`) and
+    the helper scripts without requiring manual `PYTHONPATH` exports. The
+    optional `[dev]` extra brings in the pytest stack used by the repository.
 
 ### Running the Simulator
 
@@ -74,6 +84,13 @@ python -m src.simulator.cli benchmark --instructions 200000 --min-mips 0.05 --ma
 ```
 
 The written JSON includes executed instruction count, elapsed seconds, calculated MIPS, and the `mips_guard` section documenting whether the run stayed within the configured bounds (adjust the thresholds to match your calibrated baseline or target window).
+
+For CI smoke testing or quick local checks, reduce the workload to keep runtime
+lightweight:
+
+```bash
+python3 -m src.simulator.cli benchmark --instructions 1000
+```
 
 ### Reporting & Accuracy Guard
 
