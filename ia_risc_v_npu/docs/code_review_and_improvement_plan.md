@@ -19,8 +19,8 @@ This document outlines key recommendations for improving the RISC-V NPU simulato
 - [x] Remove the `pythonpath = ia_risc_v_npu` override from `pytest.ini` once packaging is in place.
 - [x] Add a pre-commit or CI smoke command that runs `pytest tests/unit -vv` after performing the editable install to catch path regressions early.
 - [ ] Measure peak memory usage of `tests/integration/test_multilayer_cnn.py` (and similar cases) to identify the sections that trigger OOM.
-- [ ] Extract large tensor preparation into reusable fixtures or synthetic stubs so unit tests validate behavior without materializing full workloads.
-- [ ] Retain a single high-level integration run with reduced tensor sizes to keep golden coverage while staying inside CI resource limits.
+- [x] Extract large tensor preparation into reusable fixtures or synthetic stubs so unit tests validate behavior without materializing full workloads.
+- [x] Retain a single high-level integration run with reduced tensor sizes to keep golden coverage while staying inside CI resource limits.
 
 ### 2.2. Centralized Configuration Management (Priority: High)
 
@@ -36,7 +36,7 @@ This document outlines key recommendations for improving the RISC-V NPU simulato
 - [x] Extend `tests/unit/simulator/test_config_validation.py` with assertions that edited config knobs alter instantiated component attributes.
 - [x] Add new unit coverage for `AdaptiveSimulator` verifying cache/bus parameters change when the config values change.
 - [ ] Publish reference JSON configs under `workloads/<scenario>/configs/` and annotate their usage in the workload README files.
-- [ ] Add documentation to `docs/` describing how to swap hardware profiles via the CLI without modifying Python modules.
+- [x] Add documentation to `docs/` describing how to swap hardware profiles via the CLI without modifying Python modules.
 
 ### 2.3. Refactor "Magic Numbers" (Priority: Medium)
 
@@ -74,8 +74,8 @@ This document outlines key recommendations for improving the RISC-V NPU simulato
 - Workload assets are generated ad-hoc, risking drift between developers.
 
 **Checklist**
-- [ ] Ensure the new packaging metadata includes the `scripts` package so `tests/unit/test_deterministic_env_script.py` passes after installation.
-- [ ] Update onboarding docs (`README.md`, `docs/development.md`) with the editable install workflow, explicit `python3` usage, and common CLI/test commands.
+- [x] Ensure the new packaging metadata includes the `scripts` package so `tests/unit/test_deterministic_env_script.py` passes after installation.
+- [x] Update onboarding docs (`README.md`, `docs/development.md`) with the editable install workflow, explicit `python3` usage, and common CLI/test commands.
 - [ ] Add CI or pre-commit jobs to run `black --check` and `ruff`, aligning with the existing `pyproject.toml` configuration.
 - [x] Document a lightweight benchmark smoke test (e.g., `python -m src.simulator.cli benchmark --instructions 1000`) and consider wiring it as an optional CI stage to catch major regressions.
 - [ ] Provide deterministic workload generation scripts under `workloads/` along with instructions for regenerating large tensors to keep version control lean.
