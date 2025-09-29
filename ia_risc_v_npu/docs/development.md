@@ -43,3 +43,6 @@
   reproducibility; avoid committing large binaries.
 - CI jobs assume editable installs: verify new tooling by running the
   `python3 -m pip install -e ia_risc_v_npu[dev]` command locally before pushing.
+- The CI pipeline runs a smoke check (`python3 -m pytest tests/unit -vv`) right
+  after the editable install; mirror this locally to catch import regressions
+  early.
