@@ -13,10 +13,10 @@ This document outlines key recommendations for improving the RISC-V NPU simulato
 - Integration workloads such as `ia_risc_v_npu/tests/integration/test_multilayer_cnn.py` allocate sizeable tensors and previously exhausted CI memory budgets.
 
 **Checklist**
-- [ ] Extend `ia_risc_v_npu/pyproject.toml` with `[build-system]`/`[project]` metadata so the repository can be installed in editable mode.
-- [ ] Document the editable install flow (`pip install -e ia_risc_v_npu`) in `README.md` and `docs/development.md` so contributors drop the `PYTHONPATH` export.
-- [ ] Add explicit `__init__.py` files under `ia_risc_v_npu/src/`, `ia_risc_v_npu/src/npu/`, `ia_risc_v_npu/src/risc_v/`, `ia_risc_v_npu/src/simulator/`, and any other package directories that pytest imports.
-- [ ] Remove the `pythonpath = ia_risc_v_npu` override from `pytest.ini` once packaging is in place.
+- [x] Extend `ia_risc_v_npu/pyproject.toml` with `[build-system]`/`[project]` metadata so the repository can be installed in editable mode.
+- [x] Document the editable install flow (`pip install -e ia_risc_v_npu`) in `README.md` and `docs/development.md` so contributors drop the `PYTHONPATH` export.
+- [x] Add explicit `__init__.py` files under `ia_risc_v_npu/src/`, `ia_risc_v_npu/src/npu/`, `ia_risc_v_npu/src/risc_v/`, `ia_risc_v_npu/src/simulator/`, and any other package directories that pytest imports.
+- [x] Remove the `pythonpath = ia_risc_v_npu` override from `pytest.ini` once packaging is in place.
 - [ ] Add a pre-commit or CI smoke command that runs `pytest tests/unit -vv` after performing the editable install to catch path regressions early.
 - [ ] Measure peak memory usage of `tests/integration/test_multilayer_cnn.py` (and similar cases) to identify the sections that trigger OOM.
 - [ ] Extract large tensor preparation into reusable fixtures or synthetic stubs so unit tests validate behavior without materializing full workloads.
@@ -77,5 +77,5 @@ This document outlines key recommendations for improving the RISC-V NPU simulato
 - [ ] Ensure the new packaging metadata includes the `scripts` package so `tests/unit/test_deterministic_env_script.py` passes after installation.
 - [ ] Update onboarding docs (`README.md`, `docs/development.md`) with the editable install workflow, explicit `python3` usage, and common CLI/test commands.
 - [ ] Add CI or pre-commit jobs to run `black --check` and `ruff`, aligning with the existing `pyproject.toml` configuration.
-- [ ] Document a lightweight benchmark smoke test (e.g., `python -m src.simulator.cli benchmark --instructions 1000`) and consider wiring it as an optional CI stage to catch major regressions.
+- [x] Document a lightweight benchmark smoke test (e.g., `python -m src.simulator.cli benchmark --instructions 1000`) and consider wiring it as an optional CI stage to catch major regressions.
 - [ ] Provide deterministic workload generation scripts under `workloads/` along with instructions for regenerating large tensors to keep version control lean.
