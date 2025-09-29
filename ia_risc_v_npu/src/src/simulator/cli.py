@@ -193,7 +193,7 @@ def run_simulate(args: argparse.Namespace) -> int:
     max_cycles = int(config.get("max_cycles", 0) or 0)
 
     program = load_program_image(args.elf_file)
-    simulator = AdaptiveSimulator()
+    simulator = AdaptiveSimulator(config=config, logger=LOGGER)
     simulator.load_program(program)
 
     LOGGER.debug("Loaded %s bytes (%s instructions)", program.text_size, len(program.instructions))
@@ -283,7 +283,7 @@ def run_benchmark(args: argparse.Namespace) -> int:
     else:
         program = _generate_synthetic_program(args.instructions)
 
-    simulator = AdaptiveSimulator()
+    simulator = AdaptiveSimulator(config=config, logger=LOGGER)
     simulator.load_program(program)
 
     LOGGER.debug(
