@@ -90,51 +90,24 @@ class AdaptiveSimulator:
         self.logger = logger or logging.getLogger(__name__)
         self._config = deepcopy(config) if config is not None else default_simulator_config()
 
-        determinism_cfg = self._config.get("determinism", {})
-        if not isinstance(determinism_cfg, Mapping):
-            determinism_cfg = {}
-        seed = int(determinism_cfg.get("seed", 0) or 0)
-        blas_threads = int(determinism_cfg.get("blas_threads", 1) or 1)
-        determinism = DeterminismConfig(
-            seed=seed,
-            env_thread_value=str(blas_threads),
-        )
+        determinism = self._build_determinism_config()
         configure_deterministic_environment(
-            seed=seed,
+            seed=determinism.seed,
             logger=self.logger,
             config=determinism,
         )
 
-        bus_cfg = self._config.get("bus", {})
-        if not isinstance(bus_cfg, Mapping):
-            bus_cfg = {}
-        self.bus = Bus(
-            slice_bytes=int(bus_cfg.get("slice_bytes", 32) or 32),
-            bandwidth_bytes_per_cycle=int(bus_cfg.get("bandwidth_bytes_per_cycle", 16) or 16),
-            grant_latency=int(bus_cfg.get("grant_latency", 1) or 1),
-        )
+        bus_kwargs = self._build_bus_config()
+        self.bus = Bus(**bus_kwargs)
         self.dram = bytearray(DRAM_SIZE)
         self.spm = SPM(SPM_SIZE_KB)
         self.npu = NPU()
 
-        cache_cfg = self._config.get("cache", {})
-        if not isinstance(cache_cfg, Mapping):
-            cache_cfg = {}
-        l1_config = self._build_cache_config(
-            "L1",
-            cache_cfg.get("l1", {}),
-            DEFAULT_L1_CONFIG,
-        )
-        l2_config = self._build_cache_config(
-            "L2",
-            cache_cfg.get("l2", {}),
-            DEFAULT_L2_CONFIG,
-        )
+        cache_cfg = self._get_config_section("cache")
+        l1_config = self._build_cache_config("L1", cache_cfg.get("l1"), DEFAULT_L1_CONFIG)
+        l2_config = self._build_cache_config("L2", cache_cfg.get("l2"), DEFAULT_L2_CONFIG)
 
-        dram_section = self._config.get("dram", {})
-        if not isinstance(dram_section, Mapping):
-            dram_section = {}
-        dram_cfg = self._build_dram_config(dram_section)
+        dram_cfg = self._build_dram_config(self._get_config_section("dram"))
         self.npu_cluster = NPUCluster(
             self.bus,
             cores=int(self._resolve_npu_cores()),
@@ -175,40 +148,52 @@ class AdaptiveSimulator:
         }
         self._fetch_hit_latency = self.memory_system.front_hit_latency()
 
+    def _get_config_section(self, *keys: str) -> Mapping[str, Any]:
+        """Safely retrieve a nested mapping from the config tree."""
+
+        section: Any = self._config
+        for key in keys:
+            if not isinstance(section, Mapping):
+                return {}
+            section = section.get(key, {})
+        return section if isinstance(section, Mapping) else {}
+
     def _build_execution_config(self) -> ExecutionTimingConfig:
         defaults = ExecutionTimingConfig()
-        cpu_cfg = self._config.get("cpu", {})
-        exec_cfg = cpu_cfg.get("execution", {}) if isinstance(cpu_cfg, Mapping) else {}
+        exec_cfg = self._get_config_section("cpu", "execution")
         return ExecutionTimingConfig(
-            alu_latency=int(exec_cfg.get("alu_latency", defaults.alu_latency)),
-            load_use_stall=int(exec_cfg.get("load_use_stall", defaults.load_use_stall)),
-            mul_latency=int(exec_cfg.get("mul_latency", defaults.mul_latency)),
-            div_latency=int(exec_cfg.get("div_latency", defaults.div_latency)),
+            alu_latency=self._coerce_int(exec_cfg.get("alu_latency"), defaults.alu_latency),
+            load_use_stall=self._coerce_int(exec_cfg.get("load_use_stall"), defaults.load_use_stall),
+            mul_latency=self._coerce_int(exec_cfg.get("mul_latency"), defaults.mul_latency),
+            div_latency=self._coerce_int(exec_cfg.get("div_latency"), defaults.div_latency),
         )
 
     def _build_branch_config(self) -> BranchPredictorConfig:
         defaults = BranchPredictorConfig()
-        cpu_cfg = self._config.get("cpu", {})
-        branch_cfg = cpu_cfg.get("branch", {}) if isinstance(cpu_cfg, Mapping) else {}
+        branch_cfg = self._get_config_section("cpu", "branch")
         return BranchPredictorConfig(
-            mispredict_penalty=int(branch_cfg.get("mispredict_penalty", defaults.mispredict_penalty)),
-            static_backwards_taken=bool(branch_cfg.get("static_backwards_taken", defaults.static_backwards_taken)),
+            mispredict_penalty=self._coerce_int(
+                branch_cfg.get("mispredict_penalty"), defaults.mispredict_penalty
+            ),
+            static_backwards_taken=bool(
+                branch_cfg.get("static_backwards_taken", defaults.static_backwards_taken)
+            ),
         )
 
     def _build_cache_config(
         self,
         name: str,
-        data: Mapping[str, Any],
+        data: Mapping[str, Any] | None,
         fallback: CacheConfig,
     ) -> CacheConfig:
         if not isinstance(data, Mapping):
             data = {}
         return CacheConfig(
             name=name,
-            size_bytes=int(data.get("size_bytes", fallback.size_bytes)),
-            line_size=int(data.get("line_size", fallback.line_size)),
-            associativity=int(data.get("associativity", fallback.associativity)),
-            hit_latency=int(data.get("hit_latency", fallback.hit_latency)),
+            size_bytes=self._coerce_int(data.get("size_bytes"), fallback.size_bytes),
+            line_size=self._coerce_int(data.get("line_size"), fallback.line_size),
+            associativity=self._coerce_int(data.get("associativity"), fallback.associativity),
+            hit_latency=self._coerce_int(data.get("hit_latency"), fallback.hit_latency),
             write_back=bool(data.get("write_back", fallback.write_back)),
             write_allocate=bool(data.get("write_allocate", fallback.write_allocate)),
         )
@@ -218,21 +203,23 @@ class AdaptiveSimulator:
             data = {}
         defaults = DRAMConfig()
         params = {
-            "banks": int(data.get("banks", defaults.banks)),
-            "row_size": int(data.get("row_size", defaults.row_size)),
-            "line_size": int(data.get("line_size", defaults.line_size)),
-            "t_rp": int(data.get("t_rp", defaults.t_rp)),
-            "t_rcd": int(data.get("t_rcd", defaults.t_rcd)),
-            "t_cas": int(data.get("t_cas", defaults.t_cas)),
-            "data_bytes_per_cycle": int(data.get("data_bytes_per_cycle", defaults.data_bytes_per_cycle)),
+            "banks": self._coerce_int(data.get("banks"), defaults.banks),
+            "row_size": self._coerce_int(data.get("row_size"), defaults.row_size),
+            "line_size": self._coerce_int(data.get("line_size"), defaults.line_size),
+            "t_rp": self._coerce_int(data.get("t_rp"), defaults.t_rp),
+            "t_rcd": self._coerce_int(data.get("t_rcd"), defaults.t_rcd),
+            "t_cas": self._coerce_int(data.get("t_cas"), defaults.t_cas),
+            "data_bytes_per_cycle": self._coerce_int(
+                data.get("data_bytes_per_cycle"), defaults.data_bytes_per_cycle
+            ),
         }
         return DRAMConfig(**params)
 
     def _resolve_npu_policy(self) -> ClusterPolicy:
-        npu_cfg = self._config.get("npu", {})
-        policy_value = (
-            npu_cfg.get("policy") if isinstance(npu_cfg, Mapping) else None
-        ) or ClusterPolicy.MIN_FINISH_TIME.value
+        npu_cfg = self._get_config_section("npu")
+        policy_value = npu_cfg.get("policy")
+        if not policy_value:
+            return ClusterPolicy.MIN_FINISH_TIME
         try:
             return ClusterPolicy(policy_value)
         except ValueError:
@@ -240,9 +227,49 @@ class AdaptiveSimulator:
             return ClusterPolicy.MIN_FINISH_TIME
 
     def _resolve_npu_cores(self) -> int:
-        npu_cfg = self._config.get("npu", {})
-        cores = int(npu_cfg.get("cores", 2) if isinstance(npu_cfg, Mapping) else 2)
+        npu_cfg = self._get_config_section("npu")
+        cores_val = npu_cfg.get("cores", 2)
+        try:
+            cores = int(cores_val)
+        except (ValueError, TypeError):
+            self.logger.warning("Invalid NPU cores value '%s'; falling back to 2.", cores_val)
+            cores = 2
         return max(1, cores)
+
+    def _build_determinism_config(self) -> DeterminismConfig:
+        det_cfg = self._get_config_section("determinism")
+        seed = self._coerce_int(det_cfg.get("seed"), 0)
+        threads_raw = det_cfg.get("blas_threads", 1)
+        try:
+            threads = int(threads_raw)
+        except (ValueError, TypeError):
+            self.logger.warning(
+                "Invalid BLAS thread count '%s'; falling back to 1.", threads_raw
+            )
+            threads = 1
+        threads = max(1, threads)
+        return DeterminismConfig(seed=seed, env_thread_value=str(threads))
+
+    def _build_bus_config(self) -> Dict[str, int]:
+        bus_cfg = self._get_config_section("bus")
+        defaults = {
+            "slice_bytes": 32,
+            "bandwidth_bytes_per_cycle": 16,
+            "grant_latency": 1,
+        }
+        return {
+            key: self._coerce_int(bus_cfg.get(key), default)
+            for key, default in defaults.items()
+        }
+
+    @staticmethod
+    def _coerce_int(value: Any, default: int) -> int:
+        try:
+            if value is None:
+                raise TypeError
+            return int(value)
+        except (ValueError, TypeError):
+            return int(default)
 
     def load_program(
         self,
