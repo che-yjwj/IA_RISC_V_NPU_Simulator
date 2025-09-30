@@ -280,7 +280,13 @@ class Bus:
         request_at = self._resolve_request_time(request_at)
         self._evict_completed(request_at)
 
-        master_id_int = int(master_id)
+        if isinstance(master_id, int):
+            master_id_int = master_id
+        elif hasattr(master_id, "value") and isinstance(master_id.value, int):
+            master_id_int = int(master_id)
+        else:
+            raise TypeError("master_id must be an integer or IntEnum-like object")
+
         queue = self._queues.setdefault(master_id_int, deque())
         if master_id_int not in self._masters_order:
             self._masters_order.append(master_id_int)
