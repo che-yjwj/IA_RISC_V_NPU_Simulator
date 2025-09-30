@@ -2,6 +2,7 @@ import math
 
 import pytest
 
+from src.simulator.identifiers import BusMasterID
 from src.simulator.memory import Bus, CacheConfig, DRAM, DRAMConfig, MemorySystem, SPM
 
 @pytest.fixture
@@ -94,7 +95,7 @@ def test_bus_request_single_transfer():
     bus = Bus(slice_bytes=16, bandwidth_bytes_per_cycle=8, grant_latency=2)
 
     bus.sync_time(0)
-    grant_at, done_at = bus.request(master_id=0, bytes=32)
+    grant_at, done_at = bus.request(master_id=BusMasterID.CPU, bytes=32)
 
     assert grant_at == 0
     assert done_at == 6  # grant 0 + latency 2 + transfer 4
@@ -115,9 +116,9 @@ def test_bus_round_robin_fairness():
     bus = Bus(slice_bytes=16, bandwidth_bytes_per_cycle=16, grant_latency=1)
 
     bus.sync_time(0)
-    grant0, done0 = bus.request(master_id=0, bytes=16)
-    grant1, done1 = bus.request(master_id=1, bytes=16, request_at=0)
-    grant2, done2 = bus.request(master_id=0, bytes=16, request_at=0)
+    grant0, done0 = bus.request(master_id=BusMasterID.CPU, bytes=16)
+    grant1, done1 = bus.request(master_id=BusMasterID.NPU_DMA, bytes=16, request_at=0)
+    grant2, done2 = bus.request(master_id=BusMasterID.CPU, bytes=16, request_at=0)
 
     assert (grant0, done0) == (0, 2)
     assert (grant1, done1) == (2, 4)
@@ -134,9 +135,9 @@ def test_bus_idle_gap_respected():
     bus = Bus(slice_bytes=16, bandwidth_bytes_per_cycle=16, grant_latency=1)
 
     bus.sync_time(0)
-    bus.request(master_id=0, bytes=16)
+    bus.request(master_id=BusMasterID.CPU, bytes=16)
     bus.sync_time(10)
-    grant, done = bus.request(master_id=0, bytes=16)
+    grant, done = bus.request(master_id=BusMasterID.CPU, bytes=16)
 
     assert grant == 10
     assert done == 12
@@ -184,8 +185,13 @@ def test_memory_system_cache_hit_latency():
     dram_cfg = DRAMConfig(banks=2, row_size=256, line_size=64, t_rp=2, t_rcd=2, t_cas=2, data_bytes_per_cycle=64)
     memory = MemorySystem(bus, l1_config=l1, l2_config=l2, dram_config=dram_cfg)
 
-    miss_done = memory.load(address=0x0, size=4, request_time=0, master_id=0)
-    hit_done = memory.load(address=0x0, size=4, request_time=miss_done, master_id=0)
+    miss_done = memory.load(address=0x0, size=4, request_time=0, master_id=BusMasterID.CPU)
+    hit_done = memory.load(
+        address=0x0,
+        size=4,
+        request_time=miss_done,
+        master_id=BusMasterID.CPU,
+    )
 
     assert hit_done - miss_done == l1.hit_latency
     stats = memory.cache_stats()
@@ -217,7 +223,12 @@ def test_memory_system_l1_miss_l2_hit_latency_accounts_for_front_penalty():
     index = (aligned_address // l2.line_size) % l2_cache.num_sets
     l2_cache.insert(index, aligned_address)
 
-    done_at = memory.load(address=aligned_address, size=4, request_time=0, master_id=0)
+    done_at = memory.load(
+        address=aligned_address,
+        size=4,
+        request_time=0,
+        master_id=BusMasterID.CPU,
+    )
 
     expected_latency = l1.hit_latency + l2.hit_latency + l1.hit_latency
     assert done_at == expected_latency
@@ -259,9 +270,14 @@ def test_memory_system_writeback_on_eviction():
     )
     memory = MemorySystem(bus, l1_config=l1, l2_config=l2, dram_config=dram_cfg)
 
-    done = memory.store(address=0, size=4, request_time=0, master_id=0)
-    done = memory.store(address=32, size=4, request_time=done, master_id=0)
-    memory.store(address=64, size=4, request_time=done, master_id=0)
+    done = memory.store(address=0, size=4, request_time=0, master_id=BusMasterID.CPU)
+    done = memory.store(
+        address=32,
+        size=4,
+        request_time=done,
+        master_id=BusMasterID.CPU,
+    )
+    memory.store(address=64, size=4, request_time=done, master_id=BusMasterID.CPU)
 
     metrics = bus.metrics
     assert metrics.completed_requests == 4

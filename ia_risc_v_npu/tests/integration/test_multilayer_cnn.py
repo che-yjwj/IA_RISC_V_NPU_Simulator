@@ -21,7 +21,7 @@ L2_WEIGHTS_ADDR = 0x4000
 FINAL_OUTPUT_ADDR = 0x5000
 
 
-def test_2_layer_cnn_workload(two_layer_cnn_scenario, record_property):
+def test_2_layer_cnn_workload(two_layer_cnn_scenario, record_property, cnn_memory_recorder):
     """
     Tests a 2-layer CNN workload.
     """
@@ -32,6 +32,8 @@ def test_2_layer_cnn_workload(two_layer_cnn_scenario, record_property):
     record_property(
         "cnn_payload_instructions", scenario.payload_instruction_count
     )
+
+    cnn_memory_recorder.capture("after_fixture")
 
     # 4. Initialize simulator and memory
     simulator = AdaptiveSimulator()
@@ -47,6 +49,7 @@ def test_2_layer_cnn_workload(two_layer_cnn_scenario, record_property):
 
     workload = scenario.workload
     simulator.load_program(workload)
+    cnn_memory_recorder.capture("after_program_load")
 
     # 6. Calculate expected output (시뮬레이션 전 계산)
     # Layer 1
@@ -80,6 +83,7 @@ def test_2_layer_cnn_workload(two_layer_cnn_scenario, record_property):
     report = asyncio.run(
         simulator.run_simulation(max_cycles=len(workload) * 10)
     )
+    cnn_memory_recorder.capture("after_simulation")
 
     run_cnn_layer(
         simulator.bus,
@@ -89,6 +93,7 @@ def test_2_layer_cnn_workload(two_layer_cnn_scenario, record_property):
         scenario.layer1_input_shape,
         scenario.layer1_kernel_shape,
     )
+    cnn_memory_recorder.capture("after_layer1")
 
     run_cnn_layer(
         simulator.bus,
@@ -98,6 +103,7 @@ def test_2_layer_cnn_workload(two_layer_cnn_scenario, record_property):
         scenario.layer1_output_shape,
         scenario.layer2_kernel_shape,
     )
+    cnn_memory_recorder.capture("after_layer2")
 
     # 7. Verify final output
     result_bytes = simulator.bus.read(
@@ -107,6 +113,7 @@ def test_2_layer_cnn_workload(two_layer_cnn_scenario, record_property):
         scenario.layer2_output_shape
     )
     np.testing.assert_array_equal(result, expected_output)
+    cnn_memory_recorder.capture("after_validation")
     assert report.instructions == len(workload)
     expected_pc = len(workload) * 4 - 4
     assert simulator.risc_v_engine.pc == expected_pc

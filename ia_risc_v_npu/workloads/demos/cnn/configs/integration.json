@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "max_cycles": 20000,
+  "cpu": {
+    "execution": {
+      "load_use_stall": 1,
+      "mul_latency": 4,
+      "div_latency": 8
+    },
+    "branch": {
+      "mispredict_penalty": 5,
+      "static_backwards_taken": true
+    }
+  },
+  "cache": {
+    "l1": {
+      "size_bytes": 16384,
+      "line_size": 64,
+      "associativity": 4,
+      "hit_latency": 4
+    },
+    "l2": {
+      "size_bytes": 65536,
+      "line_size": 64,
+      "associativity": 8,
+      "hit_latency": 18
+    }
+  },
+  "bus": {
+    "slice_bytes": 32,
+    "bandwidth_bytes_per_cycle": 24,
+    "grant_latency": 2
+  },
+  "dram": {
+    "banks": 4,
+    "t_cas": 14,
+    "t_rcd": 8,
+    "t_rp": 8,
+    "data_bytes_per_cycle": 16
+  },
+  "npu": {
+    "cores": 2,
+    "policy": "rr"
+  },
+  "determinism": {
+    "seed": 7,
+    "blas_threads": 2
+  }
+}

@@ -5,8 +5,8 @@ from __future__ import annotations
 
 import itertools
 from dataclasses import dataclass
-from enum import Enum
-from typing import Callable, Optional
+from enum import Enum, IntEnum
+from typing import Callable, Optional, Union
 
 from src.npu.model import NPU
 from src.simulator.memory import Bus
@@ -81,16 +81,20 @@ class NPUCluster:
         bus: Bus,
         *,
         cores: int = 1,
-        dma_master_id: int = 1,
+        dma_master_id: Union[int, IntEnum] = 1,
         policy: ClusterPolicy = ClusterPolicy.MIN_FINISH_TIME,
         compute_engine: Optional[NPU] = None,
     ) -> None:
+        if not isinstance(dma_master_id, (int, IntEnum)):
+            raise TypeError("dma_master_id must be an integer or IntEnum")
+        dma_master = int(dma_master_id)
+
         if cores <= 0:
             raise ValueError("코어 개수는 1 이상이어야 합니다.")
 
         self.bus = bus
         self.cores = cores
-        self.dma_master_id = dma_master_id
+        self.dma_master_id = dma_master
         self.policy = policy
         self.compute_engine = compute_engine or NPU()
 
