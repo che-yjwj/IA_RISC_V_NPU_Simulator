@@ -41,6 +41,7 @@
   }
   ```
   Each field is validated via `src.simulator.config.validate_simulator_config`, so invalid values raise actionable errors.
+- 참고용 기본 프로필은 `workloads/demos/cnn/configs/integration.json`에 있으며, CNN 통합 테스트 및 벤치마크 연습에 그대로 사용할 수 있습니다.
 - Quick performance smoke test (keeps workloads small for CI):
   ```bash
   python3 -m src.simulator.cli benchmark --instructions 1000
@@ -62,3 +63,5 @@
 - The CI pipeline runs a smoke check (`python3 -m pytest tests/unit -vv`) right
   after the editable install; mirror this locally to catch import regressions
   early.
+- 버스 마스터 ID와 주요 메모리 맵 주소는 `src.simulator.identifiers`에 정리되어 있으니, 새 코드나
+  테스트에서는 해당 enum/상수를 재사용해 매직 넘버 확산을 방지하세요.

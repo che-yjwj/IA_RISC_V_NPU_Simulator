@@ -45,12 +45,12 @@ This document outlines key recommendations for improving the RISC-V NPU simulato
 - Similar literals appear in bus metrics and event scheduler tests, duplicating intent.
 
 **Checklist**
-- [ ] Create a shared `src/simulator/identifiers.py` (or similar) that defines enums for bus masters, address ranges, and memory-mapped devices.
-- [ ] Replace raw literals such as `CPU_MASTER_ID = 0` and `DRAM_BASE = 0x0` in `AdaptiveSimulator` with references to the new enums/constants.
-- [ ] Update `Bus` and `NPUCluster` constructors to take enum values (with backward-compatible fallbacks) and adjust call sites accordingly.
-- [ ] Migrate unit tests to compare against enum members (`BusMasterID.CPU`) in assertions and fixtures.
-- [ ] Add regression tests that fail if mismatched enum values are provided, guaranteeing future contributors keep identifiers aligned.
-- [ ] Document the enums in developer docs so new modules extend the shared identifiers rather than inventing new magic numbers.
+- [x] Create a shared `src/simulator/identifiers.py` (or similar) that defines enums for bus masters, address ranges, and memory-mapped devices.
+- [x] Replace raw literals such as `CPU_MASTER_ID = 0` and `DRAM_BASE = 0x0` in `AdaptiveSimulator` with references to the new enums/constants.
+- [x] Update `Bus` and `NPUCluster` constructors to take enum values (with backward-compatible fallbacks) and adjust call sites accordingly.
+- [x] Migrate unit tests to compare against enum members (`BusMasterID.CPU`) in assertions and fixtures.
+- [x] Add regression tests that fail if mismatched enum values are provided, guaranteeing future contributors keep identifiers aligned.
+- [x] Document the enums in developer docs so new modules extend the shared identifiers rather than inventing new magic numbers.
 
 ### 2.4. Enhanced Logging for Debugging (Priority: Low)
 

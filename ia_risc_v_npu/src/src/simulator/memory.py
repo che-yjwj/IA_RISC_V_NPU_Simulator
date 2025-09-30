@@ -280,11 +280,12 @@ class Bus:
         request_at = self._resolve_request_time(request_at)
         self._evict_completed(request_at)
 
-        queue = self._queues.setdefault(master_id, deque())
-        if master_id not in self._masters_order:
-            self._masters_order.append(master_id)
+        master_id_int = int(master_id)
+        queue = self._queues.setdefault(master_id_int, deque())
+        if master_id_int not in self._masters_order:
+            self._masters_order.append(master_id_int)
 
-        request = BusRequest(master_id=master_id, size_bytes=bytes, request_at=request_at)
+        request = BusRequest(master_id=master_id_int, size_bytes=bytes, request_at=request_at)
         queue.append(request)
         self._pending_requests += 1
         self.metrics.on_request(len(self._active_requests) + self._pending_requests)

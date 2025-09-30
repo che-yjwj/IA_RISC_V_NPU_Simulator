@@ -26,7 +26,8 @@ from src.simulator.config import (
     default_simulator_config,
     validate_simulator_config,
 )
-from src.simulator.main import AdaptiveSimulator, SimulationReport, DRAM_BASE, DRAM_SIZE
+from src.simulator.identifiers import DRAM as DRAM_REGION
+from src.simulator.main import AdaptiveSimulator, SimulationReport
 from src.simulator.program import ProgramImage, ProgramSegment
 
 LOGGER = logging.getLogger(__name__)
@@ -222,7 +223,7 @@ def _generate_synthetic_program(length: int) -> ProgramImage:
         raise CLIError("Synthetic program length must be positive")
 
     # DRAM holds 1MB, so ensure the program fits.
-    max_words = (DRAM_SIZE // 4) - 1  # reserve space for halt instruction
+    max_words = (DRAM_REGION.size // 4) - 1  # reserve space for halt instruction
     if length > max_words:
         raise CLIError(f"Synthetic program length exceeds DRAM capacity ({max_words} instructions)")
 
@@ -230,7 +231,11 @@ def _generate_synthetic_program(length: int) -> ProgramImage:
     program = [add_instruction] * length
     program.append(0)  # halt sentinel
     program_bytes = b"".join(int(word).to_bytes(4, "little", signed=False) for word in program)
-    segment = ProgramSegment(address=DRAM_BASE, data=program_bytes, mem_size=len(program_bytes))
+    segment = ProgramSegment(
+        address=DRAM_REGION.base,
+        data=program_bytes,
+        mem_size=len(program_bytes),
+    )
     return ProgramImage(
         instructions=program,
         text_size=len(program) * 4,

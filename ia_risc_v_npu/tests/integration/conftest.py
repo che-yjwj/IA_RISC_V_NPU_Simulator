@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass
-from typing import List, Tuple
+from typing import Callable, List, Optional, Tuple
 
 import numpy as np
 import pytest
@@ -17,6 +17,13 @@ except ModuleNotFoundError:  # pragma: no cover
         "workloads 패키지가 존재하지 않아 CNN 통합 테스트 픽스처를 건너뜁니다.",
         allow_module_level=True,
     )
+
+try:  # pragma: no cover - Windows/Linux compatibility
+    import resource  # type: ignore
+except ImportError:  # pragma: no cover - resource 미제공 환경
+    resource = None
+
+MemoryKey = pytest.StashKey[Optional[int]]()
 
 HALT_INSTRUCTION = 0x0000006F
 MIN_PAYLOAD_SCALE = 0.01
@@ -57,6 +64,93 @@ class TwoLayerCnnScenario:
     def total_instruction_count(self) -> int:
         """Instruction count including HALT."""
         return len(self.workload)
+
+
+@dataclass(slots=True)
+class MemorySnapshot:
+    """Peak RSS measurement captured during CNN 테스트 흐름."""
+
+    label: str
+    peak_kib: Optional[int]
+    delta_kib: Optional[int]
+
+
+class MemoryRecorder:
+    """Helper to record ru_maxrss deltas during the integration test."""
+
+    def __init__(
+        self,
+        record_property: Callable[[str, object], None],
+        baseline_kib: Optional[int],
+    ) -> None:
+        self._record_property = record_property
+        self._enabled = resource is not None
+        self._baseline = baseline_kib if baseline_kib is not None else self._snapshot()
+        self._last = self._baseline
+        self._snapshots: list[MemorySnapshot] = []
+
+        if not self._enabled:
+            self._record_property(
+                "cnn_memory_profiler",
+                "resource 모듈을 사용할 수 없어 메모리 계측을 건너뜁니다.",
+            )
+        elif self._baseline is not None:
+            self._record_property("cnn_memory_peak_kib_baseline", self._baseline)
+
+    @staticmethod
+    def _snapshot() -> Optional[int]:
+        if resource is None:  # pragma: no cover - 보호 코드
+            return None
+        usage = resource.getrusage(resource.RUSAGE_SELF)
+        rss = getattr(usage, "ru_maxrss", None)
+        return int(rss) if rss is not None else None
+
+    def capture(self, label: str) -> MemorySnapshot:
+        if not self._enabled:
+            snapshot = MemorySnapshot(label=label, peak_kib=None, delta_kib=None)
+            self._snapshots.append(snapshot)
+            return snapshot
+
+        peak = self._snapshot()
+        if peak is None:
+            snapshot = MemorySnapshot(label=label, peak_kib=None, delta_kib=None)
+            self._snapshots.append(snapshot)
+            return snapshot
+
+        last = self._last or peak
+        delta = max(peak - last, 0)
+        self._last = peak
+        snapshot = MemorySnapshot(label=label, peak_kib=peak, delta_kib=delta)
+        self._snapshots.append(snapshot)
+
+        self._record_property(f"cnn_memory_peak_kib_{label}", peak)
+        self._record_property(f"cnn_memory_delta_kib_{label}", delta)
+        _logger.info("CNN 메모리 측정 - %s: peak=%sKiB delta=%sKiB", label, peak, delta)
+        return snapshot
+
+    def finalize(self) -> None:
+        if not self._enabled:
+            return
+        if not self._snapshots:
+            return
+        peaks = [snap.peak_kib for snap in self._snapshots if snap.peak_kib is not None]
+        if not peaks:
+            return
+        max_peak = max(peaks)
+        self._record_property("cnn_memory_peak_kib_max", max_peak)
+        if self._baseline is not None:
+            self._record_property("cnn_memory_peak_increase_kib", max_peak - self._baseline)
+
+
+@pytest.fixture
+def cnn_memory_recorder(
+    record_property: Callable[[str, object], None],
+    pytestconfig: pytest.Config,
+) -> MemoryRecorder:
+    baseline = pytestconfig.stash.get(MemoryKey, None)
+    recorder = MemoryRecorder(record_property, baseline_kib=baseline)
+    yield recorder
+    recorder.finalize()
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -163,4 +257,6 @@ def _build_two_layer_cnn_scenario(payload_scale: float) -> TwoLayerCnnScenario:
 @pytest.fixture(scope="module")
 def two_layer_cnn_scenario(pytestconfig: pytest.Config) -> TwoLayerCnnScenario:
     payload_scale = _resolve_payload_scale(pytestconfig)
+    if resource is not None:  # pragma: no branch - 단일 경로
+        pytestconfig.stash[MemoryKey] = MemoryRecorder._snapshot()
     return _build_two_layer_cnn_scenario(payload_scale)

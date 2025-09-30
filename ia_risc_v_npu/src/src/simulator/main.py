@@ -39,17 +39,14 @@ from src.simulator.memory import (
     CacheConfig,
     DRAMConfig,
 )
+from src.simulator.identifiers import (
+    BusMasterID,
+    DRAM as DRAM_REGION,
+    MMIO as MMIO_REGION,
+    SPM as SPM_REGION,
+)
 from src.simulator.mmio import MMIO
 from src.simulator.program import ProgramImage, ProgramSegment
-
-# Define memory map
-DRAM_BASE = 0x00000000
-DRAM_SIZE = 1024 * 1024  # 1MB
-SPM_BASE = 0x10000000
-SPM_SIZE_KB = 64
-MMIO_BASE = 0x20000000
-MMIO_SIZE = 0x10000  # 64KB
-
 
 @dataclass(slots=True)
 class SimulationReport:
@@ -73,8 +70,6 @@ class SimulationReport:
         return (self.instructions / 1_000_000) / self.elapsed_seconds
 
 
-CPU_MASTER_ID = 0
-NPU_DMA_MASTER_ID = 1
 MIN_EVENT_DELAY = 1
 
 
@@ -99,8 +94,8 @@ class AdaptiveSimulator:
 
         bus_kwargs = self._build_bus_config()
         self.bus = Bus(**bus_kwargs)
-        self.dram = bytearray(DRAM_SIZE)
-        self.spm = SPM(SPM_SIZE_KB)
+        self.dram = bytearray(DRAM_REGION.size)
+        self.spm = SPM(SPM_REGION.size // 1024)
         self.npu = NPU()
 
         cache_cfg = self._get_config_section("cache")
@@ -111,7 +106,7 @@ class AdaptiveSimulator:
         self.npu_cluster = NPUCluster(
             self.bus,
             cores=int(self._resolve_npu_cores()),
-            dma_master_id=NPU_DMA_MASTER_ID,
+            dma_master_id=int(BusMasterID.NPU_DMA),
             policy=self._resolve_npu_policy(),
             compute_engine=self.npu,
         )
@@ -124,14 +119,24 @@ class AdaptiveSimulator:
         )
 
         # Connect devices to the bus
-        self.bus.add_device("dram", self.dram, DRAM_BASE, DRAM_BASE + DRAM_SIZE - 1)
-        self.bus.add_device("spm", self.spm, SPM_BASE, SPM_BASE + (SPM_SIZE_KB * 1024) - 1)
-        self.bus.add_device("mmio", self.mmio, MMIO_BASE, MMIO_BASE + MMIO_SIZE - 1)
+        self.bus.add_device(DRAM_REGION.name, self.dram, DRAM_REGION.base, DRAM_REGION.end)
+        self.bus.add_device(
+            SPM_REGION.name,
+            self.spm,
+            SPM_REGION.base,
+            SPM_REGION.end,
+        )
+        self.bus.add_device(
+            MMIO_REGION.name,
+            self.mmio,
+            MMIO_REGION.base,
+            MMIO_REGION.end,
+        )
 
         self.risc_v_engine = RISCVEngine(
             self.bus,
             self.memory_system,
-            master_id=CPU_MASTER_ID,
+            master_id=int(BusMasterID.CPU),
             branch_config=self._build_branch_config(),
             execution_timing=self._build_execution_config(),
         )
@@ -275,7 +280,7 @@ class AdaptiveSimulator:
         self,
         program: Union[Iterable[int], ProgramImage],
         *,
-        base_address: int = DRAM_BASE,
+        base_address: int = DRAM_REGION.base,
     ) -> None:
         image = self._materialize_program_image(program, base_address)
 
