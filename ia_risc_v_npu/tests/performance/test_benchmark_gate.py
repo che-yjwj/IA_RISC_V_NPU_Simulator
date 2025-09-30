@@ -38,7 +38,7 @@ def _patch_benchmark(monkeypatch, metrics: cli.BenchmarkMetrics) -> None:
         simulator.risc_v_engine.instruction_count = metrics.instructions_executed
         return _make_report(metrics.instructions_executed), metrics
 
-    monkeypatch.setattr(cli, "AdaptiveSimulator", lambda: DummySimulator())
+    monkeypatch.setattr(cli, "AdaptiveSimulator", lambda *args, **kwargs: DummySimulator())
     monkeypatch.setattr(cli, "_measure_performance", fake_measure)
 
 

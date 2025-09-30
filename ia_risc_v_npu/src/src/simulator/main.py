@@ -411,7 +411,7 @@ class AdaptiveSimulator:
             address=self.risc_v_engine.pc,
             size=WORD_SIZE_BYTES,
             request_time=start_time,
-            master_id=CPU_MASTER_ID,
+            master_id=BusMasterID.CPU,
         )
         latency = max(0, done_at - start_time)
         self._record_fetch_latency(latency)
