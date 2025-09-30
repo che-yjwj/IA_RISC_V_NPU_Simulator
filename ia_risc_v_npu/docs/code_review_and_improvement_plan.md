@@ -9,7 +9,7 @@ This document outlines key recommendations for improving the RISC-V NPU simulato
 ### 2.1. Test Environment Restoration and Enhancement (Priority: Critical)
 
 **Observations**
-- Running `pytest ia_risc_v_npu/tests/unit -q` currently fails with `ModuleNotFoundError: No module named 'src'` because the simulator packages are not installable and the runner cannot resolve `src.*` or `scripts.*`.
+- Contributors who skip the documented `python3 -m pip install -e ia_risc_v_npu[dev]` step still hit `ModuleNotFoundError: No module named 'src'`; editable 설치가 전제라는 점을 CI/문서 모두 강조해야 합니다.
 - Integration workloads such as `ia_risc_v_npu/tests/integration/test_multilayer_cnn.py` allocate sizeable tensors and previously exhausted CI memory budgets.
 
 **Checklist**
@@ -25,7 +25,7 @@ This document outlines key recommendations for improving the RISC-V NPU simulato
 ### 2.2. Centralized Configuration Management (Priority: High)
 
 **Observations**
-- `src/simulator/cli.py` validates JSON configs, yet `src/simulator/main.py` still constructs the bus, caches, DRAM, and NPU with hard-coded defaults, so runtime tuning has no effect.
+- CLI에서 로드한 설정이 이제 `AdaptiveSimulator`와 버스/캐시/DRAM/NPU 구성까지 정상적으로 전달되지만, 공유할 베이스라인 하드웨어 프로필이 없어 워크로드 간 설정이 흩어져 있습니다.
 - Workloads in `workloads/` must patch sources to explore new hardware permutations, slowing iteration.
 
 **Checklist**
@@ -69,7 +69,7 @@ This document outlines key recommendations for improving the RISC-V NPU simulato
 ### 2.5. Development Workflow & CI Hygiene (Priority: Medium)
 
 **Observations**
-- Tests import modules directly from `scripts/`, but packaging metadata is not yet defined, and developer docs describe `python` rather than `python3` entry points.
+- 패키지 메타데이터와 `python3` 기반 개발 흐름은 정리되었지만, 코드 스타일 검증(black/ruff)과 결정적 워크로드 생성 지침이 아직 표준화돼 있지 않습니다.
 - Tooling hooks (black/ruff) are configured but not enforced in CI or contributor guidance, and benchmark runs are manual.
 - Workload assets are generated ad-hoc, risking drift between developers.
 
