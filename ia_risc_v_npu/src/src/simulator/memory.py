@@ -230,6 +230,7 @@ class Bus:
         bandwidth_bytes_per_cycle: int = 16,
         grant_latency: int = 1,
         metrics: Optional[BusMetrics] = None,
+        logger: Optional[logging.Logger] = None,
     ) -> None:
         if slice_bytes <= 0:
             raise ValueError("slice_bytes must be greater than zero.")
@@ -242,6 +243,7 @@ class Bus:
         self.bandwidth_bytes_per_cycle = bandwidth_bytes_per_cycle
         self.grant_latency = grant_latency
         self.metrics = metrics or BusMetrics()
+        self.logger = logger or LOGGER
 
         self.devices: Dict[str, Dict[str, object]] = {}
 
@@ -296,6 +298,17 @@ class Bus:
         self._pending_requests += 1
         self.metrics.on_request(len(self._active_requests) + self._pending_requests)
 
+        self.logger.debug(
+            "bus.request queued",
+            extra={
+                "master_id": master_id_int,
+                "size_bytes": bytes,
+                "request_at": request_at,
+                "pending": self._pending_requests,
+                "active": len(self._active_requests),
+            },
+        )
+
         self._schedule()
 
         self._now = max(self._now, request_at)
@@ -304,6 +317,18 @@ class Bus:
 
         if request.grant_at is None or request.done_at is None:
             raise RuntimeError("Bus scheduling did not produce a grant and completion time.")
+
+        self.logger.debug(
+            "bus.request scheduled",
+            extra={
+                "master_id": master_id_int,
+                "request_at": request.request_at,
+                "grant_at": request.grant_at,
+                "start_at": request.start_at,
+                "done_at": request.done_at,
+                "transfer_cycles": request.transfer_cycles,
+            },
+        )
 
         return request.grant_at, request.done_at
 
@@ -315,6 +340,15 @@ class Bus:
             raise ValueError("now cannot be negative.")
         if now < self._now:
             raise ValueError("Simulation time cannot move backwards.")
+        self.logger.debug(
+            "bus.sync_time",
+            extra={
+                "sync_to": now,
+                "previous": self._now,
+                "active": len(self._active_requests),
+                "pending": self._pending_requests,
+            },
+        )
         self._now = now
         self._evict_completed(now)
 
@@ -375,6 +409,19 @@ class Bus:
             transfer_cycles = self._calculate_transfer_cycles(request.size_bytes)
             done_at = start_time + transfer_cycles
 
+            self.logger.debug(
+                "bus.schedule grant",
+                extra={
+                    "master_id": master_id,
+                    "request_at": request.request_at,
+                    "grant_at": grant_event_time,
+                    "start_at": start_time,
+                    "done_at": done_at,
+                    "queue_depth": len(queue),
+                    "pending": self._pending_requests,
+                },
+            )
+
             request.grant_at = grant_event_time
             request.start_at = start_time
             request.done_at = done_at
@@ -393,6 +440,15 @@ class Bus:
             self._available_at = done_at
             self._completed_requests.append(request)
 
+        self.logger.debug(
+            "bus.schedule idle",
+            extra={
+                "available_at": self._available_at,
+                "pending": self._pending_requests,
+                "active": len(self._active_requests),
+            },
+        )
+
     def _calculate_transfer_cycles(self, size_bytes: int) -> int:
         if size_bytes <= 0:
             return 0
@@ -405,15 +461,27 @@ class Bus:
         return total_cycles
 
     def _find_device(self, address: int, size: int) -> Tuple[Optional[object], Optional[int]]:
-        LOGGER.debug("bus lookup: address=%s size=%s", address, size)
+        self.logger.debug(
+            "bus.lookup",
+            extra={"address": address, "size": size},
+        )
         for name, info in self.devices.items():
             start = info["start_addr"]
             end = info["end_addr"]
-            LOGGER.debug("  checking %s: start=%s end=%s", name, start, end)
+            self.logger.debug(
+                "bus.lookup.check",
+                extra={"device": name, "start": start, "end": end},
+            )
             if start <= address and address + size - 1 <= end:
-                LOGGER.debug("  device %s selected", name)
+                self.logger.debug(
+                    "bus.lookup.hit",
+                    extra={"device": name, "address": address, "size": size},
+                )
                 return info["device"], address - start
-        LOGGER.debug("  no device for address=%s size=%s", address, size)
+        self.logger.debug(
+            "bus.lookup.miss",
+            extra={"address": address, "size": size},
+        )
         return None, None
 
     def read(self, address: int, size: int) -> bytes:
@@ -536,6 +604,7 @@ class MemorySystem:
         dram_config: Optional[DRAMConfig] = None,
         l1_config: Optional[CacheConfig] = None,
         l2_config: Optional[CacheConfig] = None,
+        logger: Optional[logging.Logger] = None,
     ) -> None:
         self.bus = bus
         self.dram = DRAM(dram_config)
@@ -549,6 +618,7 @@ class MemorySystem:
         self._caches.append(CacheLevel(l2_config))
         self._now = 0
         self._reset_stats()
+        self.logger = logger or LOGGER
 
     def reset(self) -> None:
         self.dram.reset()
@@ -644,10 +714,28 @@ class MemorySystem:
         ready_time = request_time + cache.hit_latency
 
         if line is not None:
+            self.logger.debug(
+                "memory.cache.hit",
+                extra={
+                    "level": cache.config.name,
+                    "address": aligned_address,
+                    "master_id": master_id,
+                    "access_type": access_type,
+                },
+            )
             if access_type == "write":
                 cache.mark_dirty(line)
             return ready_time
 
+        self.logger.debug(
+            "memory.cache.miss",
+            extra={
+                "level": cache.config.name,
+                "address": aligned_address,
+                "master_id": master_id,
+                "access_type": access_type,
+            },
+        )
         lower_request_time = ready_time  # Pay this level's latency before descending.
         next_ready = self._access_hierarchy(
             level_idx + 1,
@@ -664,6 +752,14 @@ class MemorySystem:
         fill_complete = fill_start + cache.hit_latency
 
         if eviction and eviction.dirty and cache.config.write_back:
+            self.logger.debug(
+                "memory.cache.writeback",
+                extra={
+                    "level": cache.config.name,
+                    "evict_address": eviction.address,
+                    "master_id": master_id,
+                },
+            )
             writeback_done = self._access_hierarchy(
                 level_idx + 1,
                 address=eviction.address,
@@ -672,6 +768,16 @@ class MemorySystem:
                 master_id=master_id,
             )
             fill_complete = max(fill_complete, writeback_done)
+        elif eviction:
+            self.logger.debug(
+                "memory.cache.eviction",
+                extra={
+                    "level": cache.config.name,
+                    "evict_address": eviction.address,
+                    "dirty": eviction.dirty,
+                    "master_id": master_id,
+                },
+            )
 
         return fill_complete
 
@@ -694,6 +800,18 @@ class MemorySystem:
         completion = max(bus_done, dram_done)
         self._stats["bus_transaction_latency_cycles"] += max(0, bus_done - request_time)
         self._stats["dram_latency_cycles"] += max(0, dram_done - request_time)
+        self.logger.debug(
+            "memory.main_memory",
+            extra={
+                "address": address,
+                "size": size,
+                "master_id": master_id,
+                "request_time": request_time,
+                "bus_done": bus_done,
+                "dram_done": dram_done,
+                "completion": completion,
+            },
+        )
         return completion
 
     def _process_range(

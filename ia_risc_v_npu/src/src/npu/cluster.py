@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import itertools
+import logging
 from dataclasses import dataclass
 from enum import Enum, IntEnum
 from typing import Callable, Optional, Union
@@ -13,6 +14,9 @@ from src.simulator.memory import Bus
 
 
 OperationCallable = Callable[[NPU], object]
+
+
+LOGGER = logging.getLogger(__name__)
 
 
 class ClusterPolicy(str, Enum):
@@ -84,6 +88,7 @@ class NPUCluster:
         dma_master_id: Union[int, IntEnum] = 1,
         policy: ClusterPolicy = ClusterPolicy.MIN_FINISH_TIME,
         compute_engine: Optional[NPU] = None,
+        logger: Optional[logging.Logger] = None,
     ) -> None:
         if not isinstance(dma_master_id, (int, IntEnum)):
             raise TypeError("dma_master_id must be an integer or IntEnum")
@@ -97,6 +102,7 @@ class NPUCluster:
         self.dma_master_id = dma_master
         self.policy = policy
         self.compute_engine = compute_engine or NPU()
+        self.logger = logger or LOGGER
 
         self.core_free_at = [0 for _ in range(cores)]
         self._core_actual_free = [0 for _ in range(cores)]
@@ -128,6 +134,18 @@ class NPUCluster:
 
         effective_policy = policy or self.policy
         self.flush_deferred_dma(task.issue_at)
+
+        self.logger.debug(
+            "npu.submit",
+            extra={
+                "task": task.name or f"task_{id(task)}",
+                "issue_at": task.issue_at,
+                "input_bytes": task.input_bytes,
+                "output_bytes": task.output_bytes,
+                "compute_cycles": task.compute_cycles,
+                "policy": effective_policy.value,
+            },
+        )
 
         for idx in range(self.cores):
             self.core_free_at[idx] = self._core_actual_free[idx] + self._core_pending_cycles[idx]
@@ -176,6 +194,17 @@ class NPUCluster:
         )
 
         self.history.append(result)
+
+        self.logger.debug(
+            "npu.submit.queued",
+            extra={
+                "task": task.name or f"task_{id(task)}",
+                "core_id": core_id,
+                "pending_dma": len(self._pending_dma),
+                "predicted_start": predicted_start,
+                "predicted_done": predicted_done,
+            },
+        )
         return result
 
     def metrics(self, *, sim_time: int | None = None) -> dict[str, float | int]:
@@ -183,6 +212,16 @@ class NPUCluster:
         capacity = horizon * self.cores if horizon > 0 else 0
         utilization = (
             self._total_compute_cycles / capacity if capacity > 0 else 0.0
+        )
+        self.logger.debug(
+            "npu.metrics",
+            extra={
+                "tasks": len(self.history),
+                "utilization": utilization,
+                "compute_cycles": self._total_compute_cycles,
+                "wait_cycles": self._total_wait_cycles,
+                "horizon": horizon,
+            },
         )
         return {
             "cores": self.cores,
@@ -201,6 +240,14 @@ class NPUCluster:
         if not self._pending_dma:
             return
 
+        self.logger.debug(
+            "npu.flush.start",
+            extra={
+                "now": now,
+                "pending": len(self._pending_dma),
+            },
+        )
+
         ordered = sorted(
             self._pending_dma,
             key=lambda dma: (dma.scheduled_at, dma.channel_priority(), dma.order),
@@ -213,10 +260,26 @@ class NPUCluster:
                 if request_time is not None:
                     dma.scheduled_at = request_time
                 remaining.append(dma)
+                self.logger.debug(
+                    "npu.flush.defer",
+                    extra={
+                        "task": dma.task.name or f"task_{id(dma.task)}",
+                        "channel": dma.channel,
+                        "scheduled_at": dma.scheduled_at,
+                        "resolved_time": request_time,
+                    },
+                )
                 continue
             self._execute_deferred_dma(dma, request_time)
 
         self._pending_dma = remaining
+
+        self.logger.debug(
+            "npu.flush.complete",
+            extra={
+                "remaining": len(self._pending_dma),
+            },
+        )
 
     def _resolve_deferred_request_time(self, dma: DeferredDMA) -> Optional[int]:
         channel = dma.channel
@@ -241,6 +304,17 @@ class NPUCluster:
         size_bytes = dma.size_bytes
         if size_bytes < 0:
             raise ValueError("DMA 전송 크기는 음수가 될 수 없습니다.")
+
+        self.logger.debug(
+            "npu.dma.start",
+            extra={
+                "task": dma.task.name or f"task_{id(dma.task)}",
+                "channel": channel,
+                "size_bytes": size_bytes,
+                "request_time": request_time,
+                "available": self._dma_available_at.get(channel, 0),
+            },
+        )
 
         if size_bytes == 0:
             anchor = max(request_time, self.bus.now, self._dma_available_at.get(channel, 0))
@@ -290,6 +364,18 @@ class NPUCluster:
         else:
             # Other channels can simply record timing if needed in future.
             pass
+
+        self.logger.debug(
+            "npu.dma.complete",
+            extra={
+                "task": task.name or f"task_{id(task)}",
+                "channel": channel,
+                "request_time": request_time,
+                "grant_at": grant_at,
+                "done_at": done_at,
+                "core_id": result.core_id,
+            },
+        )
 
     def _select_core(self, task: ClusterTask, policy: ClusterPolicy) -> int:
         if policy == ClusterPolicy.ROUND_ROBIN:

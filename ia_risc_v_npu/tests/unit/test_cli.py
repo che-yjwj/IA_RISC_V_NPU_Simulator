@@ -165,6 +165,8 @@ def test_run_simulate_writes_summary(tmp_path, monkeypatch):
         config=None,
         output=output_path,
         verbose=False,
+        log_level=None,
+        trace=[],
     )
 
     exit_code = run_simulate(args)
@@ -193,6 +195,8 @@ def test_run_benchmark_synthetic(tmp_path):
         config=None,
         output=output_path,
         verbose=False,
+        log_level=None,
+        trace=[],
     )
 
     exit_code = run_benchmark(args)

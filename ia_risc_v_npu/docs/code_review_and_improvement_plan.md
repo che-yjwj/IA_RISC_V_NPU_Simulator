@@ -59,12 +59,12 @@ This document outlines key recommendations for improving the RISC-V NPU simulato
 - Developers currently instrument ad-hoc prints when triaging pipeline stalls or cache issues.
 
 **Checklist**
-- [ ] Add structured `LOGGER.debug` calls inside `Bus.request`, `_schedule`, and `sync_time` to trace grant/complete timings and queue depth.
-- [ ] Instrument `NPUCluster.submit`, `flush_deferred_dma`, and `metrics` to emit task-level lifecycle events when debug logging is enabled.
-- [ ] Extend cache miss handling in `MemorySystem` to log evictions, write-backs, and latency contributions at `DEBUG` level.
-- [ ] Modify `AdaptiveSimulator` to accept optional logger instances (or a factory) and propagate them to bus/NPU/memory components.
-- [ ] Introduce a CLI flag (e.g., `--log-level`, `--trace-bus`) that toggles the detailed logging without editing code.
-- [ ] Update developer docs with sample logging configurations and snippets showing how to enable targeted tracing during performance triage.
+- [x] Add structured `LOGGER.debug` calls inside `Bus.request`, `_schedule`, and `sync_time` to trace grant/complete timings and queue depth.
+- [x] Instrument `NPUCluster.submit`, `flush_deferred_dma`, and `metrics` to emit task-level lifecycle events when debug logging is enabled.
+- [x] Extend cache miss handling in `MemorySystem` to log evictions, write-backs, and latency contributions at `DEBUG` level.
+- [x] Modify `AdaptiveSimulator` to accept optional logger instances (or a factory) and propagate them to bus/NPU/memory components.
+- [x] Introduce a CLI flag (e.g., `--log-level`, `--trace-bus`) that toggles the detailed logging without editing code.
+- [x] Update developer docs with sample logging configurations and snippets showing how to enable targeted tracing during performance triage.
 
 ### 2.5. Development Workflow & CI Hygiene (Priority: Medium)
 

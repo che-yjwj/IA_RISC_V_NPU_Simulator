@@ -44,9 +44,38 @@ class BenchmarkMetrics:
     mips: float
 
 
-def configure_logging(verbose: bool) -> None:
-    level = logging.DEBUG if verbose else logging.INFO
-    logging.basicConfig(level=level, format="%(levelname)s %(name)s: %(message)s")
+def configure_logging(
+    verbose: bool,
+    *,
+    log_level: str | None = None,
+    trace_components: Iterable[str] | None = None,
+) -> logging.Logger:
+    """Configure root logging and return the simulator logger."""
+
+    level_name = (log_level or ("DEBUG" if verbose else "INFO")).upper()
+    level = getattr(logging, level_name, logging.INFO)
+
+    root = logging.getLogger()
+    if not root.handlers:
+        logging.basicConfig(level=logging.DEBUG, format="%(levelname)s %(name)s: %(message)s")
+    else:
+        for handler in root.handlers:
+            handler.setLevel(logging.DEBUG)
+
+    root.setLevel(logging.DEBUG)
+
+    simulator_logger = logging.getLogger("simulator")
+    simulator_logger.setLevel(level)
+
+    # Ensure CLI messages follow the same verbosity as the simulator logger.
+    LOGGER.setLevel(level)
+
+    traces = list(trace_components or ())
+    for component in traces:
+        component_logger = simulator_logger.getChild(component)
+        component_logger.setLevel(logging.DEBUG)
+
+    return simulator_logger
 
 
 def load_config(config_path: Optional[Path]) -> dict:
@@ -189,12 +218,16 @@ def write_output(summary: dict, output_path: Optional[Path]) -> None:
 
 
 def run_simulate(args: argparse.Namespace) -> int:
-    configure_logging(args.verbose)
+    simulator_logger = configure_logging(
+        args.verbose,
+        log_level=getattr(args, "log_level", None),
+        trace_components=getattr(args, "trace", None),
+    )
     config = load_config(args.config)
     max_cycles = int(config.get("max_cycles", 0) or 0)
 
     program = load_program_image(args.elf_file)
-    simulator = AdaptiveSimulator(config=config, logger=LOGGER)
+    simulator = AdaptiveSimulator(config=config, logger=simulator_logger)
     simulator.load_program(program)
 
     LOGGER.debug("Loaded %s bytes (%s instructions)", program.text_size, len(program.instructions))
@@ -279,7 +312,11 @@ def _evaluate_mips_guard(
 
 
 def run_benchmark(args: argparse.Namespace) -> int:
-    configure_logging(args.verbose)
+    simulator_logger = configure_logging(
+        args.verbose,
+        log_level=getattr(args, "log_level", None),
+        trace_components=getattr(args, "trace", None),
+    )
     config = load_config(args.config)
     max_cycles = int(config.get("max_cycles", 0) or args.max_cycles or 0)
 
@@ -288,7 +325,7 @@ def run_benchmark(args: argparse.Namespace) -> int:
     else:
         program = _generate_synthetic_program(args.instructions)
 
-    simulator = AdaptiveSimulator(config=config, logger=LOGGER)
+    simulator = AdaptiveSimulator(config=config, logger=simulator_logger)
     simulator.load_program(program)
 
     LOGGER.debug(
@@ -349,6 +386,22 @@ def run_benchmark(args: argparse.Namespace) -> int:
     return exit_code
 
 
+def _add_logging_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--log-level",
+        choices=["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"],
+        default=None,
+        help="Set the base logging level (default: INFO; --verbose overrides to DEBUG)",
+    )
+    parser.add_argument(
+        "--trace",
+        choices=["bus", "memory", "npu"],
+        action="append",
+        default=[],
+        help="Enable detailed DEBUG traces for a specific simulator component (repeatable)",
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="IA RISC-V + NPU Simulator CLI")
     subparsers = parser.add_subparsers(dest="command")
@@ -362,6 +415,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--output", type=Path, default=None, help="Write simulation summary to the specified path"
     )
     simulate_parser.add_argument("--verbose", action="store_true", help="Enable verbose logging output")
+    _add_logging_arguments(simulate_parser)
     simulate_parser.set_defaults(handler=run_simulate)
 
     benchmark_parser = subparsers.add_parser(
@@ -404,6 +458,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--output", type=Path, default=None, help="Write benchmark summary to the specified path"
     )
     benchmark_parser.add_argument("--verbose", action="store_true", help="Enable verbose logging output")
+    _add_logging_arguments(benchmark_parser)
     benchmark_parser.set_defaults(handler=run_benchmark)
 
     return parser
