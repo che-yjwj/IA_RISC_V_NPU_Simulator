@@ -59,6 +59,15 @@
   python3 -m src.simulator.cli simulate workloads/demos/example/program.elf \
       --config workloads/demos/example/configs/default.json
   ```
+- Adjust logging without editing code by combining `--log-level` and
+  component traces. For example, keep global INFO logs but capture bus activity:
+  ```bash
+  python3 -m src.simulator.cli simulate workloads/demos/example/program.elf \
+      --config workloads/demos/example/configs/default.json \
+      --log-level INFO --trace bus
+  ```
+  Use `--trace memory` or `--trace npu` (repeatable) for other components, or
+  bump the base verbosity to DEBUG for all simulator logs.
 
 ## Workflow Notes
 

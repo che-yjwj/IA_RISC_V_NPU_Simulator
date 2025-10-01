@@ -93,7 +93,7 @@ class AdaptiveSimulator:
         )
 
         bus_kwargs = self._build_bus_config()
-        self.bus = Bus(**bus_kwargs)
+        self.bus = Bus(**bus_kwargs, logger=self.logger.getChild("bus"))
         self.dram = bytearray(DRAM_REGION.size)
         self.spm = SPM(SPM_REGION.size // 1024)
         self.npu = NPU()
@@ -109,6 +109,7 @@ class AdaptiveSimulator:
             dma_master_id=int(BusMasterID.NPU_DMA),
             policy=self._resolve_npu_policy(),
             compute_engine=self.npu,
+            logger=self.logger.getChild("npu"),
         )
         self.mmio = MMIO(self.npu_cluster)
         self.memory_system = MemorySystem(
@@ -116,6 +117,7 @@ class AdaptiveSimulator:
             dram_config=dram_cfg,
             l1_config=l1_config,
             l2_config=l2_config,
+            logger=self.logger.getChild("memory"),
         )
 
         # Connect devices to the bus
