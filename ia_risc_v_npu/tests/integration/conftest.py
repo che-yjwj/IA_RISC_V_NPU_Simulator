@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import tracemalloc
 from dataclasses import dataclass
 from typing import Callable, List, Optional, Tuple
 
@@ -75,6 +76,16 @@ class MemorySnapshot:
     delta_kib: Optional[int]
 
 
+@dataclass(slots=True)
+class TraceSnapshot:
+    """tracemalloc 측정 결과."""
+
+    label: str
+    current_kib: float
+    peak_kib: float
+    top_stats: List[str]
+
+
 class MemoryRecorder:
     """Helper to record ru_maxrss deltas during the integration test."""
 
@@ -82,12 +93,33 @@ class MemoryRecorder:
         self,
         record_property: Callable[[str, object], None],
         baseline_kib: Optional[int],
+        *,
+        enable_tracemalloc: bool = False,
+        tracemalloc_frames: int = 25,
+        tracemalloc_top_stats: int = 5,
     ) -> None:
         self._record_property = record_property
         self._enabled = resource is not None
         self._baseline = baseline_kib if baseline_kib is not None else self._snapshot()
         self._last = self._baseline
         self._snapshots: list[MemorySnapshot] = []
+        self._trace_enabled = enable_tracemalloc
+        self._trace_top_stats = max(0, tracemalloc_top_stats)
+        self._trace_snapshots: list[TraceSnapshot] = []
+        self._trace_started_by_recorder = False
+        self._trace_baseline_snapshot: Optional["tracemalloc.Snapshot"] = None
+
+        if self._trace_enabled:
+            if not tracemalloc.is_tracing():  # pragma: no branch - 단일 경로
+                tracemalloc.start(tracemalloc_frames)
+                self._trace_started_by_recorder = True
+                tracemalloc.clear_traces()
+            try:
+                self._trace_baseline_snapshot = tracemalloc.take_snapshot()
+            except RuntimeError:  # pragma: no cover - 추적 종료 경합 보호
+                self._trace_baseline_snapshot = None
+            self._record_property("cnn_tracemalloc_frames", tracemalloc_frames)
+            self._record_property("cnn_tracemalloc_top", self._trace_top_stats)
 
         if not self._enabled:
             self._record_property(
@@ -109,37 +141,132 @@ class MemoryRecorder:
         if not self._enabled:
             snapshot = MemorySnapshot(label=label, peak_kib=None, delta_kib=None)
             self._snapshots.append(snapshot)
-            return snapshot
+        else:
+            peak = self._snapshot()
+            if peak is None:
+                snapshot = MemorySnapshot(label=label, peak_kib=None, delta_kib=None)
+                self._snapshots.append(snapshot)
+            else:
+                last = self._last or peak
+                delta = max(peak - last, 0)
+                self._last = peak
+                snapshot = MemorySnapshot(label=label, peak_kib=peak, delta_kib=delta)
+                self._snapshots.append(snapshot)
 
-        peak = self._snapshot()
-        if peak is None:
-            snapshot = MemorySnapshot(label=label, peak_kib=None, delta_kib=None)
-            self._snapshots.append(snapshot)
-            return snapshot
+                self._record_property(f"cnn_memory_peak_kib_{label}", peak)
+                self._record_property(f"cnn_memory_delta_kib_{label}", delta)
+                _logger.info(
+                    "CNN 메모리 측정 - %s: peak=%sKiB delta=%sKiB",
+                    label,
+                    peak,
+                    delta,
+                )
 
-        last = self._last or peak
-        delta = max(peak - last, 0)
-        self._last = peak
-        snapshot = MemorySnapshot(label=label, peak_kib=peak, delta_kib=delta)
-        self._snapshots.append(snapshot)
+        if self._trace_enabled and tracemalloc.is_tracing():
+            current_bytes, peak_bytes = tracemalloc.get_traced_memory()
+            current_kib = current_bytes / 1024.0
+            peak_kib = peak_bytes / 1024.0
+            top_entries: List[str] = []
+            if self._trace_top_stats > 0:
+                try:
+                    snapshot = tracemalloc.take_snapshot()
+                except RuntimeError:  # pragma: no cover - 추적 종료 경합 보호
+                    snapshot = None
+                if snapshot is not None:
+                    stats_entries: List[tuple[str, float]] = []
+                    if self._trace_baseline_snapshot is not None:
+                        diffs = snapshot.compare_to(
+                            self._trace_baseline_snapshot, "lineno"
+                        )
+                        diffs = [
+                            stat
+                            for stat in diffs
+                            if getattr(stat, "size_diff", 0) > 0
+                        ][: self._trace_top_stats]
+                        stats_entries = [
+                            (
+                                stat.traceback[0],
+                                getattr(stat, "size_diff", 0) / 1024.0,
+                            )
+                            for stat in diffs
+                        ]
+                    else:
+                        stats = snapshot.statistics("lineno")[: self._trace_top_stats]
+                        stats_entries = [
+                            (stat.traceback[0], stat.size / 1024.0)
+                            for stat in stats
+                        ]
+                    top_entries = [
+                        f"{trace}: {size_kib:.1f}KiB"
+                        for trace, size_kib in stats_entries
+                    ]
+                    self._trace_baseline_snapshot = snapshot
+            trace_snapshot = TraceSnapshot(
+                label=label,
+                current_kib=current_kib,
+                peak_kib=peak_kib,
+                top_stats=top_entries,
+            )
+            self._trace_snapshots.append(trace_snapshot)
+            self._record_property(
+                f"cnn_tracemalloc_current_kib_{label}", round(current_kib, 3)
+            )
+            self._record_property(
+                f"cnn_tracemalloc_peak_kib_{label}", round(peak_kib, 3)
+            )
+            if top_entries:
+                self._record_property(
+                    f"cnn_tracemalloc_top_{label}",
+                    top_entries,
+                )
+            _logger.debug(  # pragma: no cover - 디버그 로깅
+                "CNN tracemalloc - %s: current=%.1fKiB peak=%.1fKiB",
+                label,
+                current_kib,
+                peak_kib,
+            )
 
-        self._record_property(f"cnn_memory_peak_kib_{label}", peak)
-        self._record_property(f"cnn_memory_delta_kib_{label}", delta)
-        _logger.info("CNN 메모리 측정 - %s: peak=%sKiB delta=%sKiB", label, peak, delta)
         return snapshot
 
     def finalize(self) -> None:
-        if not self._enabled:
-            return
-        if not self._snapshots:
-            return
-        peaks = [snap.peak_kib for snap in self._snapshots if snap.peak_kib is not None]
-        if not peaks:
-            return
-        max_peak = max(peaks)
-        self._record_property("cnn_memory_peak_kib_max", max_peak)
-        if self._baseline is not None:
-            self._record_property("cnn_memory_peak_increase_kib", max_peak - self._baseline)
+        if self._enabled and self._snapshots:
+            peaks = [
+                snap.peak_kib for snap in self._snapshots if snap.peak_kib is not None
+            ]
+            if peaks:
+                max_peak = max(peaks)
+                self._record_property("cnn_memory_peak_kib_max", max_peak)
+                if self._baseline is not None:
+                    self._record_property(
+                        "cnn_memory_peak_increase_kib", max_peak - self._baseline
+                    )
+
+        if self._trace_enabled:
+            if self._trace_snapshots:
+                peak_values = [snap.peak_kib for snap in self._trace_snapshots]
+                overall_peak = max(peak_values)
+                self._record_property(
+                    "cnn_tracemalloc_peak_kib_max", round(overall_peak, 3)
+                )
+                label, peak_value = max(
+                    ((snap.label, snap.peak_kib) for snap in self._trace_snapshots),
+                    key=lambda item: item[1],
+                )
+                self._record_property(
+                    "cnn_tracemalloc_peak_label",
+                    {"label": label, "peak_kib": round(peak_value, 3)},
+                )
+                if self._trace_top_stats > 0:
+                    self._record_property(
+                        "cnn_tracemalloc_top_events",
+                        {
+                            snap.label: snap.top_stats
+                            for snap in self._trace_snapshots
+                            if snap.top_stats
+                        },
+                    )
+            if self._trace_started_by_recorder and tracemalloc.is_tracing():
+                tracemalloc.stop()
 
 
 @pytest.fixture
@@ -148,9 +275,54 @@ def cnn_memory_recorder(
     pytestconfig: pytest.Config,
 ) -> MemoryRecorder:
     baseline = pytestconfig.stash.get(MemoryKey, None)
-    recorder = MemoryRecorder(record_property, baseline_kib=baseline)
+    trace_enabled = _resolve_trace_enabled(pytestconfig)
+    trace_frames, trace_top = _resolve_trace_params()
+    recorder = MemoryRecorder(
+        record_property,
+        baseline_kib=baseline,
+        enable_tracemalloc=trace_enabled,
+        tracemalloc_frames=trace_frames,
+        tracemalloc_top_stats=trace_top,
+    )
     yield recorder
     recorder.finalize()
+
+
+def _resolve_trace_enabled(pytestconfig: pytest.Config) -> bool:
+    cli_flag = pytestconfig.getoption("cnn_memory_trace")
+    env_flag = os.getenv("CNN_MEMORY_TRACE")
+    if env_flag is not None:
+        normalized = env_flag.strip().lower()
+        if normalized in {"", "0", "false", "no", "off"}:
+            return False
+        return True
+    return bool(cli_flag)
+
+
+def _resolve_trace_params() -> Tuple[int, int]:
+    frames_env = os.getenv("CNN_MEMORY_TRACE_FRAMES")
+    top_env = os.getenv("CNN_MEMORY_TRACE_TOP")
+    frames = 25
+    top = 5
+    if frames_env:
+        try:
+            frames = max(1, int(frames_env))
+        except ValueError:  # pragma: no cover - 방어 코드
+            _logger.warning(
+                "CNN_MEMORY_TRACE_FRAMES=%s 값을 int 로 변환하지 못해 기본값 %d을 사용합니다.",
+                frames_env,
+                frames,
+            )
+    if top_env:
+        try:
+            top = max(0, int(top_env))
+        except ValueError:  # pragma: no cover - 방어 코드
+            _logger.warning(
+                "CNN_MEMORY_TRACE_TOP=%s 값을 int 로 변환하지 못해 기본값 %d을 사용합니다.",
+                top_env,
+                top,
+            )
+    return frames, top
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
@@ -163,6 +335,15 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "Scale factor applied to the synthetic NOP payload emitted for the "
             "CNN integration scenario (default: honour CNN_TEST_PAYLOAD_SCALE env "
             "or fall back to 0.05)."
+        ),
+    )
+    parser.addoption(
+        "--cnn-memory-trace",
+        action="store_true",
+        default=False,
+        help=(
+            "tracemalloc 기반 CNN 통합 테스트 메모리 추적을 활성화합니다. "
+            "환경 변수 CNN_MEMORY_TRACE=1 로도 제어할 수 있습니다."
         ),
     )
 
