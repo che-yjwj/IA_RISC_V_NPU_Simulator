@@ -31,6 +31,7 @@ from src.simulator.main import AdaptiveSimulator, SimulationReport
 from src.simulator.program import ProgramImage, ProgramSegment
 
 LOGGER = logging.getLogger(__name__)
+TRACE_COMPONENT_CHOICES: tuple[str, ...] = ("bus", "memory", "npu")
 
 
 class CLIError(RuntimeError):
@@ -65,15 +66,20 @@ def configure_logging(
     root.setLevel(logging.DEBUG)
 
     simulator_logger = logging.getLogger("simulator")
-    simulator_logger.setLevel(level)
+    traces = {component for component in (trace_components or ()) if component}
 
-    # Ensure CLI messages follow the same verbosity as the simulator logger.
-    LOGGER.setLevel(level)
+    # Set parent logger to DEBUG so that traced children are not filtered.
+    simulator_logger.setLevel(logging.DEBUG)
 
-    traces = list(trace_components or ())
-    for component in traces:
+    for component in TRACE_COMPONENT_CHOICES:
         component_logger = simulator_logger.getChild(component)
-        component_logger.setLevel(logging.DEBUG)
+        if component in traces:
+            component_logger.setLevel(logging.DEBUG)
+        else:
+            component_logger.setLevel(level)
+
+    # Ensure CLI messages follow the configured verbosity.
+    LOGGER.setLevel(level)
 
     return simulator_logger
 
@@ -395,7 +401,7 @@ def _add_logging_arguments(parser: argparse.ArgumentParser) -> None:
     )
     parser.add_argument(
         "--trace",
-        choices=["bus", "memory", "npu"],
+        choices=list(TRACE_COMPONENT_CHOICES),
         action="append",
         default=[],
         help="Enable detailed DEBUG traces for a specific simulator component (repeatable)",
@@ -483,8 +489,10 @@ __all__ = [
     "main",
     "load_program_image",
     "load_config",
+    "configure_logging",
     "CLIError",
     "BenchmarkMetrics",
+    "TRACE_COMPONENT_CHOICES",
 ]
 
 

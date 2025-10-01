@@ -5,6 +5,8 @@ import pytest
 
 from src.simulator.cli import (
     CLIError,
+    TRACE_COMPONENT_CHOICES,
+    configure_logging,
     load_config,
     load_program_image,
     run_benchmark,
@@ -211,6 +213,40 @@ def test_run_benchmark_synthetic(tmp_path):
     assert "miss_rates" in summary
     assert "amat_cycles" in summary
     assert "npu_util" in summary
+
+
+def test_configure_logging_trace_overrides_parent_level():
+    import logging
+
+    root = logging.getLogger()
+    original_root_level = root.level
+    handler_levels = [handler.level for handler in root.handlers]
+
+    simulator_logger = logging.getLogger("simulator")
+    original_sim_level = simulator_logger.level
+    component_levels = {
+        name: logging.getLogger(f"simulator.{name}").level for name in TRACE_COMPONENT_CHOICES
+    }
+    module_logger = logging.getLogger("src.simulator.cli")
+    original_module_level = module_logger.level
+
+    try:
+        configure_logging(verbose=False, log_level="INFO", trace_components=["bus"])
+
+        assert logging.getLogger("simulator").level == logging.DEBUG
+        assert logging.getLogger("simulator.bus").level == logging.DEBUG
+        assert logging.getLogger("simulator.memory").level == logging.INFO
+        assert logging.getLogger("simulator.npu").level == logging.INFO
+    finally:
+        root.setLevel(original_root_level)
+        for handler, level in zip(root.handlers, handler_levels):
+            handler.setLevel(level)
+
+        simulator_logger.setLevel(original_sim_level)
+        for name, level in component_levels.items():
+            logging.getLogger(f"simulator.{name}").setLevel(level)
+
+        module_logger.setLevel(original_module_level)
 
 
 def _make_program_image() -> ProgramImage:

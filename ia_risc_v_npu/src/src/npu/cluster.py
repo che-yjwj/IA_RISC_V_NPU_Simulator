@@ -119,6 +119,10 @@ class NPUCluster:
         self._pending_dma: list[DeferredDMA] = []
         self._dma_sequence = itertools.count()
 
+    @staticmethod
+    def _task_label(task: ClusterTask) -> str:
+        return task.name or f"task_{id(task)}"
+
     def submit(
         self,
         task: ClusterTask,
@@ -138,7 +142,7 @@ class NPUCluster:
         self.logger.debug(
             "npu.submit",
             extra={
-                "task": task.name or f"task_{id(task)}",
+                "task": self._task_label(task),
                 "issue_at": task.issue_at,
                 "input_bytes": task.input_bytes,
                 "output_bytes": task.output_bytes,
@@ -198,7 +202,7 @@ class NPUCluster:
         self.logger.debug(
             "npu.submit.queued",
             extra={
-                "task": task.name or f"task_{id(task)}",
+                "task": self._task_label(task),
                 "core_id": core_id,
                 "pending_dma": len(self._pending_dma),
                 "predicted_start": predicted_start,
@@ -263,7 +267,7 @@ class NPUCluster:
                 self.logger.debug(
                     "npu.flush.defer",
                     extra={
-                        "task": dma.task.name or f"task_{id(dma.task)}",
+                        "task": self._task_label(dma.task),
                         "channel": dma.channel,
                         "scheduled_at": dma.scheduled_at,
                         "resolved_time": request_time,
@@ -308,7 +312,7 @@ class NPUCluster:
         self.logger.debug(
             "npu.dma.start",
             extra={
-                "task": dma.task.name or f"task_{id(dma.task)}",
+                "task": self._task_label(dma.task),
                 "channel": channel,
                 "size_bytes": size_bytes,
                 "request_time": request_time,
@@ -368,7 +372,7 @@ class NPUCluster:
         self.logger.debug(
             "npu.dma.complete",
             extra={
-                "task": task.name or f"task_{id(task)}",
+                "task": self._task_label(task),
                 "channel": channel,
                 "request_time": request_time,
                 "grant_at": grant_at,
