@@ -31,6 +31,14 @@
       tests/integration/test_multilayer_cnn.py -q
   ```
   Alternatively, pass `--cnn-payload-scale` to override the default 0.05 ratio.
+- Capture per-phase peak memory when diagnosing OOM risk:
+  ```bash
+  python3 -m pytest tests/integration/test_multilayer_cnn.py -q \
+      --cnn-memory-trace
+  ```
+  Enable richer allocation traces with `CNN_MEMORY_TRACE=1` (or the flag above),
+  adjust the stack depth via `CNN_MEMORY_TRACE_FRAMES`, and control the number
+  of reported hot spots with `CNN_MEMORY_TRACE_TOP`.
 - Override hardware profiles by editing the JSON passed to `--config`:
   ```json
   {
