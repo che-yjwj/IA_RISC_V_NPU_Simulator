@@ -18,7 +18,7 @@ This document outlines key recommendations for improving the RISC-V NPU simulato
 - [x] Add explicit `__init__.py` files under `ia_risc_v_npu/src/`, `ia_risc_v_npu/src/npu/`, `ia_risc_v_npu/src/risc_v/`, `ia_risc_v_npu/src/simulator/`, and any other package directories that pytest imports.
 - [x] Remove the `pythonpath = ia_risc_v_npu` override from `pytest.ini` once packaging is in place.
 - [x] Add a pre-commit or CI smoke command that runs `pytest tests/unit -vv` after performing the editable install to catch path regressions early.
-- [ ] Measure peak memory usage of `tests/integration/test_multilayer_cnn.py` (and similar cases) to identify the sections that trigger OOM.
+- [x] Measure peak memory usage of `tests/integration/test_multilayer_cnn.py` (and similar cases) to identify the sections that trigger OOM. Coverage now provided by the `cnn_memory_recorder` fixture (`tests/integration/conftest.py`) and the `--cnn-memory-trace` tooling documented in `docs/development.md`.
 - [x] Extract large tensor preparation into reusable fixtures or synthetic stubs so unit tests validate behavior without materializing full workloads.
 - [x] Retain a single high-level integration run with reduced tensor sizes to keep golden coverage while staying inside CI resource limits.
 
@@ -35,7 +35,7 @@ This document outlines key recommendations for improving the RISC-V NPU simulato
 - [x] Pass the loaded config from `run_simulate` and `run_benchmark` into `AdaptiveSimulator`, including honoring `max_cycles` overrides.
 - [x] Extend `tests/unit/simulator/test_config_validation.py` with assertions that edited config knobs alter instantiated component attributes.
 - [x] Add new unit coverage for `AdaptiveSimulator` verifying cache/bus parameters change when the config values change.
-- [ ] Publish reference JSON configs under `workloads/<scenario>/configs/` and annotate their usage in the workload README files.
+- [x] Publish reference JSON configs under `workloads/<scenario>/configs/` and annotate their usage in the workload README files. Baselines now live at `workloads/demos/cnn/configs/integration.json` and `workloads/demos/accuracy_guard/configs/baseline.json`, with README instructions pointing to the configs.
 - [x] Add documentation to `docs/` describing how to swap hardware profiles via the CLI without modifying Python modules.
 
 ### 2.3. Refactor "Magic Numbers" (Priority: Medium)

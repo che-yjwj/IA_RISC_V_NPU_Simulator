@@ -68,7 +68,7 @@ python -m src.simulator.cli simulate build/program.elf --config configs/example.
 
 ### Configuring Hardware Profiles
 
-Hardware knobs are controlled through the JSON configuration passed via `--config`. A minimal example adjusts cache sizes, bus bandwidth, DRAM timings, and the NPU policy without touching Python code:
+Hardware knobs are controlled through the JSON configuration passed via `--config`. Baseline profiles live alongside their workloads under `workloads/<scenario>/configs/` (see `ia_risc_v_npu/docs/reference_configs.md` for a catalog). A minimal example adjusts cache sizes, bus bandwidth, DRAM timings, and the NPU policy without touching Python code:
 
 ```json
 {

@@ -2,6 +2,7 @@
 
 ## Profiling setup
 - Script: `workloads/profiling/event_bus_profile.py` (outputs JSON report to `workloads/profiling/event_bus_profile.json`)
+- Config baseline: `workloads/profiling/configs/event_bus_baseline.json` for reproducing CLI smoke runs and parameter tweaks.
 - Workloads: three CNN kernels generated via `workloads.cnn_workload.generate_cnn_workload`
 - Simulator entry point: `src/simulator/main.py:158` (`AdaptiveSimulator.run_simulation`)
 - Metrics tapped:

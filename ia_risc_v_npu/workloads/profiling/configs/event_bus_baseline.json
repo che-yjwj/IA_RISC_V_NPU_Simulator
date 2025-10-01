@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "bus": {
+    "slice_bytes": 32,
+    "bandwidth_bytes_per_cycle": 24,
+    "grant_latency": 2
+  },
+  "cache": {
+    "l1": {
+      "size_bytes": 32768,
+      "line_size": 64,
+      "associativity": 4,
+      "hit_latency": 4
+    },
+    "l2": {
+      "size_bytes": 131072,
+      "line_size": 64,
+      "associativity": 8,
+      "hit_latency": 18
+    }
+  },
+  "dram": {
+    "banks": 8,
+    "t_cas": 18,
+    "t_rcd": 10,
+    "t_rp": 10,
+    "data_bytes_per_cycle": 16
+  },
+  "npu": {
+    "cores": 2,
+    "policy": "rr"
+  },
+  "determinism": {
+    "seed": 13,
+    "blas_threads": 2
+  }
+}
