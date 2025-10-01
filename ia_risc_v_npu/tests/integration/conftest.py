@@ -106,11 +106,18 @@ class MemoryRecorder:
         self._trace_enabled = enable_tracemalloc
         self._trace_top_stats = max(0, tracemalloc_top_stats)
         self._trace_snapshots: list[TraceSnapshot] = []
+        self._trace_started_by_recorder = False
+        self._trace_baseline_snapshot: Optional["tracemalloc.Snapshot"] = None
 
         if self._trace_enabled:
             if not tracemalloc.is_tracing():  # pragma: no branch - 단일 경로
                 tracemalloc.start(tracemalloc_frames)
-            tracemalloc.clear_traces()
+                self._trace_started_by_recorder = True
+                tracemalloc.clear_traces()
+            try:
+                self._trace_baseline_snapshot = tracemalloc.take_snapshot()
+            except RuntimeError:  # pragma: no cover - 추적 종료 경합 보호
+                self._trace_baseline_snapshot = None
             self._record_property("cnn_tracemalloc_frames", tracemalloc_frames)
             self._record_property("cnn_tracemalloc_top", self._trace_top_stats)
 
@@ -155,18 +162,45 @@ class MemoryRecorder:
                     delta,
                 )
 
-        if self._trace_enabled:
+        if self._trace_enabled and tracemalloc.is_tracing():
             current_bytes, peak_bytes = tracemalloc.get_traced_memory()
             current_kib = current_bytes / 1024.0
             peak_kib = peak_bytes / 1024.0
             top_entries: List[str] = []
             if self._trace_top_stats > 0:
-                snapshot = tracemalloc.take_snapshot()
-                stats = snapshot.statistics("lineno")[: self._trace_top_stats]
-                top_entries = [
-                    f"{stat.traceback[0]}: {stat.size / 1024.0:.1f}KiB"
-                    for stat in stats
-                ]
+                try:
+                    snapshot = tracemalloc.take_snapshot()
+                except RuntimeError:  # pragma: no cover - 추적 종료 경합 보호
+                    snapshot = None
+                if snapshot is not None:
+                    stats_entries: List[tuple[str, float]] = []
+                    if self._trace_baseline_snapshot is not None:
+                        diffs = snapshot.compare_to(
+                            self._trace_baseline_snapshot, "lineno"
+                        )
+                        diffs = [
+                            stat
+                            for stat in diffs
+                            if getattr(stat, "size_diff", 0) > 0
+                        ][: self._trace_top_stats]
+                        stats_entries = [
+                            (
+                                stat.traceback[0],
+                                getattr(stat, "size_diff", 0) / 1024.0,
+                            )
+                            for stat in diffs
+                        ]
+                    else:
+                        stats = snapshot.statistics("lineno")[: self._trace_top_stats]
+                        stats_entries = [
+                            (stat.traceback[0], stat.size / 1024.0)
+                            for stat in stats
+                        ]
+                    top_entries = [
+                        f"{trace}: {size_kib:.1f}KiB"
+                        for trace, size_kib in stats_entries
+                    ]
+                    self._trace_baseline_snapshot = snapshot
             trace_snapshot = TraceSnapshot(
                 label=label,
                 current_kib=current_kib,
@@ -231,7 +265,8 @@ class MemoryRecorder:
                             if snap.top_stats
                         },
                     )
-            tracemalloc.stop()
+            if self._trace_started_by_recorder and tracemalloc.is_tracing():
+                tracemalloc.stop()
 
 
 @pytest.fixture
