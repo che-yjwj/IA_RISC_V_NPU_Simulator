@@ -39,6 +39,14 @@
   Enable richer allocation traces with `CNN_MEMORY_TRACE=1` (or the flag above),
   adjust the stack depth via `CNN_MEMORY_TRACE_FRAMES`, and control the number
   of reported hot spots with `CNN_MEMORY_TRACE_TOP`.
+- Regenerate deterministic CNN tensors and instruction streams when you need to
+  rehydrate the integration workload assets:
+  ```bash
+  python3 -m workloads.generators.generate_two_layer_cnn_assets \
+      --output-dir workloads/generated/two_layer_cnn --payload-scale 0.05
+  ```
+  Use `--force` to overwrite an existing directory and `--dtype` to experiment
+  with alternative integer widths.
 - Override hardware profiles by editing the JSON passed to `--config`:
   ```json
   {
