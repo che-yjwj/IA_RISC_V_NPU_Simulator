@@ -20,6 +20,8 @@ dev = [
     "pytest",
     "pytest-asyncio",
     "pytest-json-report",
+    "black",
+    "ruff",
 ]
 
 [tool.setuptools]
