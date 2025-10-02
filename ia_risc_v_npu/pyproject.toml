@@ -20,6 +20,8 @@ dev = [
     "pytest",
     "pytest-asyncio",
     "pytest-json-report",
+    "black",
+    "ruff",
 ]
 
 [tool.setuptools]
@@ -35,4 +37,6 @@ line-length = 88
 
 [tool.ruff]
 line-length = 88
+
+[tool.ruff.lint]
 select = ["E", "F", "W", "I"]
