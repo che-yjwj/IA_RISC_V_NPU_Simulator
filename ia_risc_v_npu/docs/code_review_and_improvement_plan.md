@@ -76,6 +76,6 @@ This document outlines key recommendations for improving the RISC-V NPU simulato
 **Checklist**
 - [x] Ensure the new packaging metadata includes the `scripts` package so `tests/unit/test_deterministic_env_script.py` passes after installation.
 - [x] Update onboarding docs (`README.md`, `docs/development.md`) with the editable install workflow, explicit `python3` usage, and common CLI/test commands.
-- [ ] Add CI or pre-commit jobs to run `black --check` and `ruff`, aligning with the existing `pyproject.toml` configuration.
+- [x] Add CI or pre-commit jobs to run `black --check` and `ruff`, aligning with the existing `pyproject.toml` configuration.
 - [x] Document a lightweight benchmark smoke test (e.g., `python -m src.simulator.cli benchmark --instructions 1000`) and consider wiring it as an optional CI stage to catch major regressions.
 - [x] Provide deterministic workload generation scripts under `workloads/` along with instructions for regenerating large tensors to keep version control lean.
