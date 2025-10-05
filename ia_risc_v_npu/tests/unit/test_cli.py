@@ -1,5 +1,6 @@
 import argparse
 import json
+from pathlib import Path
 
 import pytest
 
@@ -12,6 +13,7 @@ from src.simulator.cli import (
     run_benchmark,
     run_simulate,
 )
+from src.simulator.config import default_simulator_config
 from src.simulator.program import ProgramImage, ProgramSegment
 
 
@@ -84,7 +86,7 @@ class FakeELF:
         return iter(self._segments)
 
 
-def test_load_config_reads_json(tmp_path):
+def test_load_config_reads_json(tmp_path: Path):
     config_path = tmp_path / "config.json"
     config_path.write_text(
         json.dumps(
@@ -105,7 +107,7 @@ def test_load_config_reads_json(tmp_path):
     assert data["cache"]["l1"]["size_bytes"] == 32 * 1024
 
 
-def test_load_program_image_uses_text_section(tmp_path, monkeypatch):
+def test_load_program_image_uses_text_section(tmp_path: Path, monkeypatch):
     elf_path = tmp_path / "program.elf"
     elf_path.write_bytes(b"ELF")
     words = [0xDEADBEEF, 0xCAFEBABE]
@@ -127,7 +129,7 @@ def test_load_program_image_uses_text_section(tmp_path, monkeypatch):
     assert segment.data == data
 
 
-def test_load_program_image_requires_executable_section(tmp_path, monkeypatch):
+def test_load_program_image_requires_executable_section(tmp_path: Path, monkeypatch):
     elf_path = tmp_path / "program.elf"
     elf_path.write_bytes(b"ELF")
     fake_elf = FakeELF(text_section=None, sections=[])
@@ -138,7 +140,7 @@ def test_load_program_image_requires_executable_section(tmp_path, monkeypatch):
         load_program_image(elf_path)
 
 
-def test_load_program_image_requires_load_segments(tmp_path, monkeypatch):
+def test_load_program_image_requires_load_segments(tmp_path: Path, monkeypatch):
     elf_path = tmp_path / "program.elf"
     elf_path.write_bytes(b"ELF")
     words = [0x1]
@@ -152,7 +154,7 @@ def test_load_program_image_requires_load_segments(tmp_path, monkeypatch):
         load_program_image(elf_path)
 
 
-def test_load_config_invalid_schema(tmp_path):
+def test_load_config_invalid_schema(tmp_path: Path):
     config_path = tmp_path / "invalid.json"
     config_path.write_text(json.dumps({"schema_version": 999}), encoding="utf-8")
 
@@ -160,7 +162,7 @@ def test_load_config_invalid_schema(tmp_path):
         load_config(config_path)
 
 
-def test_run_simulate_writes_summary(tmp_path, monkeypatch):
+def test_run_simulate_writes_summary(tmp_path: Path, monkeypatch):
     elf_path = tmp_path / "program.elf"
     elf_path.write_bytes(b"ELF")
     output_path = tmp_path / "summary.json"
@@ -180,7 +182,9 @@ def test_run_simulate_writes_summary(tmp_path, monkeypatch):
         output=output_path,
         verbose=False,
         log_level=None,
+        log_path=None,
         trace=[],
+        scheduler_policy=None,
     )
 
     exit_code = run_simulate(args)
@@ -199,18 +203,22 @@ def test_run_simulate_writes_summary(tmp_path, monkeypatch):
     assert "accuracy_guard" not in summary
 
 
-def test_run_benchmark_synthetic(tmp_path):
+def test_run_benchmark_synthetic(tmp_path: Path):
     output_path = tmp_path / "benchmark.json"
 
     args = argparse.Namespace(
         elf_file=None,
         instructions=1_000,
         max_cycles=0,
+        min_mips=None,
+        max_mips=None,
         config=None,
         output=output_path,
         verbose=False,
         log_level=None,
+        log_path=None,
         trace=[],
+        scheduler_policy=None,
     )
 
     exit_code = run_benchmark(args)
@@ -244,7 +252,11 @@ def test_configure_logging_trace_overrides_parent_level():
     original_module_level = module_logger.level
 
     try:
-        configure_logging(verbose=False, log_level="INFO", trace_components=["bus"])
+        config = default_simulator_config()
+        config["logging"]["level"] = "INFO"
+        configure_logging(
+            config, verbose=False, log_level=None, trace_components=["bus"]
+        )
 
         assert logging.getLogger("simulator").level == logging.DEBUG
         assert logging.getLogger("simulator.bus").level == logging.DEBUG
@@ -272,7 +284,7 @@ def _make_program_image() -> ProgramImage:
     )
 
 
-def test_run_simulate_with_accuracy_guard_pass(tmp_path, monkeypatch):
+def test_run_simulate_with_accuracy_guard_pass(tmp_path: Path, monkeypatch):
     elf_path = tmp_path / "program.elf"
     elf_path.write_bytes(b"ELF")
     output_path = tmp_path / "summary.json"
@@ -307,6 +319,10 @@ def test_run_simulate_with_accuracy_guard_pass(tmp_path, monkeypatch):
         config=config_path,
         output=output_path,
         verbose=False,
+        log_level=None,
+        log_path=None,
+        trace=[],
+        scheduler_policy=None,
     )
 
     exit_code = run_simulate(args)
@@ -317,7 +333,7 @@ def test_run_simulate_with_accuracy_guard_pass(tmp_path, monkeypatch):
     assert summary["accuracy_guard"]["golds_path"].endswith(golden_path.name)
 
 
-def test_run_simulate_with_accuracy_guard_failure(tmp_path, monkeypatch):
+def test_run_simulate_with_accuracy_guard_failure(tmp_path: Path, monkeypatch):
     elf_path = tmp_path / "program.elf"
     elf_path.write_bytes(b"ELF")
     output_path = tmp_path / "summary.json"
@@ -348,6 +364,10 @@ def test_run_simulate_with_accuracy_guard_failure(tmp_path, monkeypatch):
         config=config_path,
         output=output_path,
         verbose=False,
+        log_level=None,
+        log_path=None,
+        trace=[],
+        scheduler_policy=None,
     )
 
     exit_code = run_simulate(args)

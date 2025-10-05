@@ -47,30 +47,46 @@ class BenchmarkMetrics:
 
 
 def configure_logging(
+    config: dict,
     verbose: bool,
     *,
     log_level: str | None = None,
+    log_path: Path | None = None,
     trace_components: Iterable[str] | None = None,
 ) -> logging.Logger:
     """Configure root logging and return the simulator logger."""
 
-    level_name = (log_level or ("DEBUG" if verbose else "INFO")).upper()
+    logging_config = config.get("logging", {})
+
+    # CLI arguments override config file settings
+    level_name = (log_level or logging_config.get("level", "INFO")).upper()
+    if verbose:
+        level_name = "DEBUG"
+
+    path = log_path or logging_config.get("path")
+    traces = set(trace_components or logging_config.get("trace_components", []))
+
     level = getattr(logging, level_name, logging.INFO)
 
+    # Reset any existing logging configuration
     root = logging.getLogger()
-    if not root.handlers:
-        logging.basicConfig(
-            level=logging.DEBUG, format="%(levelname)s %(name)s: %(message)s"
-        )
-    else:
-        for handler in root.handlers:
-            handler.setLevel(logging.DEBUG)
+    if root.handlers:
+        for handler in root.handlers[:]:
+            root.removeHandler(handler)
 
-    root.setLevel(logging.DEBUG)
+    # Set up the new handler
+    handler: logging.Handler
+    if path:
+        handler = logging.FileHandler(path, mode="w")
+    else:
+        handler = logging.StreamHandler()
+
+    formatter = logging.Formatter("%(levelname)s %(name)s: %(message)s")
+    handler.setFormatter(formatter)
+    root.addHandler(handler)
+    root.setLevel(logging.DEBUG)  # Set root to lowest level to not filter children
 
     simulator_logger = logging.getLogger("simulator")
-    traces = {component for component in (trace_components or ()) if component}
-
     # Set parent logger to DEBUG so that traced children are not filtered.
     simulator_logger.setLevel(logging.DEBUG)
 
@@ -236,13 +252,26 @@ def write_output(summary: dict, output_path: Optional[Path]) -> None:
             raise CLIError(f"Failed to write output file: {output_path}") from exc
 
 
-def run_simulate(args: argparse.Namespace) -> int:
+def _setup_environment(args: argparse.Namespace) -> tuple[dict, logging.Logger]:
+    """Load config, override with CLI args, and configure logging."""
+    config = load_config(args.config)
+
+    # Override config with CLI arguments where provided.
+    if getattr(args, "scheduler_policy", None):
+        config["npu"]["policy"] = args.scheduler_policy
+
     simulator_logger = configure_logging(
+        config,
         args.verbose,
         log_level=getattr(args, "log_level", None),
+        log_path=getattr(args, "log_path", None),
         trace_components=getattr(args, "trace", None),
     )
-    config = load_config(args.config)
+    return config, simulator_logger
+
+
+def run_simulate(args: argparse.Namespace) -> int:
+    config, simulator_logger = _setup_environment(args)
     max_cycles = int(config.get("max_cycles", 0) or 0)
 
     program = load_program_image(args.elf_file)
@@ -345,12 +374,7 @@ def _evaluate_mips_guard(
 
 
 def run_benchmark(args: argparse.Namespace) -> int:
-    simulator_logger = configure_logging(
-        args.verbose,
-        log_level=getattr(args, "log_level", None),
-        trace_components=getattr(args, "trace", None),
-    )
-    config = load_config(args.config)
+    config, simulator_logger = _setup_environment(args)
     max_cycles = int(config.get("max_cycles", 0) or args.max_cycles or 0)
 
     if args.elf_file:
@@ -429,6 +453,12 @@ def _add_logging_arguments(parser: argparse.ArgumentParser) -> None:
         help="Set the base logging level (default: INFO; --verbose overrides to DEBUG)",
     )
     parser.add_argument(
+        "--log-path",
+        type=Path,
+        default=None,
+        help="Redirect logging to the specified file.",
+    )
+    parser.add_argument(
         "--trace",
         choices=list(TRACE_COMPONENT_CHOICES),
         action="append",
@@ -437,6 +467,15 @@ def _add_logging_arguments(parser: argparse.ArgumentParser) -> None:
             "Enable detailed DEBUG traces for a specific simulator component "
             "(repeatable)"
         ),
+    )
+
+
+def _add_simulator_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--scheduler-policy",
+        choices=["min_finish_time", "rr", "priority"],
+        default=None,
+        help="Override the NPU scheduler policy from the config file.",
     )
 
 
@@ -466,6 +505,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--verbose", action="store_true", help="Enable verbose logging output"
     )
     _add_logging_arguments(simulate_parser)
+    _add_simulator_arguments(simulate_parser)
     simulate_parser.set_defaults(handler=run_simulate)
 
     benchmark_parser = subparsers.add_parser(
@@ -517,6 +557,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--verbose", action="store_true", help="Enable verbose logging output"
     )
     _add_logging_arguments(benchmark_parser)
+    _add_simulator_arguments(benchmark_parser)
     benchmark_parser.set_defaults(handler=run_benchmark)
 
     return parser
