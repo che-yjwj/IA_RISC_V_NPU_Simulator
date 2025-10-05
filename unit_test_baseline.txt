@@ -1,0 +1,30 @@
+============================= test session starts ==============================
+platform linux -- Python 3.12.1, pytest-8.4.2, pluggy-1.6.0
+rootdir: /workspaces/IA_RISC_V_NPU_Simulator/ia_risc_v_npu
+configfile: pytest.ini
+plugins: anyio-4.9.0, asyncio-1.2.0, metadata-3.1.1, json-report-1.5.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 122 items
+
+ia_risc_v_npu/tests/unit/npu/test_cluster.py .....                       [  4%]
+ia_risc_v_npu/tests/unit/risc_v/instructions/test_alu.py ......          [  9%]
+ia_risc_v_npu/tests/unit/risc_v/instructions/test_control_flow.py ...... [ 13%]
+..                                                                       [ 15%]
+ia_risc_v_npu/tests/unit/risc_v/instructions/test_memory.py ....         [ 18%]
+ia_risc_v_npu/tests/unit/risc_v/test_engine_control_flow.py ............ [ 28%]
+..........                                                               [ 36%]
+ia_risc_v_npu/tests/unit/simulator/test_config_validation.py .........   [ 44%]
+ia_risc_v_npu/tests/unit/simulator/test_identifiers.py ....              [ 47%]
+ia_risc_v_npu/tests/unit/simulator/test_mmio.py ...                      [ 50%]
+ia_risc_v_npu/tests/unit/test_accuracy_guard.py .....                    [ 54%]
+ia_risc_v_npu/tests/unit/test_adaptive_controller.py .                   [ 54%]
+ia_risc_v_npu/tests/unit/test_classifier.py ...                          [ 57%]
+ia_risc_v_npu/tests/unit/test_cli.py ..........                          [ 65%]
+ia_risc_v_npu/tests/unit/test_determinism.py ..                          [ 67%]
+ia_risc_v_npu/tests/unit/test_deterministic_env_script.py ...            [ 69%]
+ia_risc_v_npu/tests/unit/test_events.py .......                          [ 75%]
+ia_risc_v_npu/tests/unit/test_npu.py ..........                          [ 83%]
+ia_risc_v_npu/tests/unit/test_simulator_loader.py ..                     [ 85%]
+ia_risc_v_npu/tests/unit/test_simulator_memory.py ..................     [100%]
+
+============================= 122 passed in 2.21s ==============================
