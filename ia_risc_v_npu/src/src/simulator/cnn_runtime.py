@@ -12,7 +12,7 @@ from typing import Sequence
 import numpy as np
 
 from src.simulator.cnn_utils import compute_output_dims, normalize_kernel_shape
-from src.simulator.memory import Bus
+from src.simulator.devices import Bus
 
 
 def _reshape_input(bus: Bus, addr: int, shape: Sequence[int]) -> np.ndarray:

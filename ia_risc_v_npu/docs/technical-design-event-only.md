@@ -136,7 +136,11 @@ CLI 연계
 
 리포트
 - cycles, instructions, sim_time, elapsed_seconds, mips
-- bus_metrics(대기/전송 집계), cache_metrics(히트/미스·miss_rate), memory_metrics(average_latency, bus_transaction_latency)
+- memory_report:
+  - bus_metrics(대기/전송 집계)
+  - cache_metrics(히트/미스·miss_rate)
+  - dram_metrics(row hit/miss, latency)
+  - memory_system_metrics(average_latency, bus_transaction_latency)
 - fetch_metrics(미스율, miss_penalty), stall_breakdown{icache,bus,dram,npu_wait}, npu_metrics(utilization 포함)
 - `prepare_summary`가 CLI/파일 출력에 miss_rates·AMAT·npu_util 계산을 포함
 

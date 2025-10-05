@@ -7,11 +7,13 @@
     "l2": 1.0,
     "icache": 0.5
   },
-  "bus_metrics": {
-    "completed_requests": 1
-  },
-  "memory_metrics": {
-    "total_requests": 2
+  "memory_report": {
+    "bus": {
+      "completed_requests": 1
+    },
+    "memory_system": {
+      "total_requests": 2
+    }
   },
   "npu_metrics": {
     "cores": 2,

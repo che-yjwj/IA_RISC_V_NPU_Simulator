@@ -14,9 +14,26 @@ from typing import Any, Dict
 
 from src.npu.cluster import ClusterPolicy
 from src.risc_v.engine import BranchPredictorConfig, ExecutionTimingConfig
-from src.simulator.memory import DEFAULT_L1_CONFIG, DEFAULT_L2_CONFIG, DRAMConfig
+from src.simulator.models import CacheConfig, DRAMConfig
 
 SUPPORTED_SCHEMA_VERSION = 1
+
+
+DEFAULT_L1_CONFIG = CacheConfig(
+    name="L1",
+    size_bytes=32 * 1024,
+    line_size=64,
+    associativity=4,
+    hit_latency=4,
+)
+
+DEFAULT_L2_CONFIG = CacheConfig(
+    name="L2",
+    size_bytes=256 * 1024,
+    line_size=64,
+    associativity=8,
+    hit_latency=12,
+)
 
 
 class ConfigValidationError(ValueError):

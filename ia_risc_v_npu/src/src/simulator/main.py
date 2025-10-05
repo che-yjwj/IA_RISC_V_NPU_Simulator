@@ -23,11 +23,16 @@ from src.risc_v.engine import (
     ExecutionTimingConfig,
     RISCVEngine,
 )
-from src.simulator.config import default_simulator_config
+from src.simulator.config import (
+    DEFAULT_L1_CONFIG,
+    DEFAULT_L2_CONFIG,
+    default_simulator_config,
+)
 from src.simulator.determinism import (
     DeterminismConfig,
     configure_deterministic_environment,
 )
+from src.simulator.devices import SPM, Bus
 from src.simulator.events import EventScheduler
 from src.simulator.identifiers import (
     DRAM as DRAM_REGION,
@@ -41,16 +46,9 @@ from src.simulator.identifiers import (
 from src.simulator.identifiers import (
     BusMasterID,
 )
-from src.simulator.memory import (
-    DEFAULT_L1_CONFIG,
-    DEFAULT_L2_CONFIG,
-    SPM,
-    Bus,
-    CacheConfig,
-    DRAMConfig,
-    MemorySystem,
-)
+from src.simulator.memory import MemorySystem
 from src.simulator.mmio import MMIO
+from src.simulator.models import CacheConfig, DRAMConfig
 from src.simulator.program import ProgramImage, ProgramSegment
 
 
@@ -62,9 +60,7 @@ class SimulationReport:
     reason: str
     sim_time: int
     elapsed_seconds: float
-    bus_metrics: Dict[str, float | int]
-    cache_metrics: Dict[str, Dict[str, float | int]]
-    memory_metrics: Dict[str, float | int]
+    memory_report: Dict[str, Any]
     stall_breakdown: Dict[str, float | int]
     npu_metrics: Dict[str, float | int]
     fetch_metrics: Dict[str, float | int]
@@ -422,15 +418,13 @@ class AdaptiveSimulator:
 
         self.sim_time = scheduler.now
         elapsed = time.perf_counter() - start_time
-        cache_metrics = self.memory_system.cache_metrics()
-        memory_metrics = self.memory_system.memory_metrics()
-        bus_metrics = self.bus.metrics.snapshot()
+        memory_report = self.memory_system.report_metrics()
         fetch_metrics = self._fetch_metrics()
         npu_metrics = self.npu_cluster.metrics(sim_time=self.sim_time)
         stall_breakdown = {
             "icache": fetch_metrics.get("miss_penalty_cycles", 0.0),
-            "bus": bus_metrics.get("total_wait_cycles", 0.0),
-            "dram": memory_metrics.get("dram_wait_cycles", 0.0),
+            "bus": memory_report.get("bus", {}).get("total_wait_cycles", 0.0),
+            "dram": memory_report.get("memory_system", {}).get("dram_wait_cycles", 0.0),
             "npu_wait": npu_metrics.get("wait_cycles", 0.0),
         }
         return SimulationReport(
@@ -440,9 +434,7 @@ class AdaptiveSimulator:
             reason=reason,
             sim_time=self.sim_time,
             elapsed_seconds=elapsed,
-            bus_metrics=bus_metrics,
-            cache_metrics=cache_metrics,
-            memory_metrics=memory_metrics,
+            memory_report=memory_report,
             stall_breakdown=stall_breakdown,
             npu_metrics=npu_metrics,
             fetch_metrics=fetch_metrics,
