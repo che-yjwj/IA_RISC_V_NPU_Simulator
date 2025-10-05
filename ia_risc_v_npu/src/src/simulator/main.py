@@ -337,6 +337,16 @@ class AdaptiveSimulator:
                 self.bus.write(base, bytes(size_bytes))
                 entry = {"base": base, "size": size_bytes}
                 self._cq_dram_allocations[key] = entry
+            else:
+                if size_bytes > entry["size"]:
+                    raise MemoryError(
+                        "CQ DRAM allocation for {uri} exceeds existing region "
+                        "(requested {req}, allocated {alloc})".format(
+                            uri=uri,
+                            req=size_bytes,
+                            alloc=entry["size"],
+                        )
+                    )
             if shape:
                 entry["shape"] = shape
             self._initialize_cq_region(space, uri, entry, size_bytes, new_entry)
@@ -351,6 +361,16 @@ class AdaptiveSimulator:
                 self._cq_next_spm_offset += size_bytes
                 entry = {"offset": offset, "size": size_bytes}
                 self._cq_spm_allocations[key] = entry
+            else:
+                if size_bytes > entry["size"]:
+                    raise MemoryError(
+                        "CQ SPM allocation for {uri} exceeds existing region "
+                        "(requested {req}, allocated {alloc})".format(
+                            uri=uri,
+                            req=size_bytes,
+                            alloc=entry["size"],
+                        )
+                    )
             if shape:
                 entry["shape"] = shape
             self._initialize_cq_region(space, uri, entry, size_bytes, new_entry)
