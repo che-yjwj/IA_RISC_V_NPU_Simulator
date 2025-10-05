@@ -10,7 +10,7 @@ from enum import Enum, IntEnum
 from typing import Callable, Optional, Union
 
 from src.npu.model import NPU
-from src.simulator.memory import Bus
+from src.simulator.devices import Bus
 
 OperationCallable = Callable[[NPU], object]
 

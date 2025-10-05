@@ -45,11 +45,15 @@ from src.simulator.identifiers import (
 from src.simulator.identifiers import (
     BusMasterID,
 )
-from src.simulator.memory import (
+from src.simulator.devices import (
     SPM,
     Bus,
+)
+from src.simulator.models import (
     CacheConfig,
     DRAMConfig,
+)
+from src.simulator.memory import (
     MemorySystem,
 )
 from src.simulator.mmio import MMIO

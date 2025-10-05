@@ -14,7 +14,7 @@ from typing import Any, Dict
 
 from src.npu.cluster import ClusterPolicy
 from src.risc_v.engine import BranchPredictorConfig, ExecutionTimingConfig
-from src.simulator.memory import CacheConfig, DRAMConfig
+from src.simulator.models import CacheConfig, DRAMConfig
 
 SUPPORTED_SCHEMA_VERSION = 1
 
