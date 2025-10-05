@@ -382,6 +382,7 @@ class AdaptiveSimulator:
             self.risc_v_engine.begin_instruction(self.sim_time)
 
             if max_cycles > 0 and cycles >= max_cycles:
+                reason = "max_cycles_reached"
                 self.npu_cluster.schedule(self.bus.now)
                 return
 

@@ -238,13 +238,13 @@ class NPUCluster:
         # 다른 정책들은 현재 FIFO 순서를 유지 (issue_at 순)
 
         remaining_pending = [t for t in self._pending_tasks if t not in runnable_tasks]
-        
+
         for task, result in runnable_tasks:
             for idx in range(self.cores):
                 self.core_free_at[idx] = (
                     self._core_actual_free[idx] + self._core_pending_cycles[idx]
                 )
-            
+
             core_id = self._select_core(task, result.policy)
             result.core_id = core_id
 
