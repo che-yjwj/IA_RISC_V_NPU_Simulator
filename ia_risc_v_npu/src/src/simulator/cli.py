@@ -1,4 +1,5 @@
 """Command-line interface for the IA RISC-V + NPU simulator."""
+
 from __future__ import annotations
 
 import argparse
@@ -58,7 +59,9 @@ def configure_logging(
 
     root = logging.getLogger()
     if not root.handlers:
-        logging.basicConfig(level=logging.DEBUG, format="%(levelname)s %(name)s: %(message)s")
+        logging.basicConfig(
+            level=logging.DEBUG, format="%(levelname)s %(name)s: %(message)s"
+        )
     else:
         for handler in root.handlers:
             handler.setLevel(logging.DEBUG)
@@ -107,19 +110,29 @@ def load_config(config_path: Optional[Path]) -> dict:
 def _extract_instruction_words(data: bytes) -> List[int]:
     if len(data) % 4 != 0:
         raise CLIError("Executable section size must be word-aligned (4 bytes)")
-    words = [int.from_bytes(data[i : i + 4], "little", signed=False) for i in range(0, len(data), 4)]
+    words = [
+        int.from_bytes(data[i : i + 4], "little", signed=False)
+        for i in range(0, len(data), 4)
+    ]
     return words
 
 
 def load_program_image(elf_path: Path) -> ProgramImage:
     if ELFFile is None:
-        raise CLIError("pyelftools is required to load ELF binaries. Install it via 'pip install pyelftools'.")
+        raise CLIError(
+            (
+                "pyelftools is required to load ELF binaries. "
+                "Install it via 'pip install pyelftools'."
+            )
+        )
     try:
         with elf_path.open("rb") as handle:
             elf = ELFFile(handle)
             exec_sections: List[tuple[int, bytes]] = []
             load_segments: List[ProgramSegment] = []
-            exec_flag = getattr(SH_FLAGS, "SHF_EXECINSTR", 0x4) if SH_FLAGS is not None else 0x4
+            exec_flag = (
+                getattr(SH_FLAGS, "SHF_EXECINSTR", 0x4) if SH_FLAGS is not None else 0x4
+            )
 
             text_section = elf.get_section_by_name(".text")
             if text_section and text_section.data():
@@ -236,7 +249,11 @@ def run_simulate(args: argparse.Namespace) -> int:
     simulator = AdaptiveSimulator(config=config, logger=simulator_logger)
     simulator.load_program(program)
 
-    LOGGER.debug("Loaded %s bytes (%s instructions)", program.text_size, len(program.instructions))
+    LOGGER.debug(
+        "Loaded %s bytes (%s instructions)",
+        program.text_size,
+        len(program.instructions),
+    )
 
     result = asyncio.run(simulator.run_simulation(max_cycles=max_cycles))
     summary = prepare_summary(result, simulator.risc_v_engine.instruction_count)
@@ -244,7 +261,9 @@ def run_simulate(args: argparse.Namespace) -> int:
     guard_config = config.get("accuracy_guard", {})
     base_path = args.config.parent if args.config else Path.cwd()
     try:
-        guard_outcome = evaluate_accuracy_guard(summary, guard_config, base_path=base_path)
+        guard_outcome = evaluate_accuracy_guard(
+            summary, guard_config, base_path=base_path
+        )
     except AccuracyGuardError as exc:
         raise CLIError(str(exc)) from exc
 
@@ -264,12 +283,16 @@ def _generate_synthetic_program(length: int) -> ProgramImage:
     # DRAM holds 1MB, so ensure the program fits.
     max_words = (DRAM_REGION.size // 4) - 1  # reserve space for halt instruction
     if length > max_words:
-        raise CLIError(f"Synthetic program length exceeds DRAM capacity ({max_words} instructions)")
+        raise CLIError(
+            f"Synthetic program length exceeds DRAM capacity ({max_words} instructions)"
+        )
 
     add_instruction = 0x003100B3  # ADD x1, x2, x3
     program = [add_instruction] * length
     program.append(0)  # halt sentinel
-    program_bytes = b"".join(int(word).to_bytes(4, "little", signed=False) for word in program)
+    program_bytes = b"".join(
+        int(word).to_bytes(4, "little", signed=False) for word in program
+    )
     segment = ProgramSegment(
         address=DRAM_REGION.base,
         data=program_bytes,
@@ -283,13 +306,17 @@ def _generate_synthetic_program(length: int) -> ProgramImage:
     )
 
 
-def _measure_performance(simulator: AdaptiveSimulator, max_cycles: int) -> tuple[SimulationReport, BenchmarkMetrics]:
+def _measure_performance(
+    simulator: AdaptiveSimulator, max_cycles: int
+) -> tuple[SimulationReport, BenchmarkMetrics]:
     start = perf_counter()
     result = asyncio.run(simulator.run_simulation(max_cycles=max_cycles))
     elapsed = perf_counter() - start
     executed = simulator.risc_v_engine.instruction_count
     mips = (executed / elapsed / 1_000_000) if elapsed > 0 else 0.0
-    metrics = BenchmarkMetrics(elapsed_seconds=elapsed, instructions_executed=executed, mips=mips)
+    metrics = BenchmarkMetrics(
+        elapsed_seconds=elapsed, instructions_executed=executed, mips=mips
+    )
     return result, metrics
 
 
@@ -361,7 +388,9 @@ def run_benchmark(args: argparse.Namespace) -> int:
     guard_config = config.get("accuracy_guard", {})
     base_path = args.config.parent if args.config else Path.cwd()
     try:
-        guard_outcome = evaluate_accuracy_guard(summary, guard_config, base_path=base_path)
+        guard_outcome = evaluate_accuracy_guard(
+            summary, guard_config, base_path=base_path
+        )
     except AccuracyGuardError as exc:
         raise CLIError(str(exc)) from exc
 
@@ -404,7 +433,10 @@ def _add_logging_arguments(parser: argparse.ArgumentParser) -> None:
         choices=list(TRACE_COMPONENT_CHOICES),
         action="append",
         default=[],
-        help="Enable detailed DEBUG traces for a specific simulator component (repeatable)",
+        help=(
+            "Enable detailed DEBUG traces for a specific simulator component "
+            "(repeatable)"
+        ),
     )
 
 
@@ -412,15 +444,27 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="IA RISC-V + NPU Simulator CLI")
     subparsers = parser.add_subparsers(dest="command")
 
-    simulate_parser = subparsers.add_parser("simulate", help="run a simulation from an ELF binary")
-    simulate_parser.add_argument("elf_file", type=Path, help="Path to the RISC-V ELF binary")
-    simulate_parser.add_argument(
-        "--config", type=Path, default=None, help="Path to a JSON config file with simulation options"
+    simulate_parser = subparsers.add_parser(
+        "simulate", help="run a simulation from an ELF binary"
     )
     simulate_parser.add_argument(
-        "--output", type=Path, default=None, help="Write simulation summary to the specified path"
+        "elf_file", type=Path, help="Path to the RISC-V ELF binary"
     )
-    simulate_parser.add_argument("--verbose", action="store_true", help="Enable verbose logging output")
+    simulate_parser.add_argument(
+        "--config",
+        type=Path,
+        default=None,
+        help="Path to a JSON config file with simulation options",
+    )
+    simulate_parser.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="Write simulation summary to the specified path",
+    )
+    simulate_parser.add_argument(
+        "--verbose", action="store_true", help="Enable verbose logging output"
+    )
     _add_logging_arguments(simulate_parser)
     simulate_parser.set_defaults(handler=run_simulate)
 
@@ -458,12 +502,20 @@ def build_parser() -> argparse.ArgumentParser:
         help="Fail the benchmark if measured MIPS exceeds this threshold",
     )
     benchmark_parser.add_argument(
-        "--config", type=Path, default=None, help="Path to a JSON config file with simulation options"
+        "--config",
+        type=Path,
+        default=None,
+        help="Path to a JSON config file with simulation options",
     )
     benchmark_parser.add_argument(
-        "--output", type=Path, default=None, help="Write benchmark summary to the specified path"
+        "--output",
+        type=Path,
+        default=None,
+        help="Write benchmark summary to the specified path",
     )
-    benchmark_parser.add_argument("--verbose", action="store_true", help="Enable verbose logging output")
+    benchmark_parser.add_argument(
+        "--verbose", action="store_true", help="Enable verbose logging output"
+    )
     _add_logging_arguments(benchmark_parser)
     benchmark_parser.set_defaults(handler=run_benchmark)
 

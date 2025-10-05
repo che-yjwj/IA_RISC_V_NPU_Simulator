@@ -1,4 +1,5 @@
 """Utilities for configuring deterministic runtime behaviour."""
+
 from __future__ import annotations
 
 import logging
@@ -50,7 +51,10 @@ def _set_env_targets(
         env["PYTHONHASHSEED"] = str(config.seed)
         logger.debug("Set PYTHONHASHSEED=%s", config.seed)
     elif config.set_python_hash_seed:
-        logger.debug("PYTHONHASHSEED already set to %s; leaving unchanged", env.get("PYTHONHASHSEED"))
+        logger.debug(
+            "PYTHONHASHSEED already set to %s; leaving unchanged",
+            env.get("PYTHONHASHSEED"),
+        )
 
 
 def configure_deterministic_environment(
@@ -69,7 +73,8 @@ def configure_deterministic_environment(
         logger: Optional logger used for debug output.
         env: Mapping that receives environment updates. Defaults to ``os.environ``.
         reset_rng: Reseed PRNGs even if configuration already applied.
-        force: If ``True``, re-apply environment settings even when previously configured.
+        force: If ``True``, re-apply environment settings even when previously
+            configured.
         config: Override the default configuration bundle.
     """
 

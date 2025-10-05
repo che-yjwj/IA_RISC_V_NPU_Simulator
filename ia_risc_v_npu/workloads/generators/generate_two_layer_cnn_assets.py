@@ -43,7 +43,9 @@ class CnnAssetMetadata:
     program_length: int
 
 
-def _derive_output_shape(input_shape: Tuple[int, int, int], kernel_shape: Tuple[int, int, int, int]) -> Tuple[int, int, int]:
+def _derive_output_shape(
+    input_shape: Tuple[int, int, int], kernel_shape: Tuple[int, int, int, int]
+) -> Tuple[int, int, int]:
     channels, height, width = input_shape
     _, _, kernel_h, kernel_w = kernel_shape
     output_h = height - kernel_h + 1
@@ -63,9 +65,15 @@ def _ensure_output_dir(path: Path, *, force: bool) -> None:
 
 
 def _build_tensors(dtype: np.dtype) -> Dict[str, np.ndarray]:
-    input_data = np.arange(1, np.prod(LAYER1_INPUT_SHAPE) + 1, dtype=dtype).reshape(LAYER1_INPUT_SHAPE)
-    layer1_weights = np.arange(1, np.prod(LAYER1_KERNEL_SHAPE) + 1, dtype=dtype).reshape(LAYER1_KERNEL_SHAPE)
-    layer2_weights = np.arange(1, np.prod(LAYER2_KERNEL_SHAPE) + 1, dtype=dtype).reshape(LAYER2_KERNEL_SHAPE)
+    input_data = np.arange(1, np.prod(LAYER1_INPUT_SHAPE) + 1, dtype=dtype).reshape(
+        LAYER1_INPUT_SHAPE
+    )
+    layer1_weights = np.arange(
+        1, np.prod(LAYER1_KERNEL_SHAPE) + 1, dtype=dtype
+    ).reshape(LAYER1_KERNEL_SHAPE)
+    layer2_weights = np.arange(
+        1, np.prod(LAYER2_KERNEL_SHAPE) + 1, dtype=dtype
+    ).reshape(LAYER2_KERNEL_SHAPE)
     return {
         "input": input_data,
         "layer1_weights": layer1_weights,
@@ -73,7 +81,9 @@ def _build_tensors(dtype: np.dtype) -> Dict[str, np.ndarray]:
     }
 
 
-def _build_program(payload_scale: float) -> Tuple[np.ndarray, Tuple[int, int, int], Tuple[int, int, int]]:
+def _build_program(
+    payload_scale: float,
+) -> Tuple[np.ndarray, Tuple[int, int, int], Tuple[int, int, int]]:
     layer1_output_shape = _derive_output_shape(LAYER1_INPUT_SHAPE, LAYER1_KERNEL_SHAPE)
     layer2_output_shape = _derive_output_shape(layer1_output_shape, LAYER2_KERNEL_SHAPE)
 
@@ -83,7 +93,9 @@ def _build_program(payload_scale: float) -> Tuple[np.ndarray, Tuple[int, int, in
     layer2_program = generate_cnn_workload(
         layer1_output_shape, LAYER2_KERNEL_SHAPE, payload_scale=payload_scale
     )
-    program = np.array([*layer1_program, *layer2_program, HALT_INSTRUCTION], dtype=np.uint32)
+    program = np.array(
+        [*layer1_program, *layer2_program, HALT_INSTRUCTION], dtype=np.uint32
+    )
     return program, layer1_output_shape, layer2_output_shape
 
 
@@ -99,10 +111,14 @@ def _write_program(output_dir: Path, program: np.ndarray) -> None:
 
 def _write_metadata(output_dir: Path, metadata: CnnAssetMetadata) -> None:
     target = output_dir / "metadata.json"
-    target.write_text(json.dumps(asdict(metadata), indent=2, sort_keys=True), encoding="utf-8")
+    target.write_text(
+        json.dumps(asdict(metadata), indent=2, sort_keys=True), encoding="utf-8"
+    )
 
 
-def generate_assets(output_dir: Path, *, payload_scale: float, dtype_name: str, force: bool) -> Path:
+def generate_assets(
+    output_dir: Path, *, payload_scale: float, dtype_name: str, force: bool
+) -> Path:
     dtype = np.dtype(dtype_name)
     _ensure_output_dir(output_dir, force=force)
 
@@ -129,13 +145,19 @@ def generate_assets(output_dir: Path, *, payload_scale: float, dtype_name: str, 
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Generate deterministic tensor and program assets for the two-layer CNN scenario."
+        description=(
+            "Generate deterministic tensor and program assets for the two-layer CNN "
+            "scenario."
+        ),
     )
     parser.add_argument(
         "--output-dir",
         type=Path,
         default=DEFAULT_OUTPUT_DIR,
-        help="Directory where artifacts are written (default: workloads/generated/two_layer_cnn)",
+        help=(
+            "Directory where artifacts are written (default: "
+            "workloads/generated/two_layer_cnn)"
+        ),
     )
     parser.add_argument(
         "--payload-scale",

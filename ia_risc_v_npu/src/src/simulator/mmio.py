@@ -71,7 +71,11 @@ class MMIO:
 
     def _launch_task(self) -> None:
         policy_value = self._registers[self.REG_POLICY]
-        policy = ClusterPolicy.ROUND_ROBIN if policy_value == 1 else ClusterPolicy.MIN_FINISH_TIME
+        policy = (
+            ClusterPolicy.ROUND_ROBIN
+            if policy_value == 1
+            else ClusterPolicy.MIN_FINISH_TIME
+        )
 
         issue_at = self._registers[self.REG_ISSUE_AT]
         issue_at = max(issue_at, self.cluster.bus.now)

@@ -1,29 +1,19 @@
 """Profiling helpers for observing event scheduler and bus usage."""
+
 from __future__ import annotations
 
 import asyncio
 import json
+import math
 from collections import Counter, defaultdict
 from contextlib import contextmanager
-from pathlib import Path
 from typing import Any, Dict, Iterable, List, Tuple
-
-import sys
-import math
 
 import numpy as np
 
-# Ensure repository paths are available for absolute imports.
-PACKAGE_ROOT = Path(__file__).resolve().parents[2]
-PROJECT_ROOT = Path(__file__).resolve().parents[3]
-for path in (PACKAGE_ROOT, PROJECT_ROOT):
-    path_str = str(path)
-    if path_str not in sys.path:
-        sys.path.insert(0, path_str)
-
+from src.npu.cluster import ClusterPolicy, ClusterTask, NPUCluster
 from src.simulator.events import EventScheduler as BaseEventScheduler
 from src.simulator.main import AdaptiveSimulator
-from src.npu.cluster import ClusterPolicy, ClusterTask, NPUCluster
 from src.simulator.memory import Bus, BusMetrics, BusRequest
 from workloads.cnn_workload import generate_cnn_workload
 
@@ -62,7 +52,8 @@ class VirtualBus:
     def sync_time(self, now: int) -> None:
         if now < 0:
             raise ValueError("now cannot be negative")
-        # Intentionally ignore caller-provided time to avoid sequencing by global bus time.
+                # Intentionally ignore caller-provided time to avoid sequencing by global
+        # bus time.
         return
 
     def request(
@@ -76,7 +67,9 @@ class VirtualBus:
             raise ValueError("bytes must be greater than zero")
 
         request_time = max(0, request_at or 0)
-        self._active_until = [deadline for deadline in self._active_until if deadline > request_time]
+        self._active_until = [
+            deadline for deadline in self._active_until if deadline > request_time
+        ]
         queue_depth = len(self._active_until) + 1
         self.metrics.on_request(queue_depth)
 
@@ -85,7 +78,9 @@ class VirtualBus:
         transfer_cycles = self._calculate_transfer_cycles(bytes)
         done_at = start_time + transfer_cycles
 
-        request = BusRequest(master_id=master_id, size_bytes=bytes, request_at=request_time)
+        request = BusRequest(
+            master_id=master_id, size_bytes=bytes, request_at=request_time
+        )
         request.grant_at = grant_time
         request.start_at = start_time
         request.done_at = done_at
@@ -178,7 +173,11 @@ def install_profiling_scheduler() -> Iterable[None]:
         main_module.EventScheduler = original_main
 
 
-def _seed_program_state(simulator: AdaptiveSimulator, input_shape: Tuple[int, ...], kernel_shape: Tuple[int, ...]) -> None:
+def _seed_program_state(
+    simulator: AdaptiveSimulator,
+    input_shape: Tuple[int, ...],
+    kernel_shape: Tuple[int, ...],
+) -> None:
     input_size = int(np.prod(input_shape))
     weight_size = int(np.prod(kernel_shape))
 
@@ -229,7 +228,9 @@ def _summarize_bus(simulator: AdaptiveSimulator) -> Dict[str, Any]:
     }
 
 
-def profile_cnn_workload(input_shape: Tuple[int, ...], kernel_shape: Tuple[int, ...]) -> Dict[str, Any]:
+def profile_cnn_workload(
+    input_shape: Tuple[int, ...], kernel_shape: Tuple[int, ...]
+) -> Dict[str, Any]:
     simulator = AdaptiveSimulator()
     _seed_program_state(simulator, input_shape, kernel_shape)
 
@@ -278,7 +279,10 @@ def _summarize_requests(bus: Any) -> List[Dict[str, Any]]:
 def _flush_cluster(cluster: NPUCluster, *, horizon: int | None = None) -> None:
     if horizon is None:
         horizon = max(
-            (result.task.issue_at + result.task.compute_cycles for result in cluster.history),
+            (
+                result.task.issue_at + result.task.compute_cycles
+                for result in cluster.history
+            ),
             default=0,
         )
         horizon += 1_000
@@ -294,7 +298,9 @@ def profile_npu_dma(tasks: List[ClusterTask]) -> Dict[str, Any]:
     simulator = AdaptiveSimulator()
     results = [simulator.npu_cluster.submit(task) for task in tasks]
 
-    horizon = max((task.issue_at + task.compute_cycles for task in tasks), default=0) + 1_000
+    horizon = (
+        max((task.issue_at + task.compute_cycles for task in tasks), default=0) + 1_000
+    )
     _flush_cluster(simulator.npu_cluster, horizon=horizon)
 
     timeline: List[Dict[str, Any]] = []
@@ -336,7 +342,9 @@ def profile_npu_dma(tasks: List[ClusterTask]) -> Dict[str, Any]:
 
 def profile_cpu_npu_contention() -> Dict[str, Any]:
     bus = Bus()
-    cluster = NPUCluster(bus, cores=2, dma_master_id=1, policy=ClusterPolicy.ROUND_ROBIN)
+    cluster = NPUCluster(
+        bus, cores=2, dma_master_id=1, policy=ClusterPolicy.ROUND_ROBIN
+    )
 
     cpu_schedule = [0, 20, 40, 60, 80, 100]
     cpu_results: List[Dict[str, Any]] = []
@@ -354,14 +362,35 @@ def profile_cpu_npu_contention() -> Dict[str, Any]:
         )
 
     npu_tasks = [
-        ClusterTask(input_bytes=256, output_bytes=128, compute_cycles=60, issue_at=5, name="npu_0"),
-        ClusterTask(input_bytes=128, output_bytes=128, compute_cycles=80, issue_at=45, name="npu_1"),
-        ClusterTask(input_bytes=192, output_bytes=192, compute_cycles=100, issue_at=85, name="npu_2"),
+        ClusterTask(
+            input_bytes=256,
+            output_bytes=128,
+            compute_cycles=60,
+            issue_at=5,
+            name="npu_0",
+        ),
+        ClusterTask(
+            input_bytes=128,
+            output_bytes=128,
+            compute_cycles=80,
+            issue_at=45,
+            name="npu_1",
+        ),
+        ClusterTask(
+            input_bytes=192,
+            output_bytes=192,
+            compute_cycles=100,
+            issue_at=85,
+            name="npu_2",
+        ),
     ]
 
     results = [cluster.submit(task) for task in npu_tasks]
 
-    horizon = max((task.issue_at + task.compute_cycles for task in npu_tasks), default=0) + 1_000
+    horizon = (
+        max((task.issue_at + task.compute_cycles for task in npu_tasks), default=0)
+        + 1_000
+    )
     _flush_cluster(cluster, horizon=horizon)
 
     npu_timeline: List[Dict[str, Any]] = []
@@ -404,11 +433,15 @@ def profile_cpu_npu_contention() -> Dict[str, Any]:
 
 def profile_virtual_npu_dma(tasks: List[ClusterTask]) -> Dict[str, Any]:
     bus = VirtualBus()
-    cluster = NPUCluster(bus, cores=2, dma_master_id=1, policy=ClusterPolicy.MIN_FINISH_TIME)
+    cluster = NPUCluster(
+        bus, cores=2, dma_master_id=1, policy=ClusterPolicy.MIN_FINISH_TIME
+    )
 
     results = [cluster.submit(task) for task in tasks]
 
-    horizon = max((task.issue_at + task.compute_cycles for task in tasks), default=0) + 1_000
+    horizon = (
+        max((task.issue_at + task.compute_cycles for task in tasks), default=0) + 1_000
+    )
     _flush_cluster(cluster, horizon=horizon)
 
     timeline: List[Dict[str, Any]] = []
@@ -462,7 +495,9 @@ def replay_virtual_dma(
     )
     replay_log: List[Dict[str, Any]] = []
 
-    for entry in sorted(requests, key=lambda item: (item.get("grant_at", 0), item.get("request_at", 0))):
+    for entry in sorted(
+        requests, key=lambda item: (item.get("grant_at", 0), item.get("request_at", 0))
+    ):
         request_at = entry.get("grant_at", entry.get("request_at", 0))
         issue_time = max(bus.now, request_at)
         bus.sync_time(issue_time)

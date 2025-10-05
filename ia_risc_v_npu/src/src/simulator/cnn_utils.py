@@ -41,9 +41,7 @@ def compute_output_dims(
     return out_h, out_w
 
 
-def estimate_mac_count(
-    input_shape: Sequence[int], kernel_shape: Sequence[int]
-) -> int:
+def estimate_mac_count(input_shape: Sequence[int], kernel_shape: Sequence[int]) -> int:
     """Roughly estimate MAC operations for a convolution layer."""
     out_channels, in_channels, kernel_h, kernel_w = normalize_kernel_shape(
         input_shape, kernel_shape

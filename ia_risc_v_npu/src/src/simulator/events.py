@@ -2,11 +2,10 @@
 """이벤트 기반 시뮬레이션을 위한 최소 스케줄러."""
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import heapq
 import itertools
+from dataclasses import dataclass, field
 from typing import Callable, List, Optional, Tuple
-
 
 EventCallback = Callable[[], None]
 

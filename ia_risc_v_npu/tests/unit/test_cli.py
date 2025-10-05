@@ -4,8 +4,8 @@ import json
 import pytest
 
 from src.simulator.cli import (
-    CLIError,
     TRACE_COMPONENT_CHOICES,
+    CLIError,
     configure_logging,
     load_config,
     load_program_image,
@@ -33,7 +33,15 @@ class FakeSection:
 
 
 class FakeSegment:
-    def __init__(self, *, memsz: int, data: bytes = b"", paddr: int = 0, vaddr: int = 0, p_type: str = "PT_LOAD"):
+    def __init__(
+        self,
+        *,
+        memsz: int,
+        data: bytes = b"",
+        paddr: int = 0,
+        vaddr: int = 0,
+        p_type: str = "PT_LOAD",
+    ):
         self._memsz = memsz
         self._data = data
         self._paddr = paddr
@@ -56,7 +64,9 @@ class FakeSegment:
 
 
 class FakeELF:
-    def __init__(self, text_section=None, sections=None, segments=None, entry_point: int = 0x100):
+    def __init__(
+        self, text_section=None, sections=None, segments=None, entry_point: int = 0x100
+    ):
         self._text_section = text_section
         self._sections = sections or []
         self._segments = segments or []
@@ -77,10 +87,12 @@ class FakeELF:
 def test_load_config_reads_json(tmp_path):
     config_path = tmp_path / "config.json"
     config_path.write_text(
-        json.dumps({
-            "max_cycles": 10,
-            "cpu": {"execution": {"mul_latency": 5}},
-        }),
+        json.dumps(
+            {
+                "max_cycles": 10,
+                "cpu": {"execution": {"mul_latency": 5}},
+            }
+        ),
         encoding="utf-8",
     )
 
@@ -225,7 +237,8 @@ def test_configure_logging_trace_overrides_parent_level():
     simulator_logger = logging.getLogger("simulator")
     original_sim_level = simulator_logger.level
     component_levels = {
-        name: logging.getLogger(f"simulator.{name}").level for name in TRACE_COMPONENT_CHOICES
+        name: logging.getLogger(f"simulator.{name}").level
+        for name in TRACE_COMPONENT_CHOICES
     }
     module_logger = logging.getLogger("src.simulator.cli")
     original_module_level = module_logger.level

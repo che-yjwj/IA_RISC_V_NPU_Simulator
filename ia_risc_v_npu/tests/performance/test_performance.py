@@ -1,7 +1,8 @@
-import pytest
 import numpy as np
-from src.risc_v.instructions import alu, control_flow, memory
+import pytest
+
 from src.npu.model import NPU
+from src.risc_v.instructions import alu, control_flow, memory
 from src.simulator.memory import Bus
 
 
@@ -11,6 +12,7 @@ class MockState:
 
 
 # T026a: ALU instruction benchmarks
+
 
 def test_add_benchmark(benchmark):
     benchmark(alu.add, 1, 2)
@@ -33,6 +35,7 @@ def test_xor_benchmark(benchmark):
 
 
 # T026b: Memory access instruction benchmarks
+
 
 @pytest.fixture
 def bus():
@@ -61,6 +64,7 @@ def test_sw_benchmark(benchmark, bus):
 
 # T026c: Control flow instruction benchmarks
 
+
 @pytest.fixture
 def state():
     return MockState(pc=100)
@@ -68,6 +72,7 @@ def state():
 
 def test_beq_benchmark(benchmark):
     benchmark(control_flow.beq, 1, 1)
+
 
 def test_bne_benchmark(benchmark):
     benchmark(control_flow.bne, 1, 2)
@@ -82,6 +87,7 @@ def test_jalr_benchmark(benchmark, state):
 
 
 # T026d: NPU vector operation benchmarks
+
 
 @pytest.fixture
 def npu_model():

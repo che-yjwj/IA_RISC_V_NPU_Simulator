@@ -1,12 +1,10 @@
-import pytest
-
 from src.npu.cluster import NPUCluster
 from src.simulator.identifiers import (
-    BusMasterID,
     DRAM,
     MEMORY_REGIONS,
     MMIO,
     SPM,
+    BusMasterID,
 )
 from src.simulator.memory import Bus
 

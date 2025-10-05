@@ -6,8 +6,10 @@ from src.simulator.main import AdaptiveSimulator
 def test_end_to_end_add_instruction():
     """
     Tests the end-to-end simulation of a single ADD instruction.
-    It checks if the instruction is fetched from memory, executed, and the result is written back to the register file.
+    It checks if the instruction is fetched from memory, executed, and the result
+    is written back to the register file.
     """
+
     async def scenario():
         simulator = AdaptiveSimulator()
 

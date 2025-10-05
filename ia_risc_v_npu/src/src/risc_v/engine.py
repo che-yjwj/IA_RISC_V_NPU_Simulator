@@ -2,8 +2,9 @@ import logging
 from dataclasses import dataclass
 from typing import Iterable, Optional
 
-from src.risc_v.instructions import alu, memory, control_flow
 import numpy as np
+
+from src.risc_v.instructions import alu, control_flow, memory
 
 # Instruction format constants
 OPCODE_R_TYPE = 0b0110011
@@ -92,7 +93,9 @@ class RISCVEngine:
             self.pipeline_ready_at = ready
 
     def _ensure_registers_ready(self, regs: Iterable[int]) -> None:
-        max_reg_ready = max((self.register_ready_at[reg] for reg in regs if reg != 0), default=0)
+        max_reg_ready = max(
+            (self.register_ready_at[reg] for reg in regs if reg != 0), default=0
+        )
         self.pipeline_ready_at = max(self.pipeline_ready_at, max_reg_ready)
         self.current_time = max(self.current_time, self.pipeline_ready_at)
 
@@ -124,7 +127,7 @@ class RISCVEngine:
             self.pipeline_ready_at = ready_time
 
     def _read_word(self, address):
-        return int.from_bytes(self.bus.read(address, 4), 'little')
+        return int.from_bytes(self.bus.read(address, 4), "little")
 
     def _decode_r_type_instruction(self, instruction):
         opcode = instruction & 0x7F
@@ -176,7 +179,7 @@ class RISCVEngine:
 
         # Sign-extend the 21-bit immediate to 32 bits
         if imm & (1 << 20):
-            imm -= (1 << 21)
+            imm -= 1 << 21
 
         rd = (instruction >> 7) & 0x1F
         opcode = instruction & 0x7F
@@ -185,19 +188,19 @@ class RISCVEngine:
 
     def _decode_b_type_instruction(self, instruction):
         opcode = instruction & 0x7F
-        imm1 = (instruction >> 7) & 0x1F
         funct3 = (instruction >> 12) & 0x7
         rs1 = (instruction >> 15) & 0x1F
         rs2 = (instruction >> 20) & 0x1F
-        imm2 = (instruction >> 25) & 0x7F
-        imm = ((instruction >> 31) & 0x1) << 12 | \
-              ((instruction >> 7) & 0x1) << 11  | \
-              ((instruction >> 25) & 0x3F) << 5 | \
-              ((instruction >> 8) & 0xF) << 1
-        
+        imm = (
+            ((instruction >> 31) & 0x1) << 12
+            | ((instruction >> 7) & 0x1) << 11
+            | ((instruction >> 25) & 0x3F) << 5
+            | ((instruction >> 8) & 0xF) << 1
+        )
+
         # Sign-extend the 13-bit immediate to 32 bits
         if imm & (1 << 12):
-            imm -= (1 << 13)
+            imm -= 1 << 13
         return opcode, funct3, rs1, rs2, imm
 
     def _predict_branch(self, imm: int) -> bool:
@@ -206,7 +209,7 @@ class RISCVEngine:
         return imm < 0
 
     def _execute_alu_instruction(self, funct3, rd, rs1, rs2, funct7):
-        if rd == 0: # x0 is hardwired to zero, so no-op
+        if rd == 0:  # x0 is hardwired to zero, so no-op
             return
 
         result = 0
@@ -228,7 +231,9 @@ class RISCVEngine:
             elif funct7 == FUNCT7_SUB:
                 result = alu.sub(self.registers[rs1], self.registers[rs2])
             else:
-                raise ValueError(f"Unsupported ALU instruction for funct3={funct3}: funct7={funct7}")
+                raise ValueError(
+                    f"Unsupported ALU instruction for funct3={funct3}: funct7={funct7}"
+                )
         elif funct3 == FUNCT3_XOR:
             result = alu.xor(self.registers[rs1], self.registers[rs2])
         elif funct3 == FUNCT3_OR:
@@ -277,7 +282,9 @@ class RISCVEngine:
             if done_at > self.last_memory_done_at:
                 self.last_memory_done_at = done_at
             memory.sw(self.bus, address, self.registers[rs2])
-            self._advance_to(max(done_at, self.current_time + self.exec_timing.alu_latency))
+            self._advance_to(
+                max(done_at, self.current_time + self.exec_timing.alu_latency)
+            )
         else:
             raise ValueError(f"Unsupported store instruction: funct3={funct3}")
 
@@ -285,7 +292,9 @@ class RISCVEngine:
         if funct3 == FUNCT3_FMADD:
             if rd != 0:
                 self._ensure_registers_ready([rs1, rs2, rs3])
-                result = alu.fmadd(self.registers[rs1], self.registers[rs2], self.registers[rs3])
+                result = alu.fmadd(
+                    self.registers[rs1], self.registers[rs2], self.registers[rs3]
+                )
                 completion = self._advance_time(self.exec_timing.mul_latency)
                 self.registers[rd] = result & 0xFFFFFFFF
                 self._mark_register_ready(rd, completion)
@@ -307,17 +316,17 @@ class RISCVEngine:
         self._ensure_registers_ready([rs1, rs2])
 
         branch_taken = False
-        if funct3 == 0b000: # BEQ
+        if funct3 == 0b000:  # BEQ
             branch_taken = control_flow.beq(val1, val2)
-        elif funct3 == 0b001: # BNE
+        elif funct3 == 0b001:  # BNE
             branch_taken = control_flow.bne(val1, val2)
-        elif funct3 == 0b100: # BLT
+        elif funct3 == 0b100:  # BLT
             branch_taken = control_flow.blt(val1, val2)
-        elif funct3 == 0b101: # BGE
+        elif funct3 == 0b101:  # BGE
             branch_taken = control_flow.bge(val1, val2)
-        elif funct3 == 0b110: # BLTU
+        elif funct3 == 0b110:  # BLTU
             branch_taken = control_flow.bltu(val1, val2)
-        elif funct3 == 0b111: # BGEU
+        elif funct3 == 0b111:  # BGEU
             branch_taken = control_flow.bgeu(val1, val2)
 
         if branch_taken:
@@ -327,7 +336,9 @@ class RISCVEngine:
         predicted_taken = self._predict_branch(imm)
         self._advance_time(self.exec_timing.alu_latency)
         if predicted_taken != branch_taken:
-            penalty_ready = self.current_time + max(0, self.branch_config.mispredict_penalty)
+            penalty_ready = self.current_time + max(
+                0, self.branch_config.mispredict_penalty
+            )
             self._advance_to(penalty_ready)
 
     def execute_instruction(self):
@@ -343,7 +354,9 @@ class RISCVEngine:
 
         pc_changed = False
         if opcode == OPCODE_R_TYPE:
-            _, rd, funct3, rs1, rs2, funct7 = self._decode_r_type_instruction(instruction)
+            _, rd, funct3, rs1, rs2, funct7 = self._decode_r_type_instruction(
+                instruction
+            )
             self._execute_alu_instruction(funct3, rd, rs1, rs2, funct7)
         elif opcode == OPCODE_I_TYPE_LOAD:
             _, rd, funct3, rs1, imm = self._decode_i_type_instruction(instruction)
@@ -354,7 +367,7 @@ class RISCVEngine:
         elif opcode == OPCODE_B_TYPE:
             _, funct3, rs1, rs2, imm = self._decode_b_type_instruction(instruction)
             self._execute_branch_instruction(funct3, rs1, rs2, imm, original_pc)
-            if self.pc != original_pc: # if branch was taken
+            if self.pc != original_pc:  # if branch was taken
                 pc_changed = True
         elif opcode == OPCODE_R4_TYPE_FMADD:
             _, rd, funct3, rs1, rs2, rs3 = self._decode_r4_type_instruction(instruction)
@@ -368,10 +381,10 @@ class RISCVEngine:
             pc_changed = True
         else:
             raise ValueError(f"Unsupported opcode: {opcode}")
-        
+
         if not pc_changed:
             self.pc += 4
-        
+
         if self.last_memory_done_at > self.current_time:
             self.current_time = self.last_memory_done_at
 

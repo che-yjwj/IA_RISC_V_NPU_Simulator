@@ -21,7 +21,9 @@ L2_WEIGHTS_ADDR = 0x4000
 FINAL_OUTPUT_ADDR = 0x5000
 
 
-def test_2_layer_cnn_workload(two_layer_cnn_scenario, record_property, cnn_memory_recorder):
+def test_2_layer_cnn_workload(
+    two_layer_cnn_scenario, record_property, cnn_memory_recorder
+):
     """
     Tests a 2-layer CNN workload.
     """
@@ -29,9 +31,7 @@ def test_2_layer_cnn_workload(two_layer_cnn_scenario, record_property, cnn_memor
 
     record_property("cnn_tensor_bytes", scenario.tensor_bytes)
     record_property("cnn_payload_scale", scenario.payload_scale)
-    record_property(
-        "cnn_payload_instructions", scenario.payload_instruction_count
-    )
+    record_property("cnn_payload_instructions", scenario.payload_instruction_count)
 
     cnn_memory_recorder.capture("after_fixture")
 
@@ -62,9 +62,7 @@ def test_2_layer_cnn_workload(two_layer_cnn_scenario, record_property, cnn_memor
                     i : i + scenario.layer1_kernel_shape[2],
                     j : j + scenario.layer1_kernel_shape[3],
                 ]
-                l1_out[oc, i, j] = np.sum(
-                    receptive_field * scenario.layer1_weights[oc]
-                )
+                l1_out[oc, i, j] = np.sum(receptive_field * scenario.layer1_weights[oc])
 
     # Layer 2
     expected_output = np.zeros(scenario.layer2_output_shape, dtype=np.uint32)
@@ -80,9 +78,7 @@ def test_2_layer_cnn_workload(two_layer_cnn_scenario, record_property, cnn_memor
                     receptive_field * scenario.layer2_weights[oc]
                 )
 
-    report = asyncio.run(
-        simulator.run_simulation(max_cycles=len(workload) * 10)
-    )
+    report = asyncio.run(simulator.run_simulation(max_cycles=len(workload) * 10))
     cnn_memory_recorder.capture("after_simulation")
 
     run_cnn_layer(
@@ -106,9 +102,7 @@ def test_2_layer_cnn_workload(two_layer_cnn_scenario, record_property, cnn_memor
     cnn_memory_recorder.capture("after_layer2")
 
     # 7. Verify final output
-    result_bytes = simulator.bus.read(
-        FINAL_OUTPUT_ADDR, expected_output.nbytes
-    )
+    result_bytes = simulator.bus.read(FINAL_OUTPUT_ADDR, expected_output.nbytes)
     result = np.frombuffer(result_bytes, dtype=np.uint32).reshape(
         scenario.layer2_output_shape
     )

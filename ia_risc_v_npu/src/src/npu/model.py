@@ -1,5 +1,7 @@
-import numpy as np
 from contextlib import contextmanager
+
+import numpy as np
+
 
 class NPU:
     def __init__(self, pool_size=10, max_array_size=(1024, 1024)):
@@ -12,7 +14,9 @@ class NPU:
             "v_div": self.v_div,
         }
         self.pool_size = pool_size
-        self._array_pool = [np.zeros(max_array_size, dtype=np.float32) for _ in range(pool_size)]
+        self._array_pool = [
+            np.zeros(max_array_size, dtype=np.float32) for _ in range(pool_size)
+        ]
 
     def _get_array_from_pool(self, shape):
         # Find a suitable array in the pool
@@ -55,7 +59,11 @@ class NPU:
             raise ValueError(f"Unknown NPU operation type: {op_type}")
 
         if not isinstance(operands, list) or len(operands) != 2:
-            raise ValueError(f"Invalid or insufficient operands for operation {op_type}. Expected 2, got {len(operands) if isinstance(operands, list) else 'none'}")
+            got = len(operands) if isinstance(operands, list) else "none"
+            raise ValueError(
+                f"Invalid or insufficient operands for operation {op_type}. "
+                f"Expected 2, got {got}"
+            )
 
         op_func = self._operations[op_type]
         return op_func(operands[0], operands[1])
