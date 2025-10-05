@@ -24,13 +24,13 @@ def test_single_core_timeline() -> None:
 
     result = cluster.submit(task)
 
-    cluster.flush_deferred_dma(0)
+    cluster.schedule(0)
     assert result.input_grant_at == 0
     assert result.input_done_at == 5
     assert result.compute_start_at == 5
     assert result.compute_done_at == 15
 
-    cluster.flush_deferred_dma(20)
+    cluster.schedule(20)
     assert result.output_grant_at == 15
     assert result.output_done_at == 18
     assert result.done_at == 18
@@ -49,7 +49,7 @@ def test_min_finish_policy_prefers_earliest_core() -> None:
     slower_task = ClusterTask(
         name="slower", input_bytes=16, output_bytes=0, compute_cycles=80
     )
-    cluster.submit(slower_task, policy=ClusterPolicy.ROUND_ROBIN)  # core 1
+    cluster.submit(slower_task, policy=ClusterPolicy.ROUND_ROBIN)
 
     quick_task = ClusterTask(
         name="quick",
@@ -61,8 +61,8 @@ def test_min_finish_policy_prefers_earliest_core() -> None:
 
     result = cluster.submit(quick_task, policy=ClusterPolicy.MIN_FINISH_TIME)
 
-    cluster.flush_deferred_dma(quick_task.issue_at)
-    cluster.flush_deferred_dma(100)
+    cluster.schedule(quick_task.issue_at)
+    cluster.schedule(100)
 
     assert result.core_id == 0
     assert result.compute_start_at >= 20
@@ -78,6 +78,8 @@ def test_round_robin_policy_rotates_cores() -> None:
 
     result_a = cluster.submit(task_a)
     result_b = cluster.submit(task_b)
+
+    cluster.schedule(0)
 
     assert result_a.core_id == 0
     assert result_b.core_id == 1
@@ -103,8 +105,8 @@ def test_submit_handles_zero_dma_and_invokes_operation() -> None:
 
     result = cluster.submit(task)
 
-    cluster.flush_deferred_dma(task.issue_at)
-    cluster.flush_deferred_dma(task.issue_at + 10)
+    cluster.schedule(task.issue_at)
+    cluster.schedule(task.issue_at + 10)
 
     assert marker["called"] is True
     assert result.input_grant_at == 3
@@ -128,10 +130,30 @@ def test_cluster_metrics_reports_utilisation() -> None:
     )
 
     cluster.submit(task)
-    cluster.flush_deferred_dma(100)
+    cluster.schedule(100)
     metrics = cluster.metrics(sim_time=40)
 
     assert metrics["cores"] == 2
     assert metrics["tasks"] == 1
     assert 0.0 <= metrics["utilization"] <= 1.0
     assert metrics["wait_cycles"] >= 0
+
+
+def test_priority_policy_schedules_high_prio_first() -> None:
+    bus = _make_bus()
+    cluster = NPUCluster(bus, cores=1, policy=ClusterPolicy.PRIORITY)
+
+    task_low_prio = ClusterTask(
+        name="low", input_bytes=16, output_bytes=0, compute_cycles=10, priority=20
+    )
+    task_high_prio = ClusterTask(
+        name="high", input_bytes=16, output_bytes=0, compute_cycles=10, priority=1
+    )
+
+    result_low = cluster.submit(task_low_prio)
+    result_high = cluster.submit(task_high_prio)
+
+    cluster.schedule(0)
+    cluster.schedule(100)  # run to completion
+
+    assert result_high.compute_start_at < result_low.compute_start_at

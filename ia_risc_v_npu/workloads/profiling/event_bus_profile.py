@@ -287,7 +287,7 @@ def _flush_cluster(cluster: NPUCluster, *, horizon: int | None = None) -> None:
         )
         horizon += 1_000
 
-    cluster.flush_deferred_dma(horizon)
+    cluster.schedule(horizon)
 
     bus = cluster.bus
     if hasattr(bus, "sync_time"):
