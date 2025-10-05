@@ -42,7 +42,9 @@ def test_min_finish_policy_prefers_earliest_core() -> None:
     bus = _make_bus()
     cluster = NPUCluster(bus, cores=2)
 
-    slow_task = ClusterTask(name="slow", input_bytes=16, output_bytes=0, compute_cycles=40)
+    slow_task = ClusterTask(
+        name="slow", input_bytes=16, output_bytes=0, compute_cycles=40
+    )
     cluster.submit(slow_task, policy=ClusterPolicy.ROUND_ROBIN)  # core 0
     slower_task = ClusterTask(
         name="slower", input_bytes=16, output_bytes=0, compute_cycles=80

@@ -12,7 +12,6 @@ from typing import Callable, Optional, Union
 from src.npu.model import NPU
 from src.simulator.memory import Bus
 
-
 OperationCallable = Callable[[NPU], object]
 
 
@@ -152,14 +151,20 @@ class NPUCluster:
         )
 
         for idx in range(self.cores):
-            self.core_free_at[idx] = self._core_actual_free[idx] + self._core_pending_cycles[idx]
+            self.core_free_at[idx] = (
+                self._core_actual_free[idx] + self._core_pending_cycles[idx]
+            )
         core_id = self._select_core(task, effective_policy)
 
-        base_ready = self._core_actual_free[core_id] + self._core_pending_cycles[core_id]
+        base_ready = (
+            self._core_actual_free[core_id] + self._core_pending_cycles[core_id]
+        )
         predicted_start = max(base_ready, task.issue_at)
         predicted_done = predicted_start + task.compute_cycles
         self._core_pending_cycles[core_id] += max(0, task.compute_cycles)
-        self.core_free_at[core_id] = self._core_actual_free[core_id] + self._core_pending_cycles[core_id]
+        self.core_free_at[core_id] = (
+            self._core_actual_free[core_id] + self._core_pending_cycles[core_id]
+        )
 
         result = SubmissionResult(
             task=task,
@@ -214,9 +219,7 @@ class NPUCluster:
     def metrics(self, *, sim_time: int | None = None) -> dict[str, float | int]:
         horizon = sim_time if sim_time and sim_time > 0 else self._last_completion
         capacity = horizon * self.cores if horizon > 0 else 0
-        utilization = (
-            self._total_compute_cycles / capacity if capacity > 0 else 0.0
-        )
+        utilization = self._total_compute_cycles / capacity if capacity > 0 else 0.0
         self.logger.debug(
             "npu.metrics",
             extra={
@@ -321,7 +324,9 @@ class NPUCluster:
         )
 
         if size_bytes == 0:
-            anchor = max(request_time, self.bus.now, self._dma_available_at.get(channel, 0))
+            anchor = max(
+                request_time, self.bus.now, self._dma_available_at.get(channel, 0)
+            )
             grant_at = anchor
             done_at = anchor
         else:
@@ -348,7 +353,9 @@ class NPUCluster:
             remaining = self._core_pending_cycles[core_id] - max(0, task.compute_cycles)
             self._core_pending_cycles[core_id] = max(0, remaining)
             self._core_actual_free[core_id] = compute_done
-            self.core_free_at[core_id] = self._core_actual_free[core_id] + self._core_pending_cycles[core_id]
+            self.core_free_at[core_id] = (
+                self._core_actual_free[core_id] + self._core_pending_cycles[core_id]
+            )
 
             wait_cycles = max(0, compute_start - task.issue_at)
             self._total_wait_cycles += wait_cycles
@@ -362,7 +369,9 @@ class NPUCluster:
             result.output_done_at = done_at
             result.done_at = max(result.compute_done_at, done_at)
             core_id = result.core_id
-            predicted = self._core_actual_free[core_id] + self._core_pending_cycles[core_id]
+            predicted = (
+                self._core_actual_free[core_id] + self._core_pending_cycles[core_id]
+            )
             self.core_free_at[core_id] = max(predicted, result.done_at)
             self._last_completion = max(self._last_completion, result.done_at)
         else:

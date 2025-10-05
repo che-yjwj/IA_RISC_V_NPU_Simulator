@@ -2,6 +2,7 @@ class FidelityController:
     """
     Determines the fidelity level for instruction simulation based on complexity.
     """
+
     def __init__(self, threshold=0.5):
         """
         Initializes the FidelityController with a complexity threshold.

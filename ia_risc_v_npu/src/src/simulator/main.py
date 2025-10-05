@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 import sys
 import time
@@ -16,11 +15,13 @@ if __package__ is None:
     if project_root_str not in sys.path:
         sys.path.insert(0, project_root_str)
 
+from src.npu.cluster import ClusterPolicy, NPUCluster
+from src.npu.model import NPU
 from src.risc_v.engine import (
+    WORD_SIZE_BYTES,
     BranchPredictorConfig,
     ExecutionTimingConfig,
     RISCVEngine,
-    WORD_SIZE_BYTES,
 )
 from src.simulator.config import default_simulator_config
 from src.simulator.determinism import (
@@ -28,25 +29,30 @@ from src.simulator.determinism import (
     configure_deterministic_environment,
 )
 from src.simulator.events import EventScheduler
-from src.npu.cluster import ClusterPolicy, NPUCluster
-from src.npu.model import NPU
+from src.simulator.identifiers import (
+    DRAM as DRAM_REGION,
+)
+from src.simulator.identifiers import (
+    MMIO as MMIO_REGION,
+)
+from src.simulator.identifiers import (
+    SPM as SPM_REGION,
+)
+from src.simulator.identifiers import (
+    BusMasterID,
+)
 from src.simulator.memory import (
     DEFAULT_L1_CONFIG,
     DEFAULT_L2_CONFIG,
-    MemorySystem,
     SPM,
     Bus,
     CacheConfig,
     DRAMConfig,
-)
-from src.simulator.identifiers import (
-    BusMasterID,
-    DRAM as DRAM_REGION,
-    MMIO as MMIO_REGION,
-    SPM as SPM_REGION,
+    MemorySystem,
 )
 from src.simulator.mmio import MMIO
 from src.simulator.program import ProgramImage, ProgramSegment
+
 
 @dataclass(slots=True)
 class SimulationReport:
@@ -83,7 +89,9 @@ class AdaptiveSimulator:
         logger: Optional[logging.Logger] = None,
     ) -> None:
         self.logger = logger or logging.getLogger(__name__)
-        self._config = deepcopy(config) if config is not None else default_simulator_config()
+        self._config = (
+            deepcopy(config) if config is not None else default_simulator_config()
+        )
 
         determinism = self._build_determinism_config()
         configure_deterministic_environment(
@@ -99,8 +107,12 @@ class AdaptiveSimulator:
         self.npu = NPU()
 
         cache_cfg = self._get_config_section("cache")
-        l1_config = self._build_cache_config("L1", cache_cfg.get("l1"), DEFAULT_L1_CONFIG)
-        l2_config = self._build_cache_config("L2", cache_cfg.get("l2"), DEFAULT_L2_CONFIG)
+        l1_config = self._build_cache_config(
+            "L1", cache_cfg.get("l1"), DEFAULT_L1_CONFIG
+        )
+        l2_config = self._build_cache_config(
+            "L2", cache_cfg.get("l2"), DEFAULT_L2_CONFIG
+        )
 
         dram_cfg = self._build_dram_config(self._get_config_section("dram"))
         self.npu_cluster = NPUCluster(
@@ -121,7 +133,9 @@ class AdaptiveSimulator:
         )
 
         # Connect devices to the bus
-        self.bus.add_device(DRAM_REGION.name, self.dram, DRAM_REGION.base, DRAM_REGION.end)
+        self.bus.add_device(
+            DRAM_REGION.name, self.dram, DRAM_REGION.base, DRAM_REGION.end
+        )
         self.bus.add_device(
             SPM_REGION.name,
             self.spm,
@@ -144,7 +158,7 @@ class AdaptiveSimulator:
         )
         self.scheduler: Optional[EventScheduler] = None
         # self.event_system = EventBasedSystem() # This will be implemented later
-        # self.fidelity_controller = FidelityController() # This will be implemented later
+        # self.fidelity_controller = FidelityController()  # TODO: implement
         self.halt = False
         self.sim_time = 0
         self._fetch_stats = {
@@ -169,10 +183,18 @@ class AdaptiveSimulator:
         defaults = ExecutionTimingConfig()
         exec_cfg = self._get_config_section("cpu", "execution")
         return ExecutionTimingConfig(
-            alu_latency=self._coerce_int(exec_cfg.get("alu_latency"), defaults.alu_latency),
-            load_use_stall=self._coerce_int(exec_cfg.get("load_use_stall"), defaults.load_use_stall),
-            mul_latency=self._coerce_int(exec_cfg.get("mul_latency"), defaults.mul_latency),
-            div_latency=self._coerce_int(exec_cfg.get("div_latency"), defaults.div_latency),
+            alu_latency=self._coerce_int(
+                exec_cfg.get("alu_latency"), defaults.alu_latency
+            ),
+            load_use_stall=self._coerce_int(
+                exec_cfg.get("load_use_stall"), defaults.load_use_stall
+            ),
+            mul_latency=self._coerce_int(
+                exec_cfg.get("mul_latency"), defaults.mul_latency
+            ),
+            div_latency=self._coerce_int(
+                exec_cfg.get("div_latency"), defaults.div_latency
+            ),
         )
 
     def _build_branch_config(self) -> BranchPredictorConfig:
@@ -183,7 +205,9 @@ class AdaptiveSimulator:
                 branch_cfg.get("mispredict_penalty"), defaults.mispredict_penalty
             ),
             static_backwards_taken=bool(
-                branch_cfg.get("static_backwards_taken", defaults.static_backwards_taken)
+                branch_cfg.get(
+                    "static_backwards_taken", defaults.static_backwards_taken
+                )
             ),
         )
 
@@ -199,7 +223,9 @@ class AdaptiveSimulator:
             name=name,
             size_bytes=self._coerce_int(data.get("size_bytes"), fallback.size_bytes),
             line_size=self._coerce_int(data.get("line_size"), fallback.line_size),
-            associativity=self._coerce_int(data.get("associativity"), fallback.associativity),
+            associativity=self._coerce_int(
+                data.get("associativity"), fallback.associativity
+            ),
             hit_latency=self._coerce_int(data.get("hit_latency"), fallback.hit_latency),
             write_back=bool(data.get("write_back", fallback.write_back)),
             write_allocate=bool(data.get("write_allocate", fallback.write_allocate)),
@@ -230,7 +256,9 @@ class AdaptiveSimulator:
         try:
             return ClusterPolicy(policy_value)
         except ValueError:
-            self.logger.warning("Unknown NPU policy %s; falling back to MIN_FINISH_TIME", policy_value)
+            self.logger.warning(
+                "Unknown NPU policy %s; falling back to MIN_FINISH_TIME", policy_value
+            )
             return ClusterPolicy.MIN_FINISH_TIME
 
     def _resolve_npu_cores(self) -> int:
@@ -239,7 +267,9 @@ class AdaptiveSimulator:
         try:
             cores = int(cores_val)
         except (ValueError, TypeError):
-            self.logger.warning("Invalid NPU cores value '%s'; falling back to 2.", cores_val)
+            self.logger.warning(
+                "Invalid NPU cores value '%s'; falling back to 2.", cores_val
+            )
             cores = 2
         return max(1, cores)
 
@@ -316,8 +346,12 @@ class AdaptiveSimulator:
             return program
 
         words = list(program)
-        program_bytes = b"".join(int(word).to_bytes(4, "little", signed=False) for word in words)
-        segment = ProgramSegment(address=base_address, data=program_bytes, mem_size=len(program_bytes))
+        program_bytes = b"".join(
+            int(word).to_bytes(4, "little", signed=False) for word in words
+        )
+        segment = ProgramSegment(
+            address=base_address, data=program_bytes, mem_size=len(program_bytes)
+        )
         return ProgramImage(
             instructions=words,
             text_size=len(program_bytes),
@@ -365,12 +399,18 @@ class AdaptiveSimulator:
                 self.npu_cluster.flush_deferred_dma(self.bus.now)
                 return
 
-            memory_delay = max(0, self.risc_v_engine.last_memory_done_at - scheduler.now)
-            pipeline_delay = max(0, self.risc_v_engine.pipeline_ready_at - scheduler.now)
+            memory_delay = max(
+                0, self.risc_v_engine.last_memory_done_at - scheduler.now
+            )
+            pipeline_delay = max(
+                0, self.risc_v_engine.pipeline_ready_at - scheduler.now
+            )
             next_delay = max(fetch_latency, memory_delay, pipeline_delay)
             if next_delay <= 0:
                 next_delay = MIN_EVENT_DELAY
-            scheduler.schedule_after(delay=next_delay, callback=execute_instruction_event)
+            scheduler.schedule_after(
+                delay=next_delay, callback=execute_instruction_event
+            )
             self.npu_cluster.flush_deferred_dma(self.bus.now)
 
         scheduler.schedule(timestamp=0, callback=execute_instruction_event)

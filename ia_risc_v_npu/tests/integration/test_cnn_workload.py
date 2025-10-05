@@ -1,14 +1,17 @@
 import asyncio
+
 import numpy as np
 import pytest
 
-from src.simulator.main import AdaptiveSimulator
 from src.simulator.cnn_runtime import run_cnn_layer
+from src.simulator.main import AdaptiveSimulator
 
 try:
     from workloads.cnn_workload import generate_cnn_workload
 except ModuleNotFoundError:  # pragma: no cover - optional workload package
-    pytestmark = pytest.mark.skip(reason="workloads 패키지가 존재하지 않아 CNN 워크로드 테스트를 건너뜁니다.")
+    pytestmark = pytest.mark.skip(
+        reason="workloads 패키지가 존재하지 않아 CNN 워크로드 테스트를 건너뜁니다."
+    )
 
 # Register ABI names for clarity
 REG_T0 = 5  # input_addr_reg
@@ -30,8 +33,12 @@ def test_run_cnn_workload_with_verification(input_shape, kernel_shape):
     # 1. Generate test data
     in_channels, height, width = input_shape
     out_channels, _, kernel_height, kernel_width = kernel_shape
-    input_data = np.arange(1, np.prod(input_shape) + 1, dtype=np.uint32).reshape(input_shape)
-    weights = np.arange(1, np.prod(kernel_shape) + 1, dtype=np.uint32).reshape(kernel_shape)
+    input_data = np.arange(1, np.prod(input_shape) + 1, dtype=np.uint32).reshape(
+        input_shape
+    )
+    weights = np.arange(1, np.prod(kernel_shape) + 1, dtype=np.uint32).reshape(
+        kernel_shape
+    )
 
     # 2. Generate workload
     workload = generate_cnn_workload(input_shape, kernel_shape)
@@ -66,7 +73,9 @@ def test_run_cnn_workload_with_verification(input_shape, kernel_shape):
     # 5. Verify output against NumPy reference
     output_height = height - kernel_height + 1
     output_width = width - kernel_width + 1
-    expected_output = np.zeros((out_channels, output_height, output_width), dtype=np.uint32)
+    expected_output = np.zeros(
+        (out_channels, output_height, output_width), dtype=np.uint32
+    )
     for oc in range(out_channels):
         for oy in range(output_height):
             for ox in range(output_width):

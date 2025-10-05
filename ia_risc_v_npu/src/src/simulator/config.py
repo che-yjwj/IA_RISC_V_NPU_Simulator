@@ -5,6 +5,7 @@ CLI accepts.  It intentionally keeps the representation JSON-friendly so that
 callers can continue to treat the result as a nested dictionary while still
 benefiting from type and range checks.
 """
+
 from __future__ import annotations
 
 from copy import deepcopy
@@ -82,7 +83,9 @@ def _validate_float(name: str, value: Any, *, minimum: float | None = None) -> f
     return numeric
 
 
-def _validate_cpu_section(data: Dict[str, Any], defaults: Dict[str, Any]) -> Dict[str, Any]:
+def _validate_cpu_section(
+    data: Dict[str, Any], defaults: Dict[str, Any]
+) -> Dict[str, Any]:
     if not isinstance(data, dict):
         raise ConfigValidationError("cpu section must be an object")
     result = deepcopy(defaults)
@@ -94,7 +97,9 @@ def _validate_cpu_section(data: Dict[str, Any], defaults: Dict[str, Any]) -> Dic
         execution = deepcopy(result["execution"])
         for key in ("alu_latency", "load_use_stall", "mul_latency", "div_latency"):
             if key in exec_data:
-                execution[key] = _validate_int(f"cpu.execution.{key}", exec_data[key], minimum=0)
+                execution[key] = _validate_int(
+                    f"cpu.execution.{key}", exec_data[key], minimum=0
+                )
         result["execution"] = execution
 
     if "branch" in data:
@@ -104,18 +109,23 @@ def _validate_cpu_section(data: Dict[str, Any], defaults: Dict[str, Any]) -> Dic
         branch = deepcopy(result["branch"])
         if "mispredict_penalty" in branch_data:
             branch["mispredict_penalty"] = _validate_int(
-                "cpu.branch.mispredict_penalty", branch_data["mispredict_penalty"], minimum=0
+                "cpu.branch.mispredict_penalty",
+                branch_data["mispredict_penalty"],
+                minimum=0,
             )
         if "static_backwards_taken" in branch_data:
             branch["static_backwards_taken"] = _validate_bool(
-                "cpu.branch.static_backwards_taken", branch_data["static_backwards_taken"]
+                "cpu.branch.static_backwards_taken",
+                branch_data["static_backwards_taken"],
             )
         result["branch"] = branch
 
     return result
 
 
-def _validate_cache_level(name: str, data: Dict[str, Any], defaults: Dict[str, Any]) -> Dict[str, Any]:
+def _validate_cache_level(
+    name: str, data: Dict[str, Any], defaults: Dict[str, Any]
+) -> Dict[str, Any]:
     if not isinstance(data, dict):
         raise ConfigValidationError(f"cache.{name} must be an object")
     result = deepcopy(defaults)
@@ -128,7 +138,9 @@ def _validate_cache_level(name: str, data: Dict[str, Any], defaults: Dict[str, A
     return result
 
 
-def _validate_cache_section(data: Dict[str, Any], defaults: Dict[str, Any]) -> Dict[str, Any]:
+def _validate_cache_section(
+    data: Dict[str, Any], defaults: Dict[str, Any]
+) -> Dict[str, Any]:
     if not isinstance(data, dict):
         raise ConfigValidationError("cache section must be an object")
     result = deepcopy(defaults)
@@ -139,7 +151,9 @@ def _validate_cache_section(data: Dict[str, Any], defaults: Dict[str, Any]) -> D
     return result
 
 
-def _validate_bus_section(data: Dict[str, Any], defaults: Dict[str, Any]) -> Dict[str, Any]:
+def _validate_bus_section(
+    data: Dict[str, Any], defaults: Dict[str, Any]
+) -> Dict[str, Any]:
     if not isinstance(data, dict):
         raise ConfigValidationError("bus section must be an object")
     result = deepcopy(defaults)
@@ -150,18 +164,30 @@ def _validate_bus_section(data: Dict[str, Any], defaults: Dict[str, Any]) -> Dic
     return result
 
 
-def _validate_dram_section(data: Dict[str, Any], defaults: Dict[str, Any]) -> Dict[str, Any]:
+def _validate_dram_section(
+    data: Dict[str, Any], defaults: Dict[str, Any]
+) -> Dict[str, Any]:
     if not isinstance(data, dict):
         raise ConfigValidationError("dram section must be an object")
     result = deepcopy(defaults)
-    for key in ("banks", "row_size", "line_size", "t_rp", "t_rcd", "t_cas", "data_bytes_per_cycle"):
+    for key in (
+        "banks",
+        "row_size",
+        "line_size",
+        "t_rp",
+        "t_rcd",
+        "t_cas",
+        "data_bytes_per_cycle",
+    ):
         if key in data:
             minimum = 0 if key.startswith("t_") else 1
             result[key] = _validate_int(f"dram.{key}", data[key], minimum=minimum)
     return result
 
 
-def _validate_npu_section(data: Dict[str, Any], defaults: Dict[str, Any]) -> Dict[str, Any]:
+def _validate_npu_section(
+    data: Dict[str, Any], defaults: Dict[str, Any]
+) -> Dict[str, Any]:
     if not isinstance(data, dict):
         raise ConfigValidationError("npu section must be an object")
     result = deepcopy(defaults)
@@ -173,25 +199,29 @@ def _validate_npu_section(data: Dict[str, Any], defaults: Dict[str, Any]) -> Dic
         normalised = data["policy"].lower()
         valid = {policy.value: policy for policy in ClusterPolicy}
         if normalised not in valid:
-            raise ConfigValidationError(
-                f"npu.policy must be one of {sorted(valid)}"
-            )
+            raise ConfigValidationError(f"npu.policy must be one of {sorted(valid)}")
         result["policy"] = normalised
     return result
 
 
-def _validate_determinism_section(data: Dict[str, Any], defaults: Dict[str, Any]) -> Dict[str, Any]:
+def _validate_determinism_section(
+    data: Dict[str, Any], defaults: Dict[str, Any]
+) -> Dict[str, Any]:
     if not isinstance(data, dict):
         raise ConfigValidationError("determinism section must be an object")
     result = deepcopy(defaults)
     if "seed" in data:
         result["seed"] = _validate_int("determinism.seed", data["seed"], minimum=0)
     if "blas_threads" in data:
-        result["blas_threads"] = _validate_int("determinism.blas_threads", data["blas_threads"], minimum=1)
+        result["blas_threads"] = _validate_int(
+            "determinism.blas_threads", data["blas_threads"], minimum=1
+        )
     return result
 
 
-def _validate_accuracy_guard_section(data: Dict[str, Any], defaults: Dict[str, Any]) -> Dict[str, Any]:
+def _validate_accuracy_guard_section(
+    data: Dict[str, Any], defaults: Dict[str, Any]
+) -> Dict[str, Any]:
     if not isinstance(data, dict):
         raise ConfigValidationError("accuracy_guard section must be an object")
     result = deepcopy(defaults)
@@ -200,15 +230,21 @@ def _validate_accuracy_guard_section(data: Dict[str, Any], defaults: Dict[str, A
     if "golds_path" in data:
         path_value = data["golds_path"]
         if path_value is not None and not isinstance(path_value, str):
-            raise ConfigValidationError("accuracy_guard.golds_path must be null or string")
+            raise ConfigValidationError(
+                "accuracy_guard.golds_path must be null or string"
+            )
         result["golds_path"] = path_value
     if "max_average_deviation" in data:
         result["max_average_deviation"] = _validate_float(
-            "accuracy_guard.max_average_deviation", data["max_average_deviation"], minimum=0.0
+            "accuracy_guard.max_average_deviation",
+            data["max_average_deviation"],
+            minimum=0.0,
         )
     if "max_single_deviation" in data:
         result["max_single_deviation"] = _validate_float(
-            "accuracy_guard.max_single_deviation", data["max_single_deviation"], minimum=0.0
+            "accuracy_guard.max_single_deviation",
+            data["max_single_deviation"],
+            minimum=0.0,
         )
     return result
 
@@ -231,12 +267,15 @@ def validate_simulator_config(raw: Dict[str, Any]) -> Dict[str, Any]:
     schema_version = _validate_int("schema_version", schema_version, minimum=1)
     if schema_version != SUPPORTED_SCHEMA_VERSION:
         raise ConfigValidationError(
-            f"Unsupported schema_version={schema_version}; expected {SUPPORTED_SCHEMA_VERSION}"
+            f"Unsupported schema_version={schema_version}; "
+            f"expected {SUPPORTED_SCHEMA_VERSION}"
         )
     defaults["schema_version"] = schema_version
 
     if "max_cycles" in raw:
-        defaults["max_cycles"] = _validate_int("max_cycles", raw["max_cycles"], minimum=0)
+        defaults["max_cycles"] = _validate_int(
+            "max_cycles", raw["max_cycles"], minimum=0
+        )
 
     if "cpu" in raw:
         defaults["cpu"] = _validate_cpu_section(raw["cpu"], defaults["cpu"])
@@ -254,7 +293,9 @@ def validate_simulator_config(raw: Dict[str, Any]) -> Dict[str, Any]:
         defaults["npu"] = _validate_npu_section(raw["npu"], defaults["npu"])
 
     if "determinism" in raw:
-        defaults["determinism"] = _validate_determinism_section(raw["determinism"], defaults["determinism"])
+        defaults["determinism"] = _validate_determinism_section(
+            raw["determinism"], defaults["determinism"]
+        )
 
     if "accuracy_guard" in raw:
         defaults["accuracy_guard"] = _validate_accuracy_guard_section(
@@ -270,4 +311,3 @@ __all__ = [
     "default_simulator_config",
     "validate_simulator_config",
 ]
-

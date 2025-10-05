@@ -1,11 +1,12 @@
 """Accuracy guard utilities for comparing simulation outputs to golden baselines."""
+
 from __future__ import annotations
 
 import json
 import math
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterable, Tuple
+from typing import Any, Dict
 
 
 class AccuracyGuardError(RuntimeError):
@@ -43,12 +44,18 @@ def _load_golden_metrics(golds_path: Path) -> Dict[str, Any]:
         with golds_path.open("r", encoding="utf-8") as handle:
             data = json.load(handle)
     except FileNotFoundError as exc:
-        raise AccuracyGuardError(f"Golden reference file not found: {golds_path}") from exc
+        raise AccuracyGuardError(
+            f"Golden reference file not found: {golds_path}"
+        ) from exc
     except json.JSONDecodeError as exc:
-        raise AccuracyGuardError(f"Golden reference file is not valid JSON: {golds_path}") from exc
+        raise AccuracyGuardError(
+            f"Golden reference file is not valid JSON: {golds_path}"
+        ) from exc
 
     if not isinstance(data, dict):
-        raise AccuracyGuardError("Golden reference must be a JSON object mapping metrics to values")
+        raise AccuracyGuardError(
+            "Golden reference must be a JSON object mapping metrics to values"
+        )
     return data
 
 
@@ -74,7 +81,9 @@ def evaluate_accuracy_guard(
 
     golds_path_value = guard_config.get("golds_path")
     if not golds_path_value:
-        raise AccuracyGuardError("accuracy_guard.golds_path must be set when the guard is enabled")
+        raise AccuracyGuardError(
+            "accuracy_guard.golds_path must be set when the guard is enabled"
+        )
 
     golden_path = _resolve_golden_path(str(golds_path_value), base_path)
     golden_data = _load_golden_metrics(golden_path)
@@ -83,7 +92,9 @@ def evaluate_accuracy_guard(
     golden_flat = _flatten_numeric(golden_data)
 
     if not golden_flat:
-        raise AccuracyGuardError("Golden reference does not contain numeric metrics to compare")
+        raise AccuracyGuardError(
+            "Golden reference does not contain numeric metrics to compare"
+        )
 
     max_avg_threshold = float(guard_config.get("max_average_deviation", 0.0))
     max_single_threshold = float(guard_config.get("max_single_deviation", 0.0))
@@ -130,7 +141,9 @@ def evaluate_accuracy_guard(
         finite_deviations = [value for value in deviations if not math.isinf(value)]
         has_infinite = len(finite_deviations) != len(deviations)
         average_deviation = (
-            sum(finite_deviations) / len(finite_deviations) if finite_deviations else float("inf")
+            sum(finite_deviations) / len(finite_deviations)
+            if finite_deviations
+            else float("inf")
         )
         max_deviation = max(deviations) if deviations else 0.0
 
@@ -149,10 +162,12 @@ def evaluate_accuracy_guard(
             "max_single_deviation": max_single_threshold,
         },
         "metrics": metrics_report,
-        "average_deviation": None if math.isinf(average_deviation) else average_deviation,
-        "average_deviation_pct": None
-        if math.isinf(average_deviation)
-        else average_deviation * 100,
+        "average_deviation": (
+            None if math.isinf(average_deviation) else average_deviation
+        ),
+        "average_deviation_pct": (
+            None if math.isinf(average_deviation) else average_deviation * 100
+        ),
         "max_deviation": None if math.isinf(max_deviation) else max_deviation,
         "max_deviation_pct": None if math.isinf(max_deviation) else max_deviation * 100,
         "missing_metrics": missing_metrics,
@@ -162,4 +177,3 @@ def evaluate_accuracy_guard(
 
 
 __all__ = ["AccuracyGuardError", "AccuracyGuardOutcome", "evaluate_accuracy_guard"]
-

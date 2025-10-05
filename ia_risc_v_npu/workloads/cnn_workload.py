@@ -24,7 +24,8 @@ def generate_cnn_workload(
 
     Args:
         input_shape: (in_channels, height, width)
-        kernel_shape: (out_channels, in_channels, kernel_h, kernel_w) 또는 (in_channels, kernel_h, kernel_w)
+        kernel_shape: (out_channels, in_channels, kernel_h, kernel_w) 또는
+            (in_channels, kernel_h, kernel_w)
         payload_scale: 필요 시 명령 수를 확대하기 위한 배율
     """
     macs = estimate_mac_count(input_shape, kernel_shape)
@@ -39,9 +40,7 @@ def generate_cnn_layer_workload(
     payload_scale: float = 1.0,
 ) -> List[int]:
     """Alias maintained for backwards compatibility."""
-    return generate_cnn_workload(
-        input_shape, kernel_shape, payload_scale=payload_scale
-    )
+    return generate_cnn_workload(input_shape, kernel_shape, payload_scale=payload_scale)
 
 
 __all__ = ["generate_cnn_workload", "generate_cnn_layer_workload"]

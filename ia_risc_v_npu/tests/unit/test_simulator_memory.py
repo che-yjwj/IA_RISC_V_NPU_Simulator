@@ -3,11 +3,13 @@ import math
 import pytest
 
 from src.simulator.identifiers import BusMasterID
-from src.simulator.memory import Bus, CacheConfig, DRAM, DRAMConfig, MemorySystem, SPM
+from src.simulator.memory import DRAM, SPM, Bus, CacheConfig, DRAMConfig, MemorySystem
+
 
 @pytest.fixture
 def spm():
     return SPM(size_kb=4)
+
 
 @pytest.fixture
 def bus():
@@ -21,40 +23,47 @@ def dram():
     config = DRAMConfig(banks=4, row_size=128, line_size=16, t_rp=10, t_rcd=6, t_cas=3)
     return DRAM(config)
 
+
 def test_spm_initialization(spm):
     assert spm.size == 4 * 1024
     assert len(spm.memory) == 4 * 1024
 
+
 def test_spm_read_write(spm):
-    data_to_write = b'\xde\xad\xbe\xef'
+    data_to_write = b"\xde\xad\xbe\xef"
     spm.write(0, data_to_write)
     read_data = spm.read(0, len(data_to_write))
     assert read_data == data_to_write
 
+
 def test_spm_read_out_of_bounds(spm):
     with pytest.raises(IndexError, match="SPM read out of bounds"):
-        spm.read(spm.size - 2, 4) # Read 4 bytes, but only 2 bytes left
+        spm.read(spm.size - 2, 4)  # Read 4 bytes, but only 2 bytes left
     with pytest.raises(IndexError, match="SPM read out of bounds"):
-        spm.read(spm.size, 1) # Read from exact end of memory
+        spm.read(spm.size, 1)  # Read from exact end of memory
+
 
 def test_spm_write_out_of_bounds(spm):
-    data_to_write = b'\x00\x00\x00\x00'
+    data_to_write = b"\x00\x00\x00\x00"
     with pytest.raises(IndexError, match="SPM write out of bounds"):
-        spm.write(spm.size - 2, data_to_write) # Write 4 bytes, but only 2 bytes left
+        spm.write(spm.size - 2, data_to_write)  # Write 4 bytes, but only 2 bytes left
     with pytest.raises(IndexError, match="SPM write out of bounds"):
-        spm.write(spm.size, data_to_write) # Write from exact end of memory
+        spm.write(spm.size, data_to_write)  # Write from exact end of memory
+
 
 def test_bus_add_device(bus, spm):
     bus.add_device("spm", spm, 0x1000, 0x1FFF)
     assert "spm" in bus.devices
     assert bus.devices["spm"]["device"] == spm
 
+
 def test_bus_read_write(bus, spm):
     bus.add_device("spm", spm, 0x1000, 0x1FFF)
-    data_to_write = b'\xca\xfe\xba\xbe'
+    data_to_write = b"\xca\xfe\xba\xbe"
     bus.write(0x1010, data_to_write)
     read_data = bus.read(0x1010, len(data_to_write))
     assert read_data == data_to_write
+
 
 def test_bus_invalid_address(bus):
     exception_raised = False
@@ -66,10 +75,11 @@ def test_bus_invalid_address(bus):
 
     exception_raised = False
     try:
-        bus.write(0x2000, b'\x00')
+        bus.write(0x2000, b"\x00")
     except MemoryError:
         exception_raised = True
     assert exception_raised
+
 
 def test_bus_cross_boundary_read(bus, spm):
     bus.add_device("spm", spm, 0x1000, 0x1FFF)
@@ -80,9 +90,10 @@ def test_bus_cross_boundary_read(bus, spm):
         exception_raised = True
     assert exception_raised
 
+
 def test_bus_cross_boundary_write(bus, spm):
     bus.add_device("spm", spm, 0x1000, 0x1FFF)
-    data_to_write = b'\x00\x00\x00\x00\x00\x00\x00\x00'
+    data_to_write = b"\x00\x00\x00\x00\x00\x00\x00\x00"
     exception_raised = False
     try:
         bus.write(0x1FFC, data_to_write)
@@ -153,7 +164,10 @@ def test_dram_row_hit_and_miss_latency(dram):
     second_done = dram.access(address=same_bank_addr, size=32, request_time=first_done)
 
     transfer_cycles = math.ceil(32 / dram.config.data_bytes_per_cycle)
-    assert first_done - 0 == dram.config.t_rp + dram.config.t_rcd + dram.config.t_cas + transfer_cycles
+    assert (
+        first_done - 0
+        == dram.config.t_rp + dram.config.t_rcd + dram.config.t_cas + transfer_cycles
+    )
     assert second_done - first_done == dram.config.t_cas + transfer_cycles
 
 
@@ -180,12 +194,26 @@ def test_dram_config_validation():
 
 def test_memory_system_cache_hit_latency():
     bus = Bus(slice_bytes=64, bandwidth_bytes_per_cycle=64, grant_latency=1)
-    l1 = CacheConfig(name="L1", size_bytes=64, line_size=64, associativity=1, hit_latency=3)
-    l2 = CacheConfig(name="L2", size_bytes=128, line_size=64, associativity=1, hit_latency=9)
-    dram_cfg = DRAMConfig(banks=2, row_size=256, line_size=64, t_rp=2, t_rcd=2, t_cas=2, data_bytes_per_cycle=64)
+    l1 = CacheConfig(
+        name="L1", size_bytes=64, line_size=64, associativity=1, hit_latency=3
+    )
+    l2 = CacheConfig(
+        name="L2", size_bytes=128, line_size=64, associativity=1, hit_latency=9
+    )
+    dram_cfg = DRAMConfig(
+        banks=2,
+        row_size=256,
+        line_size=64,
+        t_rp=2,
+        t_rcd=2,
+        t_cas=2,
+        data_bytes_per_cycle=64,
+    )
     memory = MemorySystem(bus, l1_config=l1, l2_config=l2, dram_config=dram_cfg)
 
-    miss_done = memory.load(address=0x0, size=4, request_time=0, master_id=BusMasterID.CPU)
+    miss_done = memory.load(
+        address=0x0, size=4, request_time=0, master_id=BusMasterID.CPU
+    )
     hit_done = memory.load(
         address=0x0,
         size=4,
@@ -205,8 +233,12 @@ def test_memory_system_cache_hit_latency():
 
 def test_memory_system_l1_miss_l2_hit_latency_accounts_for_front_penalty():
     bus = Bus(slice_bytes=64, bandwidth_bytes_per_cycle=64, grant_latency=0)
-    l1 = CacheConfig(name="L1", size_bytes=64, line_size=64, associativity=1, hit_latency=1)
-    l2 = CacheConfig(name="L2", size_bytes=128, line_size=64, associativity=1, hit_latency=10)
+    l1 = CacheConfig(
+        name="L1", size_bytes=64, line_size=64, associativity=1, hit_latency=1
+    )
+    l2 = CacheConfig(
+        name="L2", size_bytes=128, line_size=64, associativity=1, hit_latency=10
+    )
     dram_cfg = DRAMConfig(
         banks=1,
         row_size=64,

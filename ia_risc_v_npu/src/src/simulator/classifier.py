@@ -1,39 +1,41 @@
-from typing import Any, Dict, List
 from collections import deque
+from typing import Any, Dict
+
 
 class Classifier:
     """
-    A classifier to determine the complexity of instruction sequences and detect Regions of Interest (ROI).
+    A classifier to determine the complexity of instruction sequences and detect
+    Regions of Interest (ROI).
     """
+
     _COMPLEXITY_MAP: Dict[str, float] = {
         # ALU instructions
-        'ADD': 0.2,
-        'SUB': 0.2,
-        'AND': 0.2,
-        'OR': 0.2,
-        'XOR': 0.2,
-
+        "ADD": 0.2,
+        "SUB": 0.2,
+        "AND": 0.2,
+        "OR": 0.2,
+        "XOR": 0.2,
         # Control flow instructions
-        'BEQ': 0.5,
-        'BNE': 0.5,
-        'JAL': 0.5,
-        'JALR': 0.5,
-
+        "BEQ": 0.5,
+        "BNE": 0.5,
+        "JAL": 0.5,
+        "JALR": 0.5,
         # Memory access instructions
-        'LD': 0.8,
-        'SD': 0.8,
-        'LW': 0.8,
-        'SW': 0.8,
+        "LD": 0.8,
+        "SD": 0.8,
+        "LW": 0.8,
+        "SW": 0.8,
     }
     _DEFAULT_COMPLEXITY: float = 0.1
-    _MEMORY_OPCODES = {'LD', 'SD', 'LW', 'SW'}
+    _MEMORY_OPCODES = {"LD", "SD", "LW", "SW"}
 
     def __init__(self, window_size=10):
         self.instruction_window: deque = deque(maxlen=window_size)
 
     def classify(self, instruction: Dict[str, Any]) -> float:
         """
-        Classifies the given instruction and updates the ROI score based on the instruction window.
+        Classifies the given instruction and updates the ROI score based on the
+        instruction window.
 
         Args:
             instruction (dict): The instruction to classify, e.g., {'opcode': 'ADD'}.
@@ -42,9 +44,9 @@ class Classifier:
             float: The ROI score (0.0 to 1.0).
         """
         self.instruction_window.append(instruction)
-        
+
         # Calculate base complexity
-        opcode = instruction.get('opcode')
+        opcode = instruction.get("opcode")
         base_complexity = self._COMPLEXITY_MAP.get(opcode, self._DEFAULT_COMPLEXITY)
 
         # Advanced ROI detection based on pattern
@@ -61,8 +63,10 @@ class Classifier:
             return 0.0
 
         memory_op_count = sum(
-            1 for inst in self.instruction_window if inst.get('opcode') in self._MEMORY_OPCODES
+            1
+            for inst in self.instruction_window
+            if inst.get("opcode") in self._MEMORY_OPCODES
         )
-        
+
         # Score based on the ratio of memory operations in the window
         return float(memory_op_count) / len(self.instruction_window)

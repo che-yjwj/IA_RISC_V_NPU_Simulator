@@ -1,8 +1,8 @@
 import asyncio
 
+from src.simulator.cli import prepare_summary
 from src.simulator.determinism import configure_deterministic_environment
 from src.simulator.main import AdaptiveSimulator
-from src.simulator.cli import prepare_summary
 
 
 def test_configure_deterministic_environment_sets_env():
@@ -28,7 +28,9 @@ def _run_fetch_summary(seed: int) -> dict:
 
     async def scenario() -> dict:
         report = await simulator.run_simulation(max_cycles=16)
-        return prepare_summary(report, simulator.risc_v_engine.instruction_count)["fetch_metrics"]
+        return prepare_summary(report, simulator.risc_v_engine.instruction_count)[
+            "fetch_metrics"
+        ]
 
     return asyncio.run(scenario())
 

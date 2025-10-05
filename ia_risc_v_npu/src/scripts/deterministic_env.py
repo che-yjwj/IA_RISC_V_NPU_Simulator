@@ -1,4 +1,5 @@
 """Command-line helper for locking the simulator into deterministic mode."""
+
 from __future__ import annotations
 
 import argparse
@@ -9,7 +10,10 @@ import sys
 from dataclasses import dataclass
 from typing import Callable, MutableMapping, Sequence
 
-from src.simulator.determinism import configure_deterministic_environment, DeterminismConfig
+from src.simulator.determinism import (
+    DeterminismConfig,
+    configure_deterministic_environment,
+)
 
 
 @dataclass(slots=True)
@@ -47,7 +51,9 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
             "repeatability."
         )
     )
-    parser.add_argument("--seed", type=int, default=0, help="Seed for deterministic RNGs")
+    parser.add_argument(
+        "--seed", type=int, default=0, help="Seed for deterministic RNGs"
+    )
     parser.add_argument(
         "--repeat",
         type=int,
@@ -72,7 +78,9 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def _print_env_snapshot(env: MutableMapping[str, str], config: DeterminismConfig) -> None:
+def _print_env_snapshot(
+    env: MutableMapping[str, str], config: DeterminismConfig
+) -> None:
     interesting = list(config.thread_env_vars) + ["PYTHONHASHSEED"]
     for key in interesting:
         value = env.get(key, "<unset>")

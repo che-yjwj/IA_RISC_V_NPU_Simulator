@@ -1,4 +1,5 @@
 """Shared identifiers for bus masters and memory-mapped regions."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

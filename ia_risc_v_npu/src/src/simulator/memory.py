@@ -6,7 +6,6 @@ from collections import deque
 from dataclasses import dataclass
 from typing import Deque, Dict, List, Optional, Tuple
 
-
 LOGGER = logging.getLogger(__name__)
 
 
@@ -20,14 +19,16 @@ class SPM:
     def read(self, address: int, size: int) -> bytes:
         if not (0 <= address < self.size and 0 <= address + size <= self.size):
             raise IndexError(
-                f"SPM read out of bounds: address={address}, size={size}, SPM size={self.size}"
+                f"SPM read out of bounds: address={address}, size={size}, "
+                f"SPM size={self.size}"
             )
         return self.memory[address : address + size]
 
     def write(self, address: int, data: bytes) -> None:
         if not (0 <= address < self.size and 0 <= address + len(data) <= self.size):
             raise IndexError(
-                f"SPM write out of bounds: address={address}, data_len={len(data)}, SPM size={self.size}"
+                f"SPM write out of bounds: address={address}, data_len={len(data)}, "
+                f"SPM size={self.size}"
             )
         self.memory[address : address + len(data)] = data
 
@@ -59,7 +60,9 @@ class BusMetrics:
         if queue_depth > self.max_queue_depth:
             self.max_queue_depth = queue_depth
 
-    def on_grant(self, *, wait_cycles: int, grant_latency: int, transfer_cycles: int) -> None:
+    def on_grant(
+        self, *, wait_cycles: int, grant_latency: int, transfer_cycles: int
+    ) -> None:
         self.completed_requests += 1
         self.total_wait_cycles += wait_cycles
         self.total_transfer_cycles += transfer_cycles
@@ -115,7 +118,9 @@ class CacheConfig:
         if self.hit_latency < 0:
             raise ValueError("hit_latency cannot be negative")
         if self.size_bytes % (self.line_size * self.associativity) != 0:
-            raise ValueError("Cache size must be divisible by line_size * associativity")
+            raise ValueError(
+                "Cache size must be divisible by line_size * associativity"
+            )
 
 
 @dataclass
@@ -137,12 +142,15 @@ class CacheLevel:
 
     def __init__(self, config: CacheConfig) -> None:
         self.config = config
-        self.num_sets = self.config.size_bytes // (self.config.line_size * self.config.associativity)
+        self.num_sets = self.config.size_bytes // (
+            self.config.line_size * self.config.associativity
+        )
         if self.num_sets <= 0:
             raise ValueError("Derived number of sets must be positive")
 
         self.sets: List[List[CacheLine]] = [
-            [CacheLine() for _ in range(self.config.associativity)] for _ in range(self.num_sets)
+            [CacheLine() for _ in range(self.config.associativity)]
+            for _ in range(self.num_sets)
         ]
         self._use_counter = 0
         self._hits = 0
@@ -181,7 +189,9 @@ class CacheLevel:
         self._misses += 1
         return None, index
 
-    def insert(self, index: int, address: int) -> Tuple[CacheLine, Optional[CacheEviction]]:
+    def insert(
+        self, index: int, address: int
+    ) -> Tuple[CacheLine, Optional[CacheEviction]]:
         set_lines = self.sets[index]
         for line in set_lines:
             if not line.valid:
@@ -219,6 +229,7 @@ class CacheLevel:
                 line.valid = False
                 line.dirty = False
                 line.last_used = 0
+
 
 class Bus:
     """Deterministic bus model with slice-aware bandwidth scheduling."""
@@ -262,7 +273,9 @@ class Bus:
 
         return self._now
 
-    def add_device(self, name: str, device: object, start_addr: int, end_addr: int) -> None:
+    def add_device(
+        self, name: str, device: object, start_addr: int, end_addr: int
+    ) -> None:
         self.devices[name] = {
             "device": device,
             "start_addr": start_addr,
@@ -293,7 +306,9 @@ class Bus:
         if master_id_int not in self._masters_order:
             self._masters_order.append(master_id_int)
 
-        request = BusRequest(master_id=master_id_int, size_bytes=bytes, request_at=request_at)
+        request = BusRequest(
+            master_id=master_id_int, size_bytes=bytes, request_at=request_at
+        )
         queue.append(request)
         self._pending_requests += 1
         self.metrics.on_request(len(self._active_requests) + self._pending_requests)
@@ -316,7 +331,9 @@ class Bus:
         self._active_requests.append(request)
 
         if request.grant_at is None or request.done_at is None:
-            raise RuntimeError("Bus scheduling did not produce a grant and completion time.")
+            raise RuntimeError(
+                "Bus scheduling did not produce a grant and completion time."
+            )
 
         self.logger.debug(
             "bus.request scheduled",
@@ -364,7 +381,11 @@ class Bus:
     def _evict_completed(self, now: int) -> None:
         if not self._active_requests:
             return
-        self._active_requests = [req for req in self._active_requests if req.done_at is None or req.done_at > now]
+        self._active_requests = [
+            req
+            for req in self._active_requests
+            if req.done_at is None or req.done_at > now
+        ]
 
     def _select_next_master(self, available_at: int) -> Optional[int]:
         if not self._masters_order:
@@ -384,7 +405,9 @@ class Bus:
         return None
 
     def _next_arrival_time(self) -> Optional[int]:
-        arrival_times = [queue[0].request_at for queue in self._queues.values() if queue]
+        arrival_times = [
+            queue[0].request_at for queue in self._queues.values() if queue
+        ]
         if not arrival_times:
             return None
         return min(arrival_times)
@@ -460,7 +483,9 @@ class Bus:
             total_cycles += math.ceil(remainder / self.bandwidth_bytes_per_cycle)
         return total_cycles
 
-    def _find_device(self, address: int, size: int) -> Tuple[Optional[object], Optional[int]]:
+    def _find_device(
+        self, address: int, size: int
+    ) -> Tuple[Optional[object], Optional[int]]:
         self.logger.debug(
             "bus.lookup",
             extra={"address": address, "size": size},
@@ -491,14 +516,16 @@ class Bus:
                 return device.read(local_addr, size)  # type: ignore[no-any-return]
             return device[local_addr : local_addr + size]  # type: ignore[index]
         raise MemoryError(
-            f"No device found or access out of bounds for address {address} with size {size}"
+            f"No device found or access out of bounds for address {address} "
+            f"with size {size}"
         )
 
     def write(self, address: int, data: bytes) -> None:
         device, local_addr = self._find_device(address, len(data))
         if not device:
             raise MemoryError(
-                f"No device found or access out of bounds for address {address} with size {len(data)}"
+                f"No device found or access out of bounds for address {address} "
+                f"with size {len(data)}"
             )
 
         if hasattr(device, "write"):
@@ -554,7 +581,9 @@ class DRAM:
         row = address // self.config.row_size
         return bank, row
 
-    def access(self, address: int, size: int, *, request_time: Optional[int] = None) -> int:
+    def access(
+        self, address: int, size: int, *, request_time: Optional[int] = None
+    ) -> int:
         if size <= 0:
             raise ValueError("Size must be positive")
 
@@ -660,7 +689,9 @@ class MemorySystem:
             "total_requests": total_requests,
             "total_latency_cycles": total_latency,
             "average_latency_cycles": average_latency,
-            "bus_transaction_latency_cycles": self._stats["bus_transaction_latency_cycles"],
+            "bus_transaction_latency_cycles": self._stats[
+                "bus_transaction_latency_cycles"
+            ],
             "dram_wait_cycles": self._stats["dram_latency_cycles"],
         }
 
@@ -673,7 +704,9 @@ class MemorySystem:
             "dram_latency_cycles": 0,
         }
 
-    def _record_access(self, *, access_type: str, start_time: int, done_at: int) -> None:
+    def _record_access(
+        self, *, access_type: str, start_time: int, done_at: int
+    ) -> None:
         latency = max(0, done_at - start_time)
         self._stats["total_latency_cycles"] += latency
         if access_type == "read":
@@ -705,7 +738,9 @@ class MemorySystem:
         master_id: int,
     ) -> int:
         if level_idx >= len(self._caches):
-            return self._access_main_memory(address, request_time, master_id, access_type)
+            return self._access_main_memory(
+                address, request_time, master_id, access_type
+            )
 
         cache = self._caches[level_idx]
         line_size = cache.line_size
@@ -788,7 +823,9 @@ class MemorySystem:
         master_id: int,
         _access_type: str,
     ) -> int:
-        line_size = self._caches[-1].line_size if self._caches else DEFAULT_L2_CONFIG.line_size
+        line_size = (
+            self._caches[-1].line_size if self._caches else DEFAULT_L2_CONFIG.line_size
+        )
         size = line_size
         self.bus.sync_time(request_time)
         _, bus_done = self.bus.request(
@@ -830,7 +867,9 @@ class MemorySystem:
         done_at = start_time
         remaining = size
         current = address
-        line_size = self._caches[0].line_size if self._caches else DEFAULT_L1_CONFIG.line_size
+        line_size = (
+            self._caches[0].line_size if self._caches else DEFAULT_L1_CONFIG.line_size
+        )
 
         while remaining > 0:
             offset = current % line_size
@@ -849,7 +888,9 @@ class MemorySystem:
             remaining -= chunk
 
         self._now = max(self._now, done_at)
-        self._record_access(access_type=access_type, start_time=start_time, done_at=done_at)
+        self._record_access(
+            access_type=access_type, start_time=start_time, done_at=done_at
+        )
         return done_at
 
     def load(

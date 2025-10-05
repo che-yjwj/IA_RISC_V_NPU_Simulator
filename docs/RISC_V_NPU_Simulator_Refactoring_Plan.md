@@ -63,9 +63,9 @@
 
 ## 6. 단계별 로드맵 (Stage Plan)
 ### Stage 0 — 베이스라인 고정 & 가드레일
-- [ ] 코드/테스트/문서 현황을 정리하고 의존성 목록 업데이트.
-- [ ] 주요 테스트(`pytest tests/unit`, `pytest tests/integration`)와 벤치마크 스냅샷 확보.
-- [ ] 린터/포매터 설정(`black`, `ruff`) 확인.
+- [x] 코드/테스트/문서 현황을 정리하고 의존성 목록 업데이트.
+- [x] 주요 테스트(`pytest tests/unit`, `pytest tests/integration`)와 벤치마크 스냅샷 확보.
+- [x] 린터/포매터 설정(`black`, `ruff`) 확인.
 
 ### Stage 1 — 설정 및 CLI 강화
 - [ ] `config.py` 검증기에 추가 옵션(스케줄 정책, 로깅 수준 등) 반영.

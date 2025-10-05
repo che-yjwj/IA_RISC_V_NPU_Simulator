@@ -179,9 +179,7 @@ class MemoryRecorder:
                             self._trace_baseline_snapshot, "lineno"
                         )
                         diffs = [
-                            stat
-                            for stat in diffs
-                            if getattr(stat, "size_diff", 0) > 0
+                            stat for stat in diffs if getattr(stat, "size_diff", 0) > 0
                         ][: self._trace_top_stats]
                         stats_entries = [
                             (
@@ -193,8 +191,7 @@ class MemoryRecorder:
                     else:
                         stats = snapshot.statistics("lineno")[: self._trace_top_stats]
                         stats_entries = [
-                            (stat.traceback[0], stat.size / 1024.0)
-                            for stat in stats
+                            (stat.traceback[0], stat.size / 1024.0) for stat in stats
                         ]
                     top_entries = [
                         f"{trace}: {size_kib:.1f}KiB"
@@ -309,7 +306,8 @@ def _resolve_trace_params() -> Tuple[int, int]:
             frames = max(1, int(frames_env))
         except ValueError:  # pragma: no cover - 방어 코드
             _logger.warning(
-                "CNN_MEMORY_TRACE_FRAMES=%s 값을 int 로 변환하지 못해 기본값 %d을 사용합니다.",
+                "CNN_MEMORY_TRACE_FRAMES=%s 값을 int 로 변환하지 못해 "
+                "기본값 %d을 사용합니다.",
                 frames_env,
                 frames,
             )
@@ -318,7 +316,8 @@ def _resolve_trace_params() -> Tuple[int, int]:
             top = max(0, int(top_env))
         except ValueError:  # pragma: no cover - 방어 코드
             _logger.warning(
-                "CNN_MEMORY_TRACE_TOP=%s 값을 int 로 변환하지 못해 기본값 %d을 사용합니다.",
+                "CNN_MEMORY_TRACE_TOP=%s 값을 int 로 변환하지 못해 "
+                "기본값 %d을 사용합니다.",
                 top_env,
                 top,
             )
@@ -380,9 +379,9 @@ def _build_two_layer_cnn_scenario(payload_scale: float) -> TwoLayerCnnScenario:
     layer1_kernel_shape = (2, 1, 3, 3)  # 2 output channels
     layer2_kernel_shape = (3, 2, 2, 2)  # 3 output channels
 
-    input_data = np.arange(
-        1, np.prod(layer1_input_shape) + 1, dtype=np.uint32
-    ).reshape(layer1_input_shape)
+    input_data = np.arange(1, np.prod(layer1_input_shape) + 1, dtype=np.uint32).reshape(
+        layer1_input_shape
+    )
     layer1_weights = np.arange(
         1, np.prod(layer1_kernel_shape) + 1, dtype=np.uint32
     ).reshape(layer1_kernel_shape)
@@ -393,13 +392,17 @@ def _build_two_layer_cnn_scenario(payload_scale: float) -> TwoLayerCnnScenario:
     layer1_output_height = layer1_input_shape[1] - layer1_kernel_shape[2] + 1
     layer1_output_width = layer1_input_shape[2] - layer1_kernel_shape[3] + 1
     layer1_output_shape = (
-        layer1_kernel_shape[0], layer1_output_height, layer1_output_width
+        layer1_kernel_shape[0],
+        layer1_output_height,
+        layer1_output_width,
     )
 
     layer2_output_height = layer1_output_shape[1] - layer2_kernel_shape[2] + 1
     layer2_output_width = layer1_output_shape[2] - layer2_kernel_shape[3] + 1
     layer2_output_shape = (
-        layer2_kernel_shape[0], layer2_output_height, layer2_output_width
+        layer2_kernel_shape[0],
+        layer2_output_height,
+        layer2_output_width,
     )
 
     effective_scale = max(payload_scale, MIN_PAYLOAD_SCALE)

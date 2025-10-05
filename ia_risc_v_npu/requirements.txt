@@ -1,5 +1,2 @@
 pyelftools
-pytest
-pytest-asyncio
-pytest-json-report
 numpy

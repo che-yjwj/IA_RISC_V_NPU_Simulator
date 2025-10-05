@@ -65,16 +65,20 @@ def test_adaptive_simulator_applies_validated_config(monkeypatch):
     config = _clone_config()
     config["determinism"]["seed"] = 123
     config["determinism"]["blas_threads"] = 4
-    config["bus"].update({
-        "slice_bytes": 48,
-        "bandwidth_bytes_per_cycle": 24,
-        "grant_latency": 3,
-    })
+    config["bus"].update(
+        {
+            "slice_bytes": 48,
+            "bandwidth_bytes_per_cycle": 24,
+            "grant_latency": 3,
+        }
+    )
     config["cache"]["l1"].update({"hit_latency": 6, "size_bytes": 16 * 1024})
     config["cache"]["l2"].update({"associativity": 16})
     config["dram"].update({"t_cas": 18, "banks": 4})
     config["cpu"]["execution"].update({"alu_latency": 5, "div_latency": 20})
-    config["cpu"]["branch"].update({"mispredict_penalty": 7, "static_backwards_taken": False})
+    config["cpu"]["branch"].update(
+        {"mispredict_penalty": 7, "static_backwards_taken": False}
+    )
     config["npu"].update({"cores": 3, "policy": "rr"})
 
     captured = {}
