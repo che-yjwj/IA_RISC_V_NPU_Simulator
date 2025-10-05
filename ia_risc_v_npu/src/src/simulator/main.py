@@ -412,6 +412,7 @@ class AdaptiveSimulator:
                 delay=next_delay, callback=execute_instruction_event
             )
             self.npu_cluster.schedule(self.bus.now)
+
         scheduler.schedule(timestamp=0, callback=execute_instruction_event)
         scheduler.run()
 

@@ -138,6 +138,7 @@ def test_cluster_metrics_reports_utilisation() -> None:
     assert 0.0 <= metrics["utilization"] <= 1.0
     assert metrics["wait_cycles"] >= 0
 
+
 def test_priority_policy_schedules_high_prio_first() -> None:
     bus = _make_bus()
     cluster = NPUCluster(bus, cores=1, policy=ClusterPolicy.PRIORITY)
@@ -153,6 +154,6 @@ def test_priority_policy_schedules_high_prio_first() -> None:
     result_high = cluster.submit(task_high_prio)
 
     cluster.schedule(0)
-    cluster.schedule(100) # run to completion
+    cluster.schedule(100)  # run to completion
 
     assert result_high.compute_start_at < result_low.compute_start_at
