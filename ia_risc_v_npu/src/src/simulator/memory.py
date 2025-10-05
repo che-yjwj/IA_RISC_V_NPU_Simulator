@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import logging
 import math
-from collections import deque
-from typing import Any, Deque, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from src.simulator.config import DEFAULT_L1_CONFIG, DEFAULT_L2_CONFIG
-from src.simulator.devices import Bus, SPM
+from src.simulator.devices import Bus
 from src.simulator.models import (
     CacheConfig,
     CacheEviction,

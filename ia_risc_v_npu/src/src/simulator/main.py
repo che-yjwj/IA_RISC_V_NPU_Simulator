@@ -32,6 +32,7 @@ from src.simulator.determinism import (
     DeterminismConfig,
     configure_deterministic_environment,
 )
+from src.simulator.devices import SPM, Bus
 from src.simulator.events import EventScheduler
 from src.simulator.identifiers import (
     DRAM as DRAM_REGION,
@@ -45,18 +46,9 @@ from src.simulator.identifiers import (
 from src.simulator.identifiers import (
     BusMasterID,
 )
-from src.simulator.devices import (
-    SPM,
-    Bus,
-)
-from src.simulator.models import (
-    CacheConfig,
-    DRAMConfig,
-)
-from src.simulator.memory import (
-    MemorySystem,
-)
+from src.simulator.memory import MemorySystem
 from src.simulator.mmio import MMIO
+from src.simulator.models import CacheConfig, DRAMConfig
 from src.simulator.program import ProgramImage, ProgramSegment
 
 
