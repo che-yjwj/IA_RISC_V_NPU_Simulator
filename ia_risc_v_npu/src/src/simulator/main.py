@@ -6,7 +6,9 @@ import time
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Iterable, Mapping, Optional, Union
+from typing import Any, Dict, Iterable, Mapping, Optional, Tuple, Union
+
+import numpy as np
 
 # Ensure repository root is on sys.path when executed directly.
 if __package__ is None:
@@ -15,7 +17,14 @@ if __package__ is None:
     if project_root_str not in sys.path:
         sys.path.insert(0, project_root_str)
 
-from src.npu.cluster import ClusterPolicy, NPUCluster
+from src.cq import (
+    CommandQueue,
+    CQDispatcher,
+    ISASpec,
+    build_execution_plan,
+    load_isa_spec,
+)
+from src.npu.cluster import ClusterPolicy, ClusterTask, NPUCluster
 from src.npu.model import NPU
 from src.risc_v.engine import (
     WORD_SIZE_BYTES,
@@ -164,6 +173,365 @@ class AdaptiveSimulator:
             "total_penalty": 0,
         }
         self._fetch_hit_latency = self.memory_system.front_hit_latency()
+        # CQ execution bookkeeping
+        self._cq_initial_data: Dict[str, np.ndarray] = {}
+        self._cq_dram_allocations: Dict[str, Dict[str, Any]] = {}
+        self._cq_spm_allocations: Dict[str, Dict[str, Any]] = {}
+        self._cq_next_dram_addr = DRAM_REGION.base
+        self._cq_next_spm_offset = 0
+        self._cq_dma_bytes = 0
+        self._cq_gemm_cycle_log: list[int] = []
+
+    def _reset_cq_runtime(self) -> None:
+        self._cq_dram_allocations.clear()
+        self._cq_spm_allocations.clear()
+        self._cq_next_dram_addr = DRAM_REGION.base
+        self._cq_next_spm_offset = 0
+        self._cq_dma_bytes = 0
+        self._cq_gemm_cycle_log = []
+
+    def load_cq_tensors(self, tensors: Mapping[str, Any]) -> None:
+        """Register initial tensor contents for CQ URIs.
+
+        Payload values can be numpy arrays or dictionaries with `shape` and
+        `values` (flat list)."""
+
+        for uri, payload in tensors.items():
+            data = self._coerce_tensor_payload(payload)
+            self._cq_initial_data[uri] = data
+
+    def _coerce_tensor_payload(self, payload: Any) -> np.ndarray:
+        if isinstance(payload, np.ndarray):
+            if payload.dtype != np.float32:
+                return payload.astype(np.float32)
+            return payload
+        if isinstance(payload, Mapping):
+            shape = payload.get("shape")
+            values = payload.get("values")
+            if shape is None or values is None:
+                raise ValueError("Tensor mapping payload requires 'shape' and 'values'")
+            array = np.array(values, dtype=np.float32)
+            array = array.reshape(tuple(int(dim) for dim in shape))
+            return array
+        raise TypeError("Unsupported tensor payload type; expected ndarray or mapping")
+
+    def run_cq_trace(
+        self,
+        queue: CommandQueue,
+        *,
+        isa_spec: ISASpec | None = None,
+    ) -> dict[str, Any]:
+        """Execute a CQ trace via the dispatcher scaffold and return summary data."""
+
+        self._reset_cq_runtime()
+        spec = isa_spec or load_isa_spec()
+        plan = build_execution_plan(queue, spec)
+        dispatcher = CQDispatcher()
+        outcome = dispatcher.run(queue)
+
+        action_lookup: Dict[str, dict[str, Any]] = {}
+        for dma in plan.dma_ops:
+            action_lookup[dma.cmd_id] = {
+                "type": "dma",
+                "cmd_id": dma.cmd_id,
+                "src": dma.src,
+                "dst": dma.dst,
+                "shape": dma.shape,
+                "strides": dma.strides,
+            }
+        for gemm in plan.gemm_ops:
+            action_lookup[gemm.cmd_id] = {
+                "type": "gemm",
+                "cmd_id": gemm.cmd_id,
+                "m": gemm.m,
+                "n": gemm.n,
+                "k": gemm.k,
+                "inputs": {"a": gemm.a, "b": gemm.b},
+                "output": gemm.c,
+            }
+        for fence in plan.fence_ops:
+            action_lookup[fence.cmd_id] = {
+                "type": "fence",
+                "cmd_id": fence.cmd_id,
+                "target": fence.target,
+            }
+
+        actions: list[dict[str, Any]] = []
+        for command in queue:
+            action = action_lookup.get(command.cmd_id)
+            if action is not None:
+                actions.append(action)
+
+        execution_report = self._execute_cq_actions(actions)
+
+        dispatch_summary = {
+            "executed": outcome.commands_executed,
+            "completed": list(outcome.trace.completed),
+            "rejected": list(outcome.trace.rejected),
+            "queue_wait": {
+                "average": outcome.stats.average_queue_wait,
+                "max": outcome.stats.max_queue_wait,
+                "total": outcome.stats.total_queue_wait,
+                "zero_wait": outcome.stats.commands_with_zero_wait,
+            },
+        }
+
+        return {
+            "plan_summary": plan.summary(),
+            "dispatch": dispatch_summary,
+            "actions": actions,
+            "execution": execution_report,
+            "metadata": plan.metadata,
+            "status": "cq_actions_executed",
+        }
+
+    def _execute_cq_actions(self, actions: list[dict[str, Any]]) -> dict[str, Any]:
+        executed: list[str] = []
+        skipped: list[str] = []
+        counts = {"dma": 0, "gemm": 0, "fence": 0}
+
+        for action in actions:
+            action_type = action.get("type")
+            if action_type in counts:
+                counts[action_type] += 1
+            handler = {
+                "dma": self._handle_cq_dma,
+                "gemm": self._handle_cq_gemm,
+                "fence": self._handle_cq_fence,
+            }.get(action_type, self._handle_cq_unknown)
+            if handler(action):
+                executed.append(action["cmd_id"])
+            else:
+                skipped.append(action["cmd_id"])
+            self.npu_cluster.schedule(self.bus.now)
+
+        return {
+            "executed": executed,
+            "skipped": skipped,
+            "count": counts,
+            "estimate_cycles": sum(self._cq_gemm_cycle_log),
+            "dma_bytes": self._cq_dma_bytes,
+        }
+
+    def _parse_cq_uri(self, uri: str) -> Tuple[str, str]:
+        if not isinstance(uri, str) or "://" not in uri:
+            raise ValueError(f"Invalid CQ URI: {uri}")
+        scheme, path = uri.split("://", 1)
+        return scheme, path
+
+    def _ensure_cq_allocation(
+        self, uri: str, size_bytes: int, *, shape: Optional[Tuple[int, ...]] = None
+    ) -> Dict[str, Any]:
+        space, key = self._parse_cq_uri(uri)
+        if space == "dram":
+            entry = self._cq_dram_allocations.get(key)
+            new_entry = entry is None
+            if new_entry:
+                if (
+                    self._cq_next_dram_addr + size_bytes
+                    > DRAM_REGION.base + DRAM_REGION.size
+                ):
+                    raise MemoryError("CQ DRAM allocation exceeds region size")
+                base = self._cq_next_dram_addr
+                self._cq_next_dram_addr += size_bytes
+                self.bus.write(base, bytes(size_bytes))
+                entry = {"base": base, "size": size_bytes}
+                self._cq_dram_allocations[key] = entry
+            else:
+                if size_bytes > entry["size"]:
+                    raise MemoryError(
+                        "CQ DRAM allocation for {uri} exceeds existing region "
+                        "(requested {req}, allocated {alloc})".format(
+                            uri=uri,
+                            req=size_bytes,
+                            alloc=entry["size"],
+                        )
+                    )
+            if shape:
+                entry["shape"] = shape
+            self._initialize_cq_region(space, uri, entry, size_bytes, new_entry)
+            return entry
+        if space == "spm":
+            entry = self._cq_spm_allocations.get(key)
+            new_entry = entry is None
+            if new_entry:
+                if self._cq_next_spm_offset + size_bytes > SPM_REGION.size:
+                    raise MemoryError("CQ SPM allocation exceeds region size")
+                offset = self._cq_next_spm_offset
+                self._cq_next_spm_offset += size_bytes
+                entry = {"offset": offset, "size": size_bytes}
+                self._cq_spm_allocations[key] = entry
+            else:
+                if size_bytes > entry["size"]:
+                    raise MemoryError(
+                        "CQ SPM allocation for {uri} exceeds existing region "
+                        "(requested {req}, allocated {alloc})".format(
+                            uri=uri,
+                            req=size_bytes,
+                            alloc=entry["size"],
+                        )
+                    )
+            if shape:
+                entry["shape"] = shape
+            self._initialize_cq_region(space, uri, entry, size_bytes, new_entry)
+            return entry
+        raise ValueError(f"Unsupported CQ memory space: {space}")
+
+    def _read_cq_tensor(self, uri: str, shape: Tuple[int, ...]) -> np.ndarray:
+        size = int(np.prod(shape) * 4)
+        space, key = self._parse_cq_uri(uri)
+        entry = self._ensure_cq_allocation(uri, size, shape=shape)
+        if space == "dram":
+            base = entry["base"]
+            data = self.bus.read(base, size)
+        elif space == "spm":
+            offset = entry["offset"]
+            data = self.bus.read(SPM_REGION.base + offset, size)
+        else:
+            raise ValueError(f"Unsupported CQ memory space: {space}")
+        array = np.frombuffer(data, dtype=np.float32)
+        if array.size != int(np.prod(shape)):
+            raise ValueError(
+                f"CQ tensor size mismatch for {uri}: expected {shape}, got {array.size}"
+            )
+        return array.reshape(shape)
+
+    def _initialize_cq_region(
+        self,
+        space: str,
+        uri: str,
+        entry: Dict[str, Any],
+        size_bytes: int,
+        new_entry: bool,
+    ) -> None:
+        init = self._cq_initial_data.get(uri)
+        if init is None or not new_entry:
+            return
+        if init.dtype != np.float32:
+            init = init.astype(np.float32)
+        payload = init.tobytes()
+        if len(payload) != size_bytes:
+            message = (
+                "Initial tensor size mismatch for {uri}: expected {expected}, "
+                "got {actual}"
+            ).format(uri=uri, expected=size_bytes, actual=len(payload))
+            raise ValueError(message)
+        entry["shape"] = tuple(int(dim) for dim in init.shape)
+        self._write_bytes_to_space(space, entry, payload)
+        entry["initialized"] = True
+
+    def _write_bytes_to_space(
+        self, space: str, entry: Dict[str, Any], payload: bytes
+    ) -> None:
+        if space == "dram":
+            self.bus.write(entry["base"], payload)
+            return
+        if space == "spm":
+            self.bus.write(SPM_REGION.base + entry["offset"], payload)
+            return
+        raise ValueError(f"Unsupported CQ memory space: {space}")
+
+    def _write_cq_tensor(self, uri: str, data: np.ndarray) -> None:
+        if data.dtype != np.float32:
+            data = data.astype(np.float32)
+        shape = tuple(int(dim) for dim in data.shape)
+        buffer = data.tobytes()
+        entry = self._ensure_cq_allocation(uri, len(buffer), shape=shape)
+        space, _ = self._parse_cq_uri(uri)
+        if space == "dram":
+            self.bus.write(entry["base"], buffer)
+        elif space == "spm":
+            self.bus.write(SPM_REGION.base + entry["offset"], buffer)
+        else:
+            raise ValueError(f"Unsupported CQ memory space: {space}")
+
+    def _handle_cq_dma(self, action: dict[str, Any]) -> bool:
+        src = action.get("src")
+        dst = action.get("dst")
+        shape = tuple(int(dim) for dim in action.get("shape", ()))
+        if not src or not dst or not shape:
+            self.logger.warning("DMA action missing required fields: %s", action)
+            return False
+        bytes_len = int(np.prod(shape) * 4)
+        self._ensure_cq_allocation(src, bytes_len, shape=shape)
+        self._ensure_cq_allocation(dst, bytes_len, shape=shape)
+        data = self._read_cq_tensor(src, shape)
+        self._write_cq_tensor(dst, data)
+        if bytes_len > 0:
+            self._issue_bus_transfer(bytes_len)
+            self._cq_dma_bytes += bytes_len
+        self.logger.debug("CQ DMA executed: %s -> %s shape=%s", src, dst, shape)
+        return True
+
+    def _handle_cq_gemm(self, action: dict[str, Any]) -> bool:
+        try:
+            m = int(action["m"])
+            n = int(action["n"])
+            k = int(action["k"])
+            inputs = action.get("inputs", {})
+            a_uri = inputs.get("a")
+            b_uri = inputs.get("b")
+        except (KeyError, TypeError, ValueError):
+            self.logger.warning("Invalid GEMM action: %s", action)
+            return False
+
+        if not a_uri or not b_uri:
+            self.logger.warning("GEMM action missing tensor URIs: %s", action)
+            return False
+
+        a = self._read_cq_tensor(a_uri, (m, k))
+        b = self._read_cq_tensor(b_uri, (k, n))
+        result = a @ b
+        out_uri = action.get("output") or a_uri
+        self._write_cq_tensor(out_uri, result)
+        compute_cycles = self._estimate_gemm_cycles(m, n, k)
+        task = ClusterTask(
+            input_bytes=0,
+            output_bytes=0,
+            compute_cycles=compute_cycles,
+            issue_at=self.bus.now,
+            name=action["cmd_id"],
+        )
+        submission = self.npu_cluster.submit(task)
+        self.npu_cluster.schedule(self.bus.now)
+        compute_done = submission.compute_done_at
+        if compute_done <= 0:
+            compute_done = self.bus.now + compute_cycles
+            submission.compute_done_at = compute_done
+        self.bus.sync_time(compute_done)
+        self.npu_cluster.schedule(compute_done)
+        final_done = submission.done_at if submission.done_at > 0 else compute_done
+        self.bus.sync_time(final_done)
+        self.npu_cluster.schedule(final_done)
+        self._cq_gemm_cycle_log.append(compute_cycles)
+        self.logger.debug("CQ GEMM executed: %s x %s -> %s", a_uri, b_uri, out_uri)
+        return True
+
+    def _handle_cq_fence(self, action: dict[str, Any]) -> bool:
+        target = action.get("target")
+        self.logger.debug("CQ FENCE noop: target=%s", target)
+        return True
+
+    def _handle_cq_unknown(self, action: dict[str, Any]) -> bool:
+        self.logger.warning("CQ action type '%s' not recognised", action.get("type"))
+        return False
+
+    def _issue_bus_transfer(self, size_bytes: int) -> tuple[int, int]:
+        if size_bytes <= 0:
+            now = self.bus.now
+            return now, now
+        grant, done = self.bus.request(
+            int(BusMasterID.NPU_DMA),
+            size_bytes,
+            request_at=self.bus.now,
+        )
+        self.bus.sync_time(done)
+        return grant, done
+
+    def _estimate_gemm_cycles(self, m: int, n: int, k: int) -> int:
+        scale = self._get_config_section("npu").get("cores", 1) or 1
+        cycles = max(1, int((m * n * k) / max(1, scale * 128)))
+        return cycles
 
     def _get_config_section(self, *keys: str) -> Mapping[str, Any]:
         """Safely retrieve a nested mapping from the config tree."""

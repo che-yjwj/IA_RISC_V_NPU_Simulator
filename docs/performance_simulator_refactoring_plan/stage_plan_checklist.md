@@ -1,25 +1,28 @@
-tage 0 — 리포 준비 & 가드레일
-- [ ] feature 브랜치 생성
-- [ ] CQ 전용 디렉토리 추가
-- [ ] CLI `run-cq` 엔트리 추가
+Stage 0 — 리포 준비 & 가드레일
+- [x] feature 브랜치 생성
+- [x] CQ 전용 디렉토리 추가
+- [x] CLI `run-cq` 엔트리 추가
 - [ ] 기존 ELF 경로 회귀 테스트 보존
 
 ## Stage 1 — 최소 스펙 정의
-- [ ] `isa.yaml`: TE_GEMM, DMA_2D, FENCE_SPM
-- [ ] `cq.schema.json`: cmd_id, opcode, operands, deps, trace
-- [ ] 샘플 CQ.jsonl 파일 생성
-- [ ] Lint & Schema 검증 통과
+- [x] `isa.yaml`: TE_GEMM, DMA_2D, FENCE_SPM
+- [x] `cq.schema.json`: cmd_id, opcode, operands, deps, trace
+- [x] 샘플 CQ.jsonl 파일 생성
+- [x] Lint & Schema 검증 통과
 
 ## Stage 2 — CQ I/O + 실행 골격
-- [ ] `cq/io.py`: JSONL reader/writer
-- [ ] CLI `run-cq path/to/trace.jsonl`
+- [x] `cq/io.py`: JSONL reader/writer
+- [x] CLI `run-cq path/to/trace.jsonl`
 - [ ] trace_id 체계 (ir_id → isa_idx → cmd_id)
 
 ## Stage 3 — Dispatcher CQ Consumer
-- [ ] dispatcher_cq.py 구현
-- [ ] CQ 엔트리 상태 전이 (queued→scheduled→done)
-- [ ] trace_id 로깅
-- [ ] 요약 통계 (num_cmds, avg_queue_wait)
+- [x] dispatcher_cq.py 구현 (스켈레톤, 상태 추적 포함)
+- [x] CQ 엔트리 상태 전이 (queued→scheduled→done)
+- [x] trace_id 로깅
+- [x] 요약 통계 (num_cmds, avg_queue_wait)
+- [x] 통합 테스트 `tests/integration/test_cq_dispatcher.py`로 기본 흐름 검증
+- [x] `AdaptiveSimulator.run_cq_trace` 액션 로거 스텁
+- [x] CQ DMA/GEMM 실행이 버스/NPU 클러스터 타이밍과 연동
 
 ## Stage 4 — 자원/타이밍/경합 모델
 - [ ] spm.py: bank/port 충돌
@@ -27,6 +30,8 @@ tage 0 — 리포 준비 & 가드레일
 - [ ] dma.py: row-based 지연
 - [ ] te.py: GEMM 지연 근사
 - [ ] Deadlock 감지 로직
+- [x] CQ vs ELF 비교 스텁 (`src/simulator/cq_runner.py`) 마련
+- [x] CQ 텐서 초기화/실데이터 주입 (`AdaptiveSimulator.load_cq_tensors`)
 
 ## Stage 5 — Spec-Codegen v1
 - [ ] `isa.yaml` → dataclass 자동 생성
@@ -51,4 +56,3 @@ tage 0 — 리포 준비 & 가드레일
 - [ ] ISA/CQ Reference 자동 생성
 - [ ] Gantt chart/Timeline CSV 산출
 - [ ] 튜토리얼 노트북 작성
-

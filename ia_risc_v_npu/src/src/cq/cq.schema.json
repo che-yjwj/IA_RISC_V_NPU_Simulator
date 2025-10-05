@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Command Queue Command",
+  "type": "object",
+  "required": ["cmd_id", "opcode"],
+  "properties": {
+    "cmd_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique identifier for the command."
+    },
+    "opcode": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Logical opcode describing the command type (e.g. DMA_2D)."
+    },
+    "operands": {
+      "type": "object",
+      "description": "Opaque operand payload consumed by the simulator.",
+      "additionalProperties": true
+    },
+    "deps": {
+      "type": "array",
+      "description": "Identifiers of commands that must complete before this command can be scheduled.",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "dependencies": {
+      "type": "array",
+      "description": "Alias for deps (kept for readability in some generators).",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "trace": {
+      "type": "object",
+      "description": "Optional tracing metadata captured from the generator.",
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

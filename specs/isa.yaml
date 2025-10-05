@@ -1,0 +1,61 @@
+version: 1
+operations:
+  - name: DMA_2D
+    category: dma
+    summary: "2D DMA transfer between memory spaces with stride support."
+    operands:
+      src:
+        type: address
+        required: true
+        description: Source region handle or URI.
+      dst:
+        type: address
+        required: true
+        description: Destination region handle or URI.
+      shape:
+        type: int[2]
+        required: true
+        description: "[rows, cols] tile dimensions."
+      strides:
+        type: int[2]
+        required: false
+        description: "Optional [row_stride, col_stride] overrides."
+    tags:
+      - memory
+      - transfer
+  - name: TE_GEMM
+    category: tensor_engine
+    summary: "Matrix multiplication executed on the tensor engine."
+    operands:
+      m:
+        type: int
+        required: true
+        description: Output rows (A x B).
+      n:
+        type: int
+        required: true
+        description: Output columns (A x B).
+      k:
+        type: int
+        required: true
+        description: Reduction dimension.
+      a:
+        type: address
+        required: true
+        description: Source buffer for matrix A.
+      b:
+        type: address
+        required: true
+        description: Source buffer for matrix B.
+      c:
+        type: address
+        required: false
+        description: Optional destination buffer override.
+    tags:
+      - compute
+  - name: FENCE_SPM
+    category: synchronisation
+    summary: "Synchronise outstanding scratchpad memory operations."
+    operands: {}
+    tags:
+      - synchronisation

@@ -1,2 +1,3 @@
 pyelftools
 numpy
+pyyaml

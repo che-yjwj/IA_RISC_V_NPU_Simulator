@@ -1,0 +1,22 @@
+version: 1
+mappings:
+  - name: gemm_dense
+    isa: TE_GEMM
+    cq: DMA_2D -> TE_GEMM -> DMA_2D
+    description: "Standard load/compute/store sequence for dense GEMM tiles."
+    operands:
+      matrix_a: dram://inputs
+      matrix_b: dram://weights
+      matrix_out: dram://outputs
+    schedule:
+      steps:
+        - op: DMA_2D
+          src: dram://inputs
+          dst: spm://tile0
+        - op: TE_GEMM
+          a: spm://tile0
+          b: dram://weights
+          out: spm://tile0
+        - op: DMA_2D
+          src: spm://tile0
+          dst: dram://outputs
