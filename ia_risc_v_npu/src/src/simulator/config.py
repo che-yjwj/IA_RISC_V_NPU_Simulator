@@ -254,6 +254,9 @@ def _validate_accuracy_guard_section(
     return result
 
 
+_ALLOWED_LOG_LEVELS = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+
+
 def _validate_logging_section(
     data: Dict[str, Any], defaults: Dict[str, Any]
 ) -> Dict[str, Any]:
@@ -264,10 +267,9 @@ def _validate_logging_section(
         level = data["level"]
         if not isinstance(level, str):
             raise ConfigValidationError("logging.level must be a string")
-        allowed_levels = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
-        if level.upper() not in allowed_levels:
+        if level.upper() not in _ALLOWED_LOG_LEVELS:
             raise ConfigValidationError(
-                f"logging.level must be one of {sorted(allowed_levels)}"
+                f"logging.level must be one of {sorted(_ALLOWED_LOG_LEVELS)}"
             )
         result["level"] = level.upper()
 

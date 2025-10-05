@@ -83,7 +83,7 @@
     "logging": {
         "level": "INFO",
         "path": "/tmp/simulator.log",
-        "trace_components": ["bus", "dma"]
+        "trace_components": ["bus", "memory"]
     }
 }
 ```
@@ -97,6 +97,6 @@
 -   **`logging`**: 시뮬레이터의 로깅 동작을 제어합니다.
     -   `"level"`: 로그 레벨을 지정합니다 (`"DEBUG"`, `"INFO"`, `"WARNING"`, `"ERROR"`, `"CRITICAL"`).
     -   `"path"`: 로그를 파일로 출력할 경우 경로를 지정합니다. `null`이면 표준 출력으로 로깅합니다.
-    -   `"trace_components"`: 상세 추적을 원하는 컴포넌트 목록을 지정합니다 (예: `"bus"`, `"dma"`, `"npu"`).
+    -   `"trace_components"`: 상세 추적을 원하는 컴포넌트 목록을 지정합니다 (예: `"bus"`, `"memory"`, `"npu"`).
 
 향후 NPU/버스 종합 벤치마크나 DRAM 타이밍 실험이 추가되면 이 문서를 업데이트해 공용 베이스라인을 계속 정렬하세요.

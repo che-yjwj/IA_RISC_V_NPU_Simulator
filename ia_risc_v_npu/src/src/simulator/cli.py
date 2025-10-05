@@ -252,11 +252,12 @@ def write_output(summary: dict, output_path: Optional[Path]) -> None:
             raise CLIError(f"Failed to write output file: {output_path}") from exc
 
 
-def run_simulate(args: argparse.Namespace) -> int:
+def _setup_environment(args: argparse.Namespace) -> tuple[dict, logging.Logger]:
+    """Load config, override with CLI args, and configure logging."""
     config = load_config(args.config)
 
     # Override config with CLI arguments where provided.
-    if args.scheduler_policy:
+    if getattr(args, "scheduler_policy", None):
         config["npu"]["policy"] = args.scheduler_policy
 
     simulator_logger = configure_logging(
@@ -266,7 +267,11 @@ def run_simulate(args: argparse.Namespace) -> int:
         log_path=getattr(args, "log_path", None),
         trace_components=getattr(args, "trace", None),
     )
+    return config, simulator_logger
 
+
+def run_simulate(args: argparse.Namespace) -> int:
+    config, simulator_logger = _setup_environment(args)
     max_cycles = int(config.get("max_cycles", 0) or 0)
 
     program = load_program_image(args.elf_file)
@@ -369,20 +374,7 @@ def _evaluate_mips_guard(
 
 
 def run_benchmark(args: argparse.Namespace) -> int:
-    config = load_config(args.config)
-
-    # Override config with CLI arguments where provided.
-    if args.scheduler_policy:
-        config["npu"]["policy"] = args.scheduler_policy
-
-    simulator_logger = configure_logging(
-        config,
-        args.verbose,
-        log_level=getattr(args, "log_level", None),
-        log_path=getattr(args, "log_path", None),
-        trace_components=getattr(args, "trace", None),
-    )
-
+    config, simulator_logger = _setup_environment(args)
     max_cycles = int(config.get("max_cycles", 0) or args.max_cycles or 0)
 
     if args.elf_file:
