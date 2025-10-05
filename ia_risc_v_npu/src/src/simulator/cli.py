@@ -216,21 +216,22 @@ def prepare_summary(
         "instructions_executed": instruction_count,
         "elapsed_seconds": result.elapsed_seconds,
         "mips": result.mips,
-        "bus_metrics": result.bus_metrics,
-        "cache_metrics": result.cache_metrics,
-        "memory_metrics": result.memory_metrics,
+        "memory_report": result.memory_report,
         "stall_breakdown": result.stall_breakdown,
         "npu_metrics": result.npu_metrics,
         "fetch_metrics": result.fetch_metrics,
     }
+    cache_metrics = result.memory_report.get("caches", {})
     miss_rates = {
         name.lower(): metrics.get("miss_rate", 0.0)
-        for name, metrics in result.cache_metrics.items()
+        for name, metrics in cache_metrics.items()
     }
     if result.fetch_metrics:
         miss_rates["icache"] = result.fetch_metrics.get("miss_rate", 0.0)
     summary["miss_rates"] = miss_rates
-    summary["amat_cycles"] = result.memory_metrics.get("average_latency_cycles", 0.0)
+
+    memory_system_metrics = result.memory_report.get("memory_system", {})
+    summary["amat_cycles"] = memory_system_metrics.get("average_latency_cycles", 0.0)
     summary["npu_util"] = result.npu_metrics.get("utilization", 0.0)
     if extra:
         summary.update(extra)

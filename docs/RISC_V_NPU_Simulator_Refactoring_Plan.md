@@ -78,9 +78,9 @@
 - [x] 단위 테스트 보강 및 시나리오 기반 통합 테스트(`tests/integration`) 추가.
 
 ### Stage 3 — 메모리/버스 모델 정밀화
-- [ ] 기존 `memory.py` 개선(로깅, 파라미터화, 통계 포맷 향상).
-- [ ] DRAM/버스 설정을 JSON 스키마와 연동.
-- [ ] 성능 테스트(`tests/performance`)로 회귀 검증.
+- [x] 기존 `memory.py` 개선(로깅, 파라미터화, 통계 포맷 향상).
+- [x] DRAM/버스 설정을 JSON 스키마와 연동.
+- [x] 성능 테스트(`tests/performance`)로 회귀 검증.
 
 ### Stage 4 — 선택적 CQ 입력 계층 도입
 - [ ] `CQ` 디렉터리 신설: JSONL 스키마, Reader/Writer, 검증 도구.

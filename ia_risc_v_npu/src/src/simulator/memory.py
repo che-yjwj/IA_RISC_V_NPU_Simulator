@@ -4,7 +4,7 @@ import logging
 import math
 from collections import deque
 from dataclasses import dataclass
-from typing import Deque, Dict, List, Optional, Tuple
+from typing import Any, Deque, Dict, List, Optional, Tuple
 
 LOGGER = logging.getLogger(__name__)
 
@@ -314,7 +314,7 @@ class Bus:
         self.metrics.on_request(len(self._active_requests) + self._pending_requests)
 
         self.logger.debug(
-            "bus.request queued",
+            "bus.request.queued",
             extra={
                 "master_id": master_id_int,
                 "size_bytes": bytes,
@@ -336,7 +336,7 @@ class Bus:
             )
 
         self.logger.debug(
-            "bus.request scheduled",
+            "bus.request.scheduled",
             extra={
                 "master_id": master_id_int,
                 "request_at": request.request_at,
@@ -433,7 +433,7 @@ class Bus:
             done_at = start_time + transfer_cycles
 
             self.logger.debug(
-                "bus.schedule grant",
+                "bus.schedule.grant",
                 extra={
                     "master_id": master_id,
                     "request_at": request.request_at,
@@ -464,7 +464,7 @@ class Bus:
             self._completed_requests.append(request)
 
         self.logger.debug(
-            "bus.schedule idle",
+            "bus.schedule.idle",
             extra={
                 "available_at": self._available_at,
                 "pending": self._pending_requests,
@@ -559,11 +559,49 @@ class DRAMConfig:
             raise ValueError("data_bytes_per_cycle must be greater than zero")
 
 
+@dataclass
+class DRAMMetrics:
+    access_count: int = 0
+    row_hits: int = 0
+    row_misses: int = 0
+    total_latency_cycles: int = 0
+
+    def on_access(self, *, row_hit: bool, latency: int) -> None:
+        self.access_count += 1
+        if row_hit:
+            self.row_hits += 1
+        else:
+            self.row_misses += 1
+        self.total_latency_cycles += latency
+
+    def average_latency(self) -> float:
+        if self.access_count == 0:
+            return 0.0
+        return self.total_latency_cycles / self.access_count
+
+    def snapshot(self) -> Dict[str, float | int]:
+        return {
+            "access_count": self.access_count,
+            "row_hits": self.row_hits,
+            "row_misses": self.row_misses,
+            "row_hit_rate": (
+                self.row_hits / self.access_count if self.access_count > 0 else 0.0
+            ),
+            "total_latency_cycles": self.total_latency_cycles,
+            "average_latency": self.average_latency(),
+        }
+
+
 class DRAM:
     """Simple DRAM timing approximation with bank/row tracking."""
 
-    def __init__(self, config: Optional[DRAMConfig] = None):
+    def __init__(
+        self,
+        config: Optional[DRAMConfig] = None,
+        metrics: Optional[DRAMMetrics] = None,
+    ):
         self.config = config or DRAMConfig()
+        self.metrics = metrics or DRAMMetrics()
         self.bank_free_at: List[int] = [0] * self.config.banks
         self.row_open: List[Optional[int]] = [None] * self.config.banks
         self._now = 0
@@ -572,6 +610,7 @@ class DRAM:
         self.bank_free_at = [0] * self.config.banks
         self.row_open = [None] * self.config.banks
         self._now = 0
+        self.metrics = self.metrics.__class__()
 
     def map_address(self, address: int) -> Tuple[int, int]:
         if address < 0:
@@ -600,27 +639,11 @@ class DRAM:
         transfer_cycles = math.ceil(size / self.config.data_bytes_per_cycle)
 
         done_at = ready_at + command_latency + transfer_cycles
+        self.metrics.on_access(row_hit=row_hit, latency=done_at - ready_at)
         self.bank_free_at[bank] = done_at
         self.row_open[bank] = row
         self._now = max(self._now, done_at)
         return done_at
-
-
-DEFAULT_L1_CONFIG = CacheConfig(
-    name="L1",
-    size_bytes=32 * 1024,
-    line_size=64,
-    associativity=4,
-    hit_latency=4,
-)
-
-DEFAULT_L2_CONFIG = CacheConfig(
-    name="L2",
-    size_bytes=256 * 1024,
-    line_size=64,
-    associativity=8,
-    hit_latency=12,
-)
 
 
 class MemorySystem:
@@ -639,9 +662,21 @@ class MemorySystem:
         self.dram = DRAM(dram_config)
         self._caches: List[CacheLevel] = []
         if l1_config is None:
-            l1_config = DEFAULT_L1_CONFIG
+            l1_config = CacheConfig(
+                name="L1",
+                size_bytes=32 * 1024,
+                line_size=64,
+                associativity=4,
+                hit_latency=4,
+            )
         if l2_config is None:
-            l2_config = DEFAULT_L2_CONFIG
+            l2_config = CacheConfig(
+                name="L2",
+                size_bytes=256 * 1024,
+                line_size=64,
+                associativity=8,
+                hit_latency=12,
+            )
 
         self._caches.append(CacheLevel(l1_config))
         self._caches.append(CacheLevel(l2_config))
@@ -659,31 +694,31 @@ class MemorySystem:
     def cache_stats(self) -> Dict[str, Dict[str, int]]:
         return {cache.config.name: cache.stats() for cache in self._caches}
 
-    def cache_metrics(self) -> Dict[str, Dict[str, float | int]]:
-        metrics: Dict[str, Dict[str, float | int]] = {}
+    def front_hit_latency(self) -> int:
+        if not self._caches:
+            # Fallback to a reasonable default if no caches are configured
+            return 4
+        return self._caches[0].hit_latency
+
+    def report_metrics(self) -> Dict[str, Any]:
+        """Reports a consolidated dictionary of all memory-related metrics."""
+        cache_metrics: Dict[str, Dict[str, float | int]] = {}
         for cache in self._caches:
             counters = cache.stats()
             total = counters["hits"] + counters["misses"]
             miss_rate = counters["misses"] / total if total else 0.0
-            metrics[cache.config.name] = {
+            cache_metrics[cache.config.name] = {
                 "hits": counters["hits"],
                 "misses": counters["misses"],
                 "miss_rate": miss_rate,
             }
-        return metrics
 
-    def front_hit_latency(self) -> int:
-        if not self._caches:
-            return DEFAULT_L1_CONFIG.hit_latency
-        return self._caches[0].hit_latency
-
-    def memory_metrics(self) -> Dict[str, float | int]:
         load_requests = self._stats["load_requests"]
         store_requests = self._stats["store_requests"]
         total_requests = load_requests + store_requests
         total_latency = self._stats["total_latency_cycles"]
         average_latency = total_latency / total_requests if total_requests else 0.0
-        return {
+        memory_access_metrics = {
             "load_requests": load_requests,
             "store_requests": store_requests,
             "total_requests": total_requests,
@@ -693,6 +728,13 @@ class MemorySystem:
                 "bus_transaction_latency_cycles"
             ],
             "dram_wait_cycles": self._stats["dram_latency_cycles"],
+        }
+
+        return {
+            "memory_system": memory_access_metrics,
+            "caches": cache_metrics,
+            "bus": self.bus.metrics.snapshot(),
+            "dram": self.dram.metrics.snapshot(),
         }
 
     def _reset_stats(self) -> None:
@@ -823,9 +865,7 @@ class MemorySystem:
         master_id: int,
         _access_type: str,
     ) -> int:
-        line_size = (
-            self._caches[-1].line_size if self._caches else DEFAULT_L2_CONFIG.line_size
-        )
+        line_size = self._caches[-1].line_size if self._caches else 64
         size = line_size
         self.bus.sync_time(request_time)
         _, bus_done = self.bus.request(
@@ -867,9 +907,7 @@ class MemorySystem:
         done_at = start_time
         remaining = size
         current = address
-        line_size = (
-            self._caches[0].line_size if self._caches else DEFAULT_L1_CONFIG.line_size
-        )
+        line_size = self._caches[0].line_size if self._caches else 64
 
         while remaining > 0:
             offset = current % line_size

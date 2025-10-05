@@ -170,6 +170,11 @@ def test_dram_row_hit_and_miss_latency(dram):
     )
     assert second_done - first_done == dram.config.t_cas + transfer_cycles
 
+    metrics = dram.metrics.snapshot()
+    assert metrics["access_count"] == 2
+    assert metrics["row_hits"] == 1
+    assert metrics["row_misses"] == 1
+
 
 def test_dram_bank_mapping_round_robin(dram):
     banks = dram.config.banks
@@ -222,13 +227,14 @@ def test_memory_system_cache_hit_latency():
     )
 
     assert hit_done - miss_done == l1.hit_latency
-    stats = memory.cache_stats()
-    assert stats["L1"]["hits"] == 1
-    assert stats["L1"]["misses"] == 1
-    metrics = memory.memory_metrics()
-    assert metrics["total_requests"] == 2
-    assert metrics["load_requests"] == 2
-    assert metrics["average_latency_cycles"] >= 0
+    report = memory.report_metrics()
+    cache_metrics = report["caches"]
+    assert cache_metrics["L1"]["hits"] == 1
+    assert cache_metrics["L1"]["misses"] == 1
+    mem_sys_metrics = report["memory_system"]
+    assert mem_sys_metrics["total_requests"] == 2
+    assert mem_sys_metrics["load_requests"] == 2
+    assert mem_sys_metrics["average_latency_cycles"] >= 0
 
 
 def test_memory_system_l1_miss_l2_hit_latency_accounts_for_front_penalty():
@@ -265,12 +271,14 @@ def test_memory_system_l1_miss_l2_hit_latency_accounts_for_front_penalty():
     expected_latency = l1.hit_latency + l2.hit_latency + l1.hit_latency
     assert done_at == expected_latency
 
-    stats = memory.cache_stats()
-    assert stats["L1"]["hits"] == 0
-    assert stats["L1"]["misses"] == 1
-    assert stats["L2"]["hits"] == 1
-    assert stats["L2"]["misses"] == 0
-    assert bus.metrics.completed_requests == 0
+    report = memory.report_metrics()
+    cache_metrics = report["caches"]
+    assert cache_metrics["L1"]["hits"] == 0
+    assert cache_metrics["L1"]["misses"] == 1
+    assert cache_metrics["L2"]["hits"] == 1
+    assert cache_metrics["L2"]["misses"] == 0
+    bus_metrics = report["bus"]
+    assert bus_metrics["completed_requests"] == 0
 
 
 def test_memory_system_writeback_on_eviction():
@@ -311,13 +319,14 @@ def test_memory_system_writeback_on_eviction():
     )
     memory.store(address=64, size=4, request_time=done, master_id=BusMasterID.CPU)
 
-    metrics = bus.metrics
-    assert metrics.completed_requests == 4
-    stats = memory.cache_stats()
-    assert stats["L1"]["hits"] == 0
-    assert stats["L1"]["misses"] == 3
-    assert stats["L2"]["hits"] == 2
-    assert stats["L2"]["misses"] == 3
-    mem_metrics = memory.memory_metrics()
-    assert mem_metrics["total_requests"] == 3
-    assert mem_metrics["store_requests"] == 3
+    report = memory.report_metrics()
+    bus_metrics = report["bus"]
+    assert bus_metrics["completed_requests"] == 4
+    cache_metrics = report["caches"]
+    assert cache_metrics["L1"]["hits"] == 0
+    assert cache_metrics["L1"]["misses"] == 3
+    assert cache_metrics["L2"]["hits"] == 2
+    assert cache_metrics["L2"]["misses"] == 3
+    mem_sys_metrics = report["memory_system"]
+    assert mem_sys_metrics["total_requests"] == 3
+    assert mem_sys_metrics["store_requests"] == 3
