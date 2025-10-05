@@ -5,6 +5,7 @@ import math
 from typing import Any, Dict, List, Optional, Tuple
 
 from src.simulator.config import DEFAULT_L1_CONFIG, DEFAULT_L2_CONFIG
+from src.simulator.devices import SPM as _SPM
 from src.simulator.devices import Bus
 from src.simulator.models import (
     CacheConfig,
@@ -15,6 +16,9 @@ from src.simulator.models import (
 )
 
 LOGGER = logging.getLogger(__name__)
+
+# Re-export SPM for backward compatibility with existing imports.
+SPM = _SPM
 
 
 class CacheLevel:
