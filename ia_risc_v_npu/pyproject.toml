@@ -13,6 +13,7 @@ keywords = ["risc-v", "npu", "simulator"]
 dependencies = [
     "numpy",
     "pyelftools",
+    "PyYAML",
 ]
 
 [project.optional-dependencies]
