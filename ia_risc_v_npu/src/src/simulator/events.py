@@ -50,7 +50,7 @@ class EventScheduler:
             "event.schedule",
             extra={
                 "timestamp": timestamp,
-                "callback": callback.__qualname__,
+                "callback": getattr(callback, "__qualname__", str(callback)),
                 "order": order,
             },
         )
@@ -81,7 +81,9 @@ class EventScheduler:
                 "event.run",
                 extra={
                     "timestamp": self._now,
-                    "callback": event.callback.__qualname__,
+                    "callback": getattr(
+                        event.callback, "__qualname__", str(event.callback)
+                    ),
                     "order": event.order,
                 },
             )
