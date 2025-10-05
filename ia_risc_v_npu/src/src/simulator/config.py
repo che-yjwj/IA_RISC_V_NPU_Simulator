@@ -57,6 +57,11 @@ def default_simulator_config() -> Dict[str, Any]:
             "max_average_deviation": 0.15,
             "max_single_deviation": 0.2,
         },
+        "logging": {
+            "level": "INFO",
+            "path": None,
+            "trace_components": [],
+        },
     }
 
 
@@ -249,6 +254,42 @@ def _validate_accuracy_guard_section(
     return result
 
 
+def _validate_logging_section(
+    data: Dict[str, Any], defaults: Dict[str, Any]
+) -> Dict[str, Any]:
+    if not isinstance(data, dict):
+        raise ConfigValidationError("logging section must be an object")
+    result = deepcopy(defaults)
+    if "level" in data:
+        level = data["level"]
+        if not isinstance(level, str):
+            raise ConfigValidationError("logging.level must be a string")
+        allowed_levels = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+        if level.upper() not in allowed_levels:
+            raise ConfigValidationError(
+                f"logging.level must be one of {sorted(allowed_levels)}"
+            )
+        result["level"] = level.upper()
+
+    if "path" in data:
+        path = data["path"]
+        if path is not None and not isinstance(path, str):
+            raise ConfigValidationError("logging.path must be a string or null")
+        result["path"] = path
+
+    if "trace_components" in data:
+        components = data["trace_components"]
+        if not isinstance(components, list) or not all(
+            isinstance(c, str) for c in components
+        ):
+            raise ConfigValidationError(
+                "logging.trace_components must be a list of strings"
+            )
+        result["trace_components"] = components
+
+    return result
+
+
 def validate_simulator_config(raw: Dict[str, Any]) -> Dict[str, Any]:
     """Validate ``raw`` and return a sanitised simulator configuration.
 
@@ -300,6 +341,11 @@ def validate_simulator_config(raw: Dict[str, Any]) -> Dict[str, Any]:
     if "accuracy_guard" in raw:
         defaults["accuracy_guard"] = _validate_accuracy_guard_section(
             raw["accuracy_guard"], defaults["accuracy_guard"]
+        )
+
+    if "logging" in raw:
+        defaults["logging"] = _validate_logging_section(
+            raw["logging"], defaults["logging"]
         )
 
     return defaults

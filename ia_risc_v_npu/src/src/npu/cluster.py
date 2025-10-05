@@ -23,6 +23,7 @@ class ClusterPolicy(str, Enum):
 
     MIN_FINISH_TIME = "min_finish_time"
     ROUND_ROBIN = "rr"
+    PRIORITY = "priority"
 
 
 @dataclass(slots=True)
