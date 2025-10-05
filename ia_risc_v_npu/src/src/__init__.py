@@ -3,5 +3,6 @@
 __all__ = [
     "npu",
     "risc_v",
+    "cq",
     "simulator",
 ]

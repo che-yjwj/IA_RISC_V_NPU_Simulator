@@ -6,6 +6,7 @@ import argparse
 import asyncio
 import json
 import logging
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 from time import perf_counter
@@ -21,6 +22,9 @@ try:  # pragma: no cover - mirrors ELFFile guard
 except ImportError:  # pragma: no cover - pyelftools optional at runtime
     SH_FLAGS = None  # type: ignore[assignment]
 
+from src.cq.io import CQIOError, load_cq_trace
+from src.cq.schema import CommandQueue
+from src.cq.spec import ISASpecError, load_isa_spec
 from src.simulator.accuracy import AccuracyGuardError, evaluate_accuracy_guard
 from src.simulator.config import (
     ConfigValidationError,
@@ -446,6 +450,102 @@ def run_benchmark(args: argparse.Namespace) -> int:
     return exit_code
 
 
+def _summarise_command_queue(
+    queue: CommandQueue,
+    *,
+    isa_summary: Optional[dict] = None,
+) -> dict:
+    histogram = Counter(command.opcode for command in queue)
+    dependency_lengths = [len(command.dependencies) for command in queue]
+    total_dependencies = sum(dependency_lengths)
+    dependency_stats = {
+        "total": total_dependencies,
+        "max": max(dependency_lengths) if dependency_lengths else 0,
+        "roots": sum(1 for length in dependency_lengths if length == 0),
+    }
+    summary: dict = {
+        "command_count": len(queue),
+        "unique_opcodes": len(histogram),
+        "opcode_histogram": dict(sorted(histogram.items())),
+        "dependency_stats": dependency_stats,
+        "command_id_preview": list(queue.command_ids()[:5]),
+        "status": "validated",
+        "notes": (
+            "CQ execution path is experimental; simulator integration will "
+            "arrive in later Stage 4 milestones."
+        ),
+    }
+    if queue.metadata:
+        summary["metadata"] = dict(queue.metadata)
+    if isa_summary:
+        summary["isa_validation"] = isa_summary
+    return summary
+
+
+def run_cq(args: argparse.Namespace) -> int:
+    _setup_environment(args)
+    try:
+        queue = load_cq_trace(args.trace, strict=not args.allow_forward_deps)
+    except CQIOError as exc:
+        raise CLIError(str(exc)) from exc
+
+    isa_summary: Optional[dict] = None
+    if not getattr(args, "skip_isa_check", False):
+        try:
+            isa_spec = load_isa_spec(getattr(args, "isa_spec", None))
+        except ISASpecError as exc:
+            raise CLIError(str(exc)) from exc
+
+        issues, covered = isa_spec.validate_queue(queue)
+        if issues:
+            for issue in issues:
+                LOGGER.warning(
+                    "ISA spec issue for %s (%s): %s",
+                    issue.command_id,
+                    issue.opcode,
+                    issue.kind,
+                )
+        isa_summary = {
+            "status": "passed" if not issues else "failed",
+            "spec_version": isa_spec.version,
+            "covered_opcodes": sorted(covered),
+        }
+        if issues:
+            isa_summary["issues"] = [issue.to_dict() for issue in issues]
+            unknown = sorted(
+                {issue.opcode for issue in issues if issue.kind == "unknown_opcode"}
+            )
+            if unknown:
+                isa_summary["unknown_opcodes"] = unknown
+        else:
+            isa_summary["message"] = "All commands match ISA specification."
+
+    summary = _summarise_command_queue(queue, isa_summary=isa_summary)
+    LOGGER.info(
+        "Loaded CQ trace '%s' (%s commands, %s unique opcodes)",
+        args.trace,
+        summary["command_count"],
+        summary["unique_opcodes"],
+    )
+
+    if args.output:
+        try:
+            with args.output.open("w", encoding="utf-8") as handle:
+                json.dump(summary, handle, indent=2)
+        except OSError as exc:  # pragma: no cover - filesystem failure
+            raise CLIError(f"Failed to write CQ summary: {args.output}") from exc
+    else:
+        LOGGER.info(
+            "Opcode histogram: %s",
+            ", ".join(
+                f"{opcode}={count}"
+                for opcode, count in summary["opcode_histogram"].items()
+            ),
+        )
+
+    return 0
+
+
 def _add_logging_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--log-level",
@@ -560,6 +660,51 @@ def build_parser() -> argparse.ArgumentParser:
     _add_logging_arguments(benchmark_parser)
     _add_simulator_arguments(benchmark_parser)
     benchmark_parser.set_defaults(handler=run_benchmark)
+
+    cq_parser = subparsers.add_parser(
+        "run-cq",
+        help=("validate a CQ JSONL trace and inspect its structure (experimental)"),
+    )
+    cq_parser.add_argument(
+        "trace",
+        type=Path,
+        help="Path to the CQ JSONL trace",
+    )
+    cq_parser.add_argument(
+        "--config",
+        type=Path,
+        default=None,
+        help="Optional simulator config for logging setup",
+    )
+    cq_parser.add_argument(
+        "--output",
+        type=Path,
+        default=None,
+        help="Write the CQ validation summary to the specified file",
+    )
+    cq_parser.add_argument(
+        "--allow-forward-deps",
+        action="store_true",
+        help="Allow dependencies on commands that appear later in the trace",
+    )
+    cq_parser.add_argument(
+        "--isa-spec",
+        type=Path,
+        default=None,
+        help="Override the default specs/isa.yaml path",
+    )
+    cq_parser.add_argument(
+        "--skip-isa-check",
+        action="store_true",
+        help="Skip ISA opcode/operand validation",
+    )
+    cq_parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Enable verbose logging output",
+    )
+    _add_logging_arguments(cq_parser)
+    cq_parser.set_defaults(handler=run_cq)
 
     return parser
 

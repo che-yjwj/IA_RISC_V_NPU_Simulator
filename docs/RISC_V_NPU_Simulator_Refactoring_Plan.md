@@ -83,10 +83,10 @@
 - [x] 성능 테스트(`tests/performance`)로 회귀 검증.
 
 ### Stage 4 — 선택적 CQ 입력 계층 도입
-- [ ] `CQ` 디렉터리 신설: JSONL 스키마, Reader/Writer, 검증 도구.
-- [ ] IR/ISA/CQ 매핑은 별도 YAML 사양으로 정의하되, 변환 결과를 기존 시뮬레이터에 주입하는 어댑터로 제한.
-- [ ] CLI에 실험적 `run-cq` 서브커맨드를 추가하되, 기본 경로와 분리(Feature flag).
-- [ ] CQ 경로 통합 테스트 및 ELF 대비 비교 벤치마크 작성.
+- [x] `CQ` 디렉터리 신설: JSONL 스키마, Reader/Writer, 검증 도구.
+- [x] IR/ISA/CQ 매핑은 별도 YAML 사양으로 정의하되, 변환 결과를 기존 시뮬레이터에 주입하는 어댑터로 제한. *(`specs/cq.adaptation.yaml`, `docs/cq_adaptation_spec.md` 추가로 최소 매핑 정의)*
+- [x] CLI에 실험적 `run-cq` 서브커맨드를 추가하되, 기본 경로와 분리(Feature flag).
+- [x] CQ 경로 통합 테스트 및 ELF 대비 비교 벤치마크 작성. *(`AdaptiveSimulator.load_cq_tensors`, CQ 실행 ↔ ELF 비교 스크립트, GEMM/DMA 자원 연동, 통합 테스트/벤치마크 스텁 완료)*
 
 ### Stage 5 — 검증/문서 업데이트
 - [ ] 정확도 가드(`accuracy.py`)에 새 지표를 추가하고 골든 데이터 갱신.
