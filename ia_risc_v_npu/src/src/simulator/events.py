@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import heapq
 import itertools
+import logging
 from dataclasses import dataclass, field
 from typing import Callable, List, Optional, Tuple
 
@@ -24,10 +25,11 @@ class _ScheduledEvent:
 class EventScheduler:
     """단순 힙 기반 이벤트 스케줄러."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, logger: Optional[logging.Logger] = None) -> None:
         self._queue: List[_ScheduledEvent] = []
         self._now: int = 0
         self._counter = itertools.count()
+        self.logger = logger or logging.getLogger(__name__)
 
     @property
     def now(self) -> int:
@@ -44,6 +46,14 @@ class EventScheduler:
         order = next(self._counter)
         event = _ScheduledEvent(timestamp=timestamp, order=order, callback=callback)
         heapq.heappush(self._queue, event)
+        self.logger.debug(
+            "event.schedule",
+            extra={
+                "timestamp": timestamp,
+                "callback": callback.__qualname__,
+                "order": order,
+            },
+        )
         return order
 
     def schedule_after(self, *, delay: int, callback: EventCallback) -> int:
@@ -67,6 +77,14 @@ class EventScheduler:
 
             event = heapq.heappop(self._queue)
             self._now = event.timestamp
+            self.logger.debug(
+                "event.run",
+                extra={
+                    "timestamp": self._now,
+                    "callback": event.callback.__qualname__,
+                    "order": event.order,
+                },
+            )
             event.callback()
 
         if until is not None:

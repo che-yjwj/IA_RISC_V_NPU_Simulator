@@ -29,8 +29,8 @@ def test_mmio_launches_task_and_updates_status() -> None:
 
     _write(mmio, MMIO.REG_CONTROL, MMIO.CONTROL_LAUNCH)
 
-    cluster.flush_deferred_dma(0)
-    cluster.flush_deferred_dma(1_000)
+    cluster.schedule(0)
+    cluster.schedule(1_000)
 
     submission = mmio.last_submission
     assert submission is not None
@@ -55,14 +55,17 @@ def test_policy_round_robin_rotates_cores() -> None:
     _write(mmio, MMIO.REG_INPUT_SIZE, 16)
     _write(mmio, MMIO.REG_COMPUTE_CYCLES, 4)
     _write(mmio, MMIO.REG_CONTROL, MMIO.CONTROL_LAUNCH)
-    first = mmio.last_submission
-    assert first is not None and first.core_id == 0
 
     _write(mmio, MMIO.REG_INPUT_SIZE, 16)
     _write(mmio, MMIO.REG_COMPUTE_CYCLES, 4)
     _write(mmio, MMIO.REG_CONTROL, MMIO.CONTROL_LAUNCH)
-    second = mmio.last_submission
-    assert second is not None and second.core_id == 1
+
+    cluster.schedule(0)
+
+    submissions = cluster.history
+    assert len(submissions) == 2
+    assert submissions[0].core_id == 0
+    assert submissions[1].core_id == 1
 
 
 def test_issue_at_defers_dma_request_time() -> None:
@@ -74,8 +77,8 @@ def test_issue_at_defers_dma_request_time() -> None:
     _write(mmio, MMIO.REG_ISSUE_AT, 25)
     _write(mmio, MMIO.REG_CONTROL, MMIO.CONTROL_LAUNCH)
 
-    cluster.flush_deferred_dma(25)
-    cluster.flush_deferred_dma(1_000)
+    cluster.schedule(25)
+    cluster.schedule(1_000)
 
     submission = mmio.last_submission
     assert submission is not None

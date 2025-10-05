@@ -68,14 +68,14 @@
 - [x] 린터/포매터 설정(`black`, `ruff`) 확인.
 
 ### Stage 1 — 설정 및 CLI 강화
-- [ ] `config.py` 검증기에 추가 옵션(스케줄 정책, 로깅 수준 등) 반영.
-- [ ] JSON 기반 설정 예제를 `docs/`에 정리하고, 변환 도구(YAML→JSON) 필요 시 스크립트 제공.
-- [ ] CLI 플래그(`--scheduler-policy`, `--trace-components`) 확장과 로그/요약 구조 업데이트.
+- [x] `config.py` 검증기에 추가 옵션(스케줄 정책, 로깅 수준 등) 반영.
+- [x] JSON 기반 설정 예제를 `docs/`에 정리하고, 변환 도구(YAML→JSON) 필요 시 스크립트 제공.
+- [x] CLI 플래그(`--scheduler-policy`, `--trace-components`) 확장과 로그/요약 구조 업데이트.
 
 ### Stage 2 — NPU 스케줄러 및 이벤트 엔진 개선
-- [ ] `NPUCluster` 리팩토링: RR/우선순위 정책, 지표 수집(대기/점유) 강화.
-- [ ] 이벤트 엔진에 추적/디버그 메트릭 훅 추가.
-- [ ] 단위 테스트 보강 및 시나리오 기반 통합 테스트(`tests/integration`) 추가.
+- [x] `NPUCluster` 리팩토링: RR/우선순위 정책, 지표 수집(대기/점유) 강화.
+- [x] 이벤트 엔진에 추적/디버그 메트릭 훅 추가.
+- [x] 단위 테스트 보강 및 시나리오 기반 통합 테스트(`tests/integration`) 추가.
 
 ### Stage 3 — 메모리/버스 모델 정밀화
 - [ ] 기존 `memory.py` 개선(로깅, 파라미터화, 통계 포맷 향상).

@@ -35,6 +35,7 @@ class ClusterTask:
     compute_cycles: int
     issue_at: int = 0
     name: str = ""
+    priority: int = 10
     operation: Optional[OperationCallable] = None
     input_address: Optional[int] = None
     output_address: Optional[int] = None
@@ -117,6 +118,7 @@ class NPUCluster:
         self._total_wait_cycles = 0
         self._last_completion = 0
         self._pending_dma: list[DeferredDMA] = []
+        self._pending_tasks: list[tuple[ClusterTask, SubmissionResult]] = []
         self._dma_sequence = itertools.count()
 
     @staticmethod
@@ -129,7 +131,7 @@ class NPUCluster:
         *,
         policy: Optional[ClusterPolicy] = None,
     ) -> SubmissionResult:
-        """작업을 스케줄링하고 완료 시각을 반환한다."""
+        """작업을 큐에 추가하고 SubmissionResult를 즉시 반환한다."""
 
         if task.input_bytes < 0 or task.output_bytes < 0:
             raise ValueError("DMA 전송 크기는 음수가 될 수 없습니다.")
@@ -137,8 +139,6 @@ class NPUCluster:
             raise ValueError("compute_cycles는 음수가 될 수 없습니다.")
 
         effective_policy = policy or self.policy
-        self.flush_deferred_dma(task.issue_at)
-
         self.logger.debug(
             "npu.submit",
             extra={
@@ -151,25 +151,9 @@ class NPUCluster:
             },
         )
 
-        for idx in range(self.cores):
-            self.core_free_at[idx] = (
-                self._core_actual_free[idx] + self._core_pending_cycles[idx]
-            )
-        core_id = self._select_core(task, effective_policy)
-
-        base_ready = (
-            self._core_actual_free[core_id] + self._core_pending_cycles[core_id]
-        )
-        predicted_start = max(base_ready, task.issue_at)
-        predicted_done = predicted_start + task.compute_cycles
-        self._core_pending_cycles[core_id] += max(0, task.compute_cycles)
-        self.core_free_at[core_id] = (
-            self._core_actual_free[core_id] + self._core_pending_cycles[core_id]
-        )
-
         result = SubmissionResult(
             task=task,
-            core_id=core_id,
+            core_id=-1,  # 아직 할당되지 않음
             policy=effective_policy,
             input_grant_at=-1,
             input_done_at=-1,
@@ -182,37 +166,14 @@ class NPUCluster:
             output_address=task.output_address,
         )
 
-        self._pending_dma.append(
-            DeferredDMA(
-                task=task,
-                channel="input",
-                size_bytes=task.input_bytes,
-                scheduled_at=task.issue_at,
-                order=next(self._dma_sequence),
-                result=result,
-            )
-        )
-        self._pending_dma.append(
-            DeferredDMA(
-                task=task,
-                channel="output",
-                size_bytes=task.output_bytes,
-                scheduled_at=task.issue_at,
-                order=next(self._dma_sequence),
-                result=result,
-            )
-        )
-
+        self._pending_tasks.append((task, result))
         self.history.append(result)
 
         self.logger.debug(
             "npu.submit.queued",
             extra={
                 "task": self._task_label(task),
-                "core_id": core_id,
-                "pending_dma": len(self._pending_dma),
-                "predicted_start": predicted_start,
-                "predicted_done": predicted_done,
+                "pending_tasks": len(self._pending_tasks),
             },
         )
         return result
@@ -221,10 +182,24 @@ class NPUCluster:
         horizon = sim_time if sim_time and sim_time > 0 else self._last_completion
         capacity = horizon * self.cores if horizon > 0 else 0
         utilization = self._total_compute_cycles / capacity if capacity > 0 else 0.0
+
+        num_tasks = len(self.history)
+        total_turnaround_cycles = sum(
+            (r.done_at - r.task.issue_at) for r in self.history if r.done_at > 0
+        )
+
+        avg_wait_cycles = self._total_wait_cycles / num_tasks if num_tasks > 0 else 0.0
+        avg_compute_cycles = (
+            self._total_compute_cycles / num_tasks if num_tasks > 0 else 0.0
+        )
+        avg_turnaround_cycles = (
+            total_turnaround_cycles / num_tasks if num_tasks > 0 else 0.0
+        )
+
         self.logger.debug(
             "npu.metrics",
             extra={
-                "tasks": len(self.history),
+                "tasks": num_tasks,
                 "utilization": utilization,
                 "compute_cycles": self._total_compute_cycles,
                 "wait_cycles": self._total_wait_cycles,
@@ -233,14 +208,87 @@ class NPUCluster:
         )
         return {
             "cores": self.cores,
-            "tasks": len(self.history),
+            "tasks": num_tasks,
             "utilization": utilization,
             "compute_cycles": self._total_compute_cycles,
             "wait_cycles": self._total_wait_cycles,
             "horizon_cycles": horizon,
+            "avg_wait_cycles": avg_wait_cycles,
+            "avg_compute_cycles": avg_compute_cycles,
+            "avg_turnaround_cycles": avg_turnaround_cycles,
         }
 
-    def flush_deferred_dma(self, now: int) -> None:
+    def schedule(self, now: int) -> None:
+        """현재 시각까지 제출된 작업을 스케줄링하고 DMA를 처리한다."""
+        self._schedule_tasks(now)
+        self._flush_dma(now)
+
+    def _schedule_tasks(self, now: int) -> None:
+        """대기 중인 작업을 정책에 따라 코어에 할당한다."""
+        if not self._pending_tasks:
+            return
+
+        runnable_tasks = [t for t in self._pending_tasks if t[0].issue_at <= now]
+        if not runnable_tasks:
+            return
+
+        # 정책에 따른 정렬
+        if self.policy == ClusterPolicy.PRIORITY:
+            runnable_tasks.sort(key=lambda item: item[0].priority)
+        # 다른 정책들은 현재 FIFO 순서를 유지 (issue_at 순)
+
+        remaining_pending = [t for t in self._pending_tasks if t not in runnable_tasks]
+        
+        for task, result in runnable_tasks:
+            for idx in range(self.cores):
+                self.core_free_at[idx] = (
+                    self._core_actual_free[idx] + self._core_pending_cycles[idx]
+                )
+            
+            core_id = self._select_core(task, result.policy)
+            result.core_id = core_id
+
+            base_ready = (
+                self._core_actual_free[core_id] + self._core_pending_cycles[core_id]
+            )
+            predicted_start = max(base_ready, task.issue_at)
+            self._core_pending_cycles[core_id] += max(0, task.compute_cycles)
+            self.core_free_at[core_id] = (
+                self._core_actual_free[core_id] + self._core_pending_cycles[core_id]
+            )
+
+            self._pending_dma.append(
+                DeferredDMA(
+                    task=task,
+                    channel="input",
+                    size_bytes=task.input_bytes,
+                    scheduled_at=task.issue_at,
+                    order=next(self._dma_sequence),
+                    result=result,
+                )
+            )
+            self._pending_dma.append(
+                DeferredDMA(
+                    task=task,
+                    channel="output",
+                    size_bytes=task.output_bytes,
+                    scheduled_at=task.issue_at,
+                    order=next(self._dma_sequence),
+                    result=result,
+                )
+            )
+            self.logger.debug(
+                "npu.schedule.assign",
+                extra={
+                    "task": self._task_label(task),
+                    "core_id": core_id,
+                    "predicted_start": predicted_start,
+                },
+            )
+
+        self._pending_tasks = remaining_pending
+
+    def _flush_dma(self, now: int) -> None:
         """현재 시각까지 예정된 DMA 요청을 실제 버스에 재생한다."""
 
         if now < 0:
