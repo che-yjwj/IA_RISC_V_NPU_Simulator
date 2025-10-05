@@ -52,7 +52,7 @@ class VirtualBus:
     def sync_time(self, now: int) -> None:
         if now < 0:
             raise ValueError("now cannot be negative")
-                # Intentionally ignore caller-provided time to avoid sequencing by global
+            # Intentionally ignore caller-provided time to avoid sequencing by global
         # bus time.
         return
 

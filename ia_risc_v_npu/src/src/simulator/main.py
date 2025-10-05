@@ -158,7 +158,7 @@ class AdaptiveSimulator:
         )
         self.scheduler: Optional[EventScheduler] = None
         # self.event_system = EventBasedSystem() # This will be implemented later
-                # self.fidelity_controller = FidelityController()  # TODO: implement
+        # self.fidelity_controller = FidelityController()  # TODO: implement
         self.halt = False
         self.sim_time = 0
         self._fetch_stats = {
