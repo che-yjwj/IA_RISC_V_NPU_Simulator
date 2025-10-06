@@ -27,6 +27,11 @@ The adaptive core now relies entirely on the discrete event scheduler. Instructi
 
 ## 4. Getting Started
 
+### Documentation
+- 전체 문서 인덱스: `docs/README.md`
+- 스펙 요약: `specs/README.md`
+- 튜토리얼/노트북: `docs/tutorials/README.md`, `notebooks/README.md`
+
 ### Prerequisites
 
 -   Python 3.10+

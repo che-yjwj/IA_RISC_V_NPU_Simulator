@@ -7,6 +7,7 @@ __all__ = [
     "cq_vs_elf_benchmark",
     "deterministic_env",
     "regenerate_accuracy_golden",
+    "check_specs_index",
 ]
 
 
