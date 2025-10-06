@@ -1,0 +1,27 @@
+name: Specs Index Check
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+jobs:
+  specs-index:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ia_risc_v_npu
+
+      - name: Verify specs index
+        run: |
+          python -m scripts.check_specs_index

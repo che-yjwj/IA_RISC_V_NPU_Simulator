@@ -30,7 +30,11 @@
 3. **테스트 연동**: 필요한 경우 테스트 케이스에서 `load_config` 호출로 재사용.
 4. **문서 업데이트**: 관련 문서를 `docs/validation_calibration.md`, `docs/accuracy_guard_metrics.md` 등에 추가.
 
-## 5. Cross-References
+## 5. Tooling
+- `python -m scripts.check_specs_index` – 스펙 인덱스 검증 (CI 자동화: `.github/workflows/specs_check.yml`).
+- `python -m scripts.regenerate_accuracy_golden [--config ... --golds ...]` – 정확도 가드 골든 재생성.
+
+## 6. Cross-References
 - Stage 7 전략: `docs/validation_calibration.md`.
 - 정확도 가드 가이드: `docs/accuracy_guard_metrics.md`, `docs/accuracy_guard_ci.md`.
 - 스케줄러 후속 로드맵: `docs/npu_scheduler_followup.md`.
