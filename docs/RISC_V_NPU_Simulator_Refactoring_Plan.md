@@ -107,9 +107,9 @@
 ---
 
 ## 8. 설정 및 파라미터 관리
-- 기본 포맷은 JSON을 유지하며, 새로운 필드는 `validate_simulator_config`에 추가한다.
+- 기본 포맷은 JSON을 유지하며, 새로운 필드는 `validate_simulator_config`에 추가한다. 세부 절차와 샘플 구조는 `docs/config_parameter_management.md` 참고.
 - YAML 등 다른 포맷 지원 시, 내부적으로 JSON으로 변환하는 어댑터를 제공해 파이프라인 일관성을 유지한다.
-- 스케줄러 정책, 로깅, NPU 파라미터는 설정 파일과 CLI 모두에서 제어 가능해야 한다.
+- 스케줄러 정책, 로깅, NPU 파라미터는 설정 파일과 CLI 모두에서 제어 가능해야 한다. `workloads/calibration/configs/` 및 기타 샘플을 재사용한다.
 
 ---
 
