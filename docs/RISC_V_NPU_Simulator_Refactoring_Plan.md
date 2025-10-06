@@ -94,6 +94,7 @@
 - [x] 변경 사항 회고 및 추후 로드맵(예: WFQ/EDF, Dynamic Batching) 정의.
 
 > 세부 지표 정의는 `docs/accuracy_guard_metrics.md`, 후속 계획은 `docs/npu_scheduler_followup.md`에서 관리한다.
+> 분위수 계산은 4,096개 표본으로 제한되는 reservoir sampling 기반 근사치이며, 골든 재생성 절차는 `docs/accuracy_guard_metrics.md`, CI 연계 방법은 `docs/accuracy_guard_ci.md`에 기록되어 있다.
 
 ---
 
