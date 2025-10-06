@@ -53,4 +53,5 @@ __all__ = [
     "GEMMPlan",
     "FencePlan",
     "build_execution_plan",
+    "tools",
 ]
