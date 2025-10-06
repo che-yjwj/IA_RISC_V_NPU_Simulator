@@ -20,7 +20,7 @@
 
 ## 4. Calibration Workflow
 1. **Establish baseline** using commands above; archive the JSON summaries.
-2. **Tune parameters** (cache, DRAM, scheduler) via config files under `workloads/`.
+2. **Tune parameters** (cache, DRAM, scheduler) via config files under `workloads/`. Section 8의 가이드(`docs/config_parameter_management.md`)를 참고하면 샘플 배치와 검증 절차를 빠르게 따라갈 수 있다.
 3. **Re-run targeted tests** (unit/integration + benchmark) to isolate effects.
 4. **Update goldens** when deviations are intentional and within defined tolerances.
 5. **Record findings** in `docs/npu_scheduler_followup.md` or a new calibration note.
