@@ -99,8 +99,8 @@
 ---
 
 ## 7. 검증 및 보정 전략 (Validation & Calibration)
-- **회귀 테스트**: 기존 ELF 시나리오 테스트를 유지하고, 스케줄 정책별 시나리오를 추가한다.
-- **벤치마크**: `python -m src.simulator.cli benchmark`로 기본 성능 범위를 측정하고, 스케줄러 변경 시 편차를 기록한다.
+- **회귀 테스트**: 기존 ELF 시나리오 테스트를 유지하고, 스케줄 정책별 시나리오를 추가한다. 상세 절차는 `docs/validation_calibration.md` 참고.
+- **벤치마크**: `python -m src.simulator.cli benchmark`로 기본 성능 범위를 측정하고, 스케줄러 변경 시 편차를 기록한다. `workloads/calibration/configs/` 샘플을 활용한다.
 - **정확도 가드**: 주요 지표(CPU/NPU 점유율, 대기 시간, P90/P99 latency 등)를 골든 JSON에 추가하여 변화 감지.
 - **Calibration**: DRAM/버스/스케줄러 파라미터 튜닝 시 단위 테스트 + 소규모 워크로드를 활용한 단계적 보정.
 
