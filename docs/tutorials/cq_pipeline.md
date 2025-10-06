@@ -5,16 +5,15 @@ CQ(Command Queue) 입력을 구성하고 `run-cq` 경로를 통해 ELF 실행 �
 ## 1. 준비
 - CQ 스키마: `specs/cq.adaptation.yaml`
 - 어댑터 사양: `docs/cq_adaptation_spec.md`
-- 실험용 설정: `ia_risc_v_npu/workloads/demos/cq/` (필요 시 새로 작성)
+- 실험용 설정: `workloads/cq/`
 
 ## 2. CQ 계획 생성
 ```bash
 python -m src.cq.tools.plan_generator \
   --isa specs/isa.yaml \
-  --input workloads/demos/cq/sample_plan.yaml \
+  --input workloads/cq/sample_gemm.yaml \
   --output /tmp/sample_plan.jsonl
 ```
-*(도구가 아직 없다면, Stage 6에서 제공될 스크립트를 작성해 위 경로를 갱신하세요.)*
 
 ## 3. CQ 실행
 ```bash

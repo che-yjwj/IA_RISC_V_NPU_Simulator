@@ -1,0 +1,35 @@
+metadata:
+  name: sample_gemm
+  description: Minimal GEMM CQ workload
+  version: 1
+commands:
+  - cmd_id: dma_in
+    opcode: DMA_2D
+    operands:
+      src: dram://inputs
+      dst: spm://tile0
+      shape: [64, 64]
+      strides: [64, 1]
+    trace:
+      ir_operation: load
+  - cmd_id: gemm_0
+    opcode: TE_GEMM
+    deps: [dma_in]
+    operands:
+      m: 64
+      n: 64
+      k: 64
+      a: spm://tile0
+      b: dram://weights
+    trace:
+      ir_operation: matmul
+  - cmd_id: dma_out
+    opcode: DMA_2D
+    deps: [gemm_0]
+    operands:
+      src: spm://tile0
+      dst: dram://outputs
+      shape: [64, 64]
+      strides: [64, 1]
+    trace:
+      ir_operation: store

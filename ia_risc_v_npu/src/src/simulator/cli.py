@@ -506,8 +506,11 @@ def _summarise_command_queue(
 
 def run_cq(args: argparse.Namespace) -> int:
     _setup_environment(args)
+    trace_path = getattr(args, "trace_path", None) or getattr(args, "trace", None)
+    if trace_path is None:
+        raise CLIError("CQ trace path is required")
     try:
-        queue = load_cq_trace(args.trace, strict=not args.allow_forward_deps)
+        queue = load_cq_trace(trace_path, strict=not args.allow_forward_deps)
     except CQIOError as exc:
         raise CLIError(str(exc)) from exc
 
@@ -545,7 +548,7 @@ def run_cq(args: argparse.Namespace) -> int:
     summary = _summarise_command_queue(queue, isa_summary=isa_summary)
     LOGGER.info(
         "Loaded CQ trace '%s' (%s commands, %s unique opcodes)",
-        args.trace,
+        trace_path,
         summary["command_count"],
         summary["unique_opcodes"],
     )
@@ -688,8 +691,9 @@ def build_parser() -> argparse.ArgumentParser:
         help=("validate a CQ JSONL trace and inspect its structure (experimental)"),
     )
     cq_parser.add_argument(
-        "trace",
+        "trace_path",
         type=Path,
+        metavar="TRACE",
         help="Path to the CQ JSONL trace",
     )
     cq_parser.add_argument(
