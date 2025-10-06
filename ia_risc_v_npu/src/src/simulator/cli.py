@@ -225,6 +225,15 @@ def prepare_summary(
         "npu_metrics": result.npu_metrics,
         "fetch_metrics": result.fetch_metrics,
     }
+    stall_breakdown = result.stall_breakdown or {}
+    total_stall_cycles = float(sum(stall_breakdown.values()))
+    active_cycles = max(float(result.cycles) - total_stall_cycles, 0.0)
+    cpu_util = (active_cycles / float(result.cycles)) if result.cycles else 0.0
+    summary["cpu_metrics"] = {
+        "active_cycles": active_cycles,
+        "stall_cycles": total_stall_cycles,
+        "utilization": cpu_util,
+    }
     cache_metrics = result.memory_report.get("caches", {})
     miss_rates = {
         name.lower(): metrics.get("miss_rate", 0.0)
@@ -237,6 +246,19 @@ def prepare_summary(
     memory_system_metrics = result.memory_report.get("memory_system", {})
     summary["amat_cycles"] = memory_system_metrics.get("average_latency_cycles", 0.0)
     summary["npu_util"] = result.npu_metrics.get("utilization", 0.0)
+    bus_metrics = result.memory_report.get("bus", {})
+    wait_metrics = {
+        "cpu_total_wait_cycles": total_stall_cycles,
+        "bus_total_wait_cycles": bus_metrics.get("total_wait_cycles", 0.0),
+        "bus_avg_wait_cycles": bus_metrics.get("avg_wait_cycles", 0.0),
+        "dram_wait_cycles": memory_system_metrics.get("dram_wait_cycles", 0.0),
+        "npu_wait_cycles": result.npu_metrics.get("wait_cycles", 0.0),
+        "npu_avg_wait_cycles": result.npu_metrics.get("avg_wait_cycles", 0.0),
+        "npu_avg_turnaround_cycles": result.npu_metrics.get(
+            "avg_turnaround_cycles", 0.0
+        ),
+    }
+    summary["wait_metrics"] = wait_metrics
     if extra:
         summary.update(extra)
     return summary

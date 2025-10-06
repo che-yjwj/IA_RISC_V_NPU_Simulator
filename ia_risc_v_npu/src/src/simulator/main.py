@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import random
 import sys
 import time
 from copy import deepcopy
@@ -82,6 +83,7 @@ class SimulationReport:
 
 
 MIN_EVENT_DELAY = 1
+FETCH_LATENCY_SAMPLE_LIMIT = 4096
 
 
 class AdaptiveSimulator:
@@ -171,7 +173,9 @@ class AdaptiveSimulator:
             "misses": 0,
             "total_latency": 0,
             "total_penalty": 0,
+            "latency_samples": [],
         }
+        self._latency_sample_limit = FETCH_LATENCY_SAMPLE_LIMIT
         self._fetch_hit_latency = self.memory_system.front_hit_latency()
         # CQ execution bookkeeping
         self._cq_initial_data: Dict[str, np.ndarray] = {}
@@ -827,12 +831,26 @@ class AdaptiveSimulator:
             self._fetch_stats["misses"] += 1
             self._fetch_stats["total_penalty"] += penalty
 
+        samples = self._fetch_stats["latency_samples"]
+        if self._latency_sample_limit <= 0:
+            return
+
+        if len(samples) < self._latency_sample_limit:
+            samples.append(latency)
+            return
+
+        # Reservoir sampling keeps a uniform sample without unbounded growth.
+        selection = random.randrange(self._fetch_stats["fetches"])
+        if selection < self._latency_sample_limit:
+            samples[selection] = latency
+
     def _reset_fetch_stats(self) -> None:
         self._fetch_stats = {
             "fetches": 0,
             "misses": 0,
             "total_latency": 0,
             "total_penalty": 0,
+            "latency_samples": [],
         }
 
     def _fetch_metrics(self) -> Dict[str, float | int]:
@@ -843,6 +861,14 @@ class AdaptiveSimulator:
         miss_rate = (misses / fetches) if fetches else 0.0
         hit_rate = 1.0 - miss_rate
         average_latency = (total_latency / fetches) if fetches else 0.0
+        latency_samples = self._fetch_stats["latency_samples"]
+        if latency_samples:
+            percentiles = np.percentile(latency_samples, [90, 99])
+            latency_p90 = float(round(percentiles[0], 2))
+            latency_p99 = float(round(percentiles[1], 2))
+        else:
+            latency_p90 = 0.0
+            latency_p99 = 0.0
         return {
             "fetches": fetches,
             "misses": misses,
@@ -850,6 +876,8 @@ class AdaptiveSimulator:
             "miss_rate": miss_rate,
             "average_latency": average_latency,
             "miss_penalty_cycles": total_penalty,
+            "latency_p90": latency_p90,
+            "latency_p99": latency_p99,
         }
 
 
