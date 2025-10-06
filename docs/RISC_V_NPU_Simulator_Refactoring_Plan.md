@@ -89,9 +89,11 @@
 - [x] CQ 경로 통합 테스트 및 ELF 대비 비교 벤치마크 작성. *(`AdaptiveSimulator.load_cq_tensors`, CQ 실행 ↔ ELF 비교 스크립트, GEMM/DMA 자원 연동, 통합 테스트/벤치마크 스텁 완료)*
 
 ### Stage 5 — 검증/문서 업데이트
-- [ ] 정확도 가드(`accuracy.py`)에 새 지표를 추가하고 골든 데이터 갱신.
-- [ ] PRD/TDD 문서, 튜토리얼, 참조 설정을 최신화.
-- [ ] 변경 사항 회고 및 추후 로드맵(예: WFQ/EDF, Dynamic Batching) 정의.
+- [x] 정확도 가드(`accuracy.py`)에 새 지표를 추가하고 골든 데이터 갱신.
+- [x] PRD/TDD 문서, 튜토리얼, 참조 설정을 최신화.
+- [x] 변경 사항 회고 및 추후 로드맵(예: WFQ/EDF, Dynamic Batching) 정의.
+
+> 세부 지표 정의는 `docs/accuracy_guard_metrics.md`, 후속 계획은 `docs/npu_scheduler_followup.md`에서 관리한다.
 
 ---
 

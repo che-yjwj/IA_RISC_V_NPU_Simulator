@@ -86,3 +86,24 @@ def test_accuracy_guard_requires_golden_path(tmp_path):
             {"enabled": True, "golds_path": None},
             base_path=tmp_path,
         )
+
+
+def test_accuracy_guard_detects_wait_metric_deviation(tmp_path):
+    summary = {"wait_metrics": {"npu_wait_cycles": 110.0}}
+    _write_golden(tmp_path, {"wait_metrics": {"npu_wait_cycles": 90.0}})
+
+    outcome = evaluate_accuracy_guard(
+        summary,
+        {
+            "enabled": True,
+            "golds_path": "golden.json",
+            "max_average_deviation": 0.05,
+            "max_single_deviation": 0.05,
+        },
+        base_path=tmp_path,
+    )
+
+    assert outcome is not None
+    assert outcome.passed is False
+    metric_names = {metric["name"] for metric in outcome.payload["metrics"]}
+    assert "wait_metrics.npu_wait_cycles" in metric_names

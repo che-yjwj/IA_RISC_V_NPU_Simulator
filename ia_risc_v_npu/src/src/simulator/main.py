@@ -171,6 +171,7 @@ class AdaptiveSimulator:
             "misses": 0,
             "total_latency": 0,
             "total_penalty": 0,
+            "latency_samples": [],
         }
         self._fetch_hit_latency = self.memory_system.front_hit_latency()
         # CQ execution bookkeeping
@@ -826,6 +827,7 @@ class AdaptiveSimulator:
         if penalty > 0:
             self._fetch_stats["misses"] += 1
             self._fetch_stats["total_penalty"] += penalty
+        self._fetch_stats["latency_samples"].append(latency)
 
     def _reset_fetch_stats(self) -> None:
         self._fetch_stats = {
@@ -833,6 +835,7 @@ class AdaptiveSimulator:
             "misses": 0,
             "total_latency": 0,
             "total_penalty": 0,
+            "latency_samples": [],
         }
 
     def _fetch_metrics(self) -> Dict[str, float | int]:
@@ -843,6 +846,14 @@ class AdaptiveSimulator:
         miss_rate = (misses / fetches) if fetches else 0.0
         hit_rate = 1.0 - miss_rate
         average_latency = (total_latency / fetches) if fetches else 0.0
+        latency_samples = self._fetch_stats["latency_samples"]
+        if latency_samples:
+            percentiles = np.percentile(latency_samples, [90, 99])
+            latency_p90 = float(round(percentiles[0], 2))
+            latency_p99 = float(round(percentiles[1], 2))
+        else:
+            latency_p90 = 0.0
+            latency_p99 = 0.0
         return {
             "fetches": fetches,
             "misses": misses,
@@ -850,6 +861,8 @@ class AdaptiveSimulator:
             "miss_rate": miss_rate,
             "average_latency": average_latency,
             "miss_penalty_cycles": total_penalty,
+            "latency_p90": latency_p90,
+            "latency_p99": latency_p99,
         }
 
 

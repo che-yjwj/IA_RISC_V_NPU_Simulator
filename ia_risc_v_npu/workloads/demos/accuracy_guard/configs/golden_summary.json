@@ -9,19 +9,42 @@
   },
   "memory_report": {
     "bus": {
-      "completed_requests": 1
+      "completed_requests": 1,
+      "avg_wait_cycles": 0.0,
+      "total_wait_cycles": 0
     },
     "memory_system": {
-      "total_requests": 2
+      "total_requests": 2,
+      "average_latency_cycles": 38.0,
+      "dram_wait_cycles": 40
     }
   },
   "npu_metrics": {
     "cores": 2,
-    "tasks": 0
+    "tasks": 0,
+    "utilization": 0.0,
+    "wait_cycles": 0,
+    "avg_wait_cycles": 0.0
   },
   "fetch_metrics": {
     "fetches": 2,
     "hit_rate": 0.5,
-    "miss_rate": 0.5
+    "miss_rate": 0.5,
+    "latency_p90": 65.2,
+    "latency_p99": 71.32
+  },
+  "cpu_metrics": {
+    "active_cycles": 0.0,
+    "stall_cycles": 108.0,
+    "utilization": 0.0
+  },
+  "wait_metrics": {
+    "cpu_total_wait_cycles": 108.0,
+    "bus_total_wait_cycles": 0,
+    "bus_avg_wait_cycles": 0.0,
+    "dram_wait_cycles": 40,
+    "npu_wait_cycles": 0,
+    "npu_avg_wait_cycles": 0.0,
+    "npu_avg_turnaround_cycles": 0.0
   }
 }
