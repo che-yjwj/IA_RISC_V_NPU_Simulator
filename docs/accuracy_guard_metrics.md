@@ -5,6 +5,7 @@ Stage 5 리팩토링 단계에서 정확도 가드가 추적하는 핵심 지표
 
 ## 새로 추가된 지표
 - `fetch_metrics.latency_p90`, `fetch_metrics.latency_p99`: 명령 페치 지연의 90/99 분위수. 퍼센트는 2자리까지 반올림된다.
+  - 분위수 계산은 최대 4096개의 표본을 대상으로 한 reservoir sampling 기반 근사치이다.
 - `cpu_metrics.*`: 활성/스톨 사이클을 기반으로 계산된 CPU 활용도(`utilization`)와 누적 스톨 사이클(`stall_cycles`).
 - `wait_metrics.*`: CPU, 버스, DRAM, NPU 대기 지표를 한눈에 보이도록 집계한 사전. 각 항목은 절대 사이클 수 또는 평균값이다.
 - `npu_metrics.utilization`, `npu_metrics.wait_cycles`, `npu_metrics.avg_wait_cycles`: NPU 클러스터의 점유율과 대기 통계. 기존 히스토리에서 계산하던 값을 골든 비교 항목으로 승격했다.

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import random
 import sys
 import time
 from copy import deepcopy
@@ -82,6 +83,7 @@ class SimulationReport:
 
 
 MIN_EVENT_DELAY = 1
+FETCH_LATENCY_SAMPLE_LIMIT = 4096
 
 
 class AdaptiveSimulator:
@@ -173,6 +175,7 @@ class AdaptiveSimulator:
             "total_penalty": 0,
             "latency_samples": [],
         }
+        self._latency_sample_limit = FETCH_LATENCY_SAMPLE_LIMIT
         self._fetch_hit_latency = self.memory_system.front_hit_latency()
         # CQ execution bookkeeping
         self._cq_initial_data: Dict[str, np.ndarray] = {}
@@ -827,7 +830,19 @@ class AdaptiveSimulator:
         if penalty > 0:
             self._fetch_stats["misses"] += 1
             self._fetch_stats["total_penalty"] += penalty
-        self._fetch_stats["latency_samples"].append(latency)
+
+        samples = self._fetch_stats["latency_samples"]
+        if self._latency_sample_limit <= 0:
+            return
+
+        if len(samples) < self._latency_sample_limit:
+            samples.append(latency)
+            return
+
+        # Reservoir sampling keeps a uniform sample without unbounded growth.
+        selection = random.randrange(self._fetch_stats["fetches"])
+        if selection < self._latency_sample_limit:
+            samples[selection] = latency
 
     def _reset_fetch_stats(self) -> None:
         self._fetch_stats = {

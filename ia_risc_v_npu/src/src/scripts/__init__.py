@@ -2,7 +2,6 @@
 
 from importlib import import_module
 from types import ModuleType
-from typing import Dict
 
 __all__ = [
     "cq_vs_elf_benchmark",
@@ -16,5 +15,5 @@ def __getattr__(name: str) -> ModuleType:
     raise AttributeError(f"module 'src.scripts' has no attribute '{name}'")
 
 
-def __dir__() -> Dict[str, str]:
+def __dir__() -> list[str]:
     return sorted(set(globals()) | set(__all__))
