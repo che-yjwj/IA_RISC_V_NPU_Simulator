@@ -3,12 +3,19 @@ import logging
 from argparse import Namespace
 from pathlib import Path
 
+from src.cq.tools import plan_generator
 from src.simulator.cli import run_cq
 
 
 def test_run_cq_writes_summary(tmp_path: Path, monkeypatch):
     root = Path(__file__).resolve().parents[3]
-    trace_path = root / "workloads" / "cq" / "sample_gemm.jsonl"
+    yaml_path = root / "workloads" / "cq" / "sample_gemm.yaml"
+    trace_path = tmp_path / "sample_gemm.jsonl"
+    plan_generator.run(
+        plan_generator.build_parser().parse_args(
+            ["--input", str(yaml_path), "--output", str(trace_path)]
+        )
+    )
     output_path = tmp_path / "summary.json"
 
     monkeypatch.setattr(
@@ -45,7 +52,13 @@ def test_cli_main_handles_trace_argument(tmp_path: Path):
     from src.simulator.cli import main
 
     root = Path(__file__).resolve().parents[3]
-    trace_path = root / "workloads" / "cq" / "sample_gemm.jsonl"
+    yaml_path = root / "workloads" / "cq" / "sample_gemm.yaml"
+    trace_path = tmp_path / "sample_gemm.jsonl"
+    plan_generator.run(
+        plan_generator.build_parser().parse_args(
+            ["--input", str(yaml_path), "--output", str(trace_path)]
+        )
+    )
     output_path = tmp_path / "summary.json"
 
     exit_code = main(["run-cq", str(trace_path), "--output", str(output_path)])
