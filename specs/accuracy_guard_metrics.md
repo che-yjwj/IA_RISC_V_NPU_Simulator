@@ -1,8 +1,9 @@
 # Accuracy Guard Metric Definitions
 
 ## Fetch Metrics
-- `fetch_metrics.latency_p90`: 90th percentile of recorded fetch latencies (cycles). Rounded to two decimal places. Computed from `AdaptiveSimulator._fetch_stats.latency_samples` via `numpy.percentile`.
+- `fetch_metrics.latency_p90`: 90th percentile of recorded fetch latencies (cycles). Rounded to two decimal places. Computed from the bounded reservoir in `AdaptiveSimulator._fetch_stats.latency_samples` via `numpy.percentile`.
 - `fetch_metrics.latency_p99`: 99th percentile of fetch latencies (cycles). Same rounding and sampling method as `latency_p90`.
+  - Reservoir size defaults to 4,096 samples (`FETCH_LATENCY_SAMPLE_LIMIT`); values beyond that window are maintained with uniform probability via reservoir sampling.
 
 ## CPU Metrics
 - `cpu_metrics.active_cycles`: `max(total_cycles - stall_cycles, 0)`. `total_cycles`는 `SimulationReport.cycles`.
