@@ -61,7 +61,9 @@ def check_specs_index(repo_root: Path) -> int:
 
     status = 0
     if missing:
-        print(_format_list("Missing entries in specs/README.md", missing), file=sys.stderr)
+        print(
+            _format_list("Missing entries in specs/README.md", missing), file=sys.stderr
+        )
         status = 1
     if extras:
         print(_format_list("README references missing files", extras), file=sys.stderr)
