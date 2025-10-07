@@ -18,28 +18,54 @@ class CQDeadlockError(RuntimeError):
 
 
 def _assert_acyclic(queue: CommandQueue) -> None:
-    graph = {command.cmd_id: set(command.dependencies) for command in queue}
+    graph = {command.cmd_id: tuple(command.dependencies) for command in queue}
     visited: set[str] = set()
-    stack: set[str] = set()
-    path: list[str] = []
 
-    def visit(node: str) -> None:
-        if node in stack:
-            cycle_path = path[path.index(node) :] + [node]
-            raise CQDeadlockError("Detected dependency cycle: " + "->".join(cycle_path))
-        if node in visited:
-            return
-        stack.add(node)
-        path.append(node)
-        for dep in graph.get(node, ()):  # only consider dependencies within the queue
-            if dep in graph:
-                visit(dep)
-        stack.remove(node)
-        path.pop()
-        visited.add(node)
+    for start in graph:
+        if start in visited:
+            continue
 
-    for node in graph:
-        visit(node)
+        stack: list[tuple[str, bool]] = [(start, False)]
+        active: set[str] = set()
+        path: list[str] = []
+        path_index: dict[str, int] = {}
+
+        while stack:
+            node, expanded = stack.pop()
+
+            if expanded:
+                active.remove(node)
+                path_index.pop(node)
+                path.pop()
+                visited.add(node)
+                continue
+
+            if node in visited:
+                continue
+
+            if node in active:
+                idx = path_index[node]
+                cycle_path = path[idx:] + [node]
+                raise CQDeadlockError(
+                    "Detected dependency cycle: " + "->".join(cycle_path)
+                )
+
+            stack.append((node, True))
+            active.add(node)
+            path_index[node] = len(path)
+            path.append(node)
+
+            for dep in reversed(graph.get(node, ())):
+                if dep not in graph:
+                    continue
+                if dep in active:
+                    idx = path_index[dep]
+                    cycle_path = path[idx:] + [dep]
+                    raise CQDeadlockError(
+                        "Detected dependency cycle: " + "->".join(cycle_path)
+                    )
+                if dep not in visited:
+                    stack.append((dep, False))
 
 
 @dataclass(slots=True)
