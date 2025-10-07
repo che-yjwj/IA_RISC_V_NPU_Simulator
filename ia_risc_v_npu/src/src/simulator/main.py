@@ -25,6 +25,12 @@ from src.cq import (
     build_execution_plan,
     load_isa_spec,
 )
+from src.cq.models import (
+    BusTimingModel,
+    DMATimingModel,
+    ScratchpadTimingModel,
+    TensorEngineTimingModel,
+)
 from src.npu.cluster import ClusterPolicy, ClusterTask, NPUCluster
 from src.npu.model import NPU
 from src.risc_v.engine import (
@@ -112,6 +118,11 @@ class AdaptiveSimulator:
         self.dram = bytearray(DRAM_REGION.size)
         self.spm = SPM(SPM_REGION.size // 1024)
         self.npu = NPU()
+        self._cq_bus_model = BusTimingModel.from_config(bus_kwargs)
+        self._cq_dma_model = DMATimingModel()
+        self._cq_spm_model = ScratchpadTimingModel()
+        self._cq_te_model = TensorEngineTimingModel()
+        self._cq_te_model.update_cores(self._resolve_npu_cores())
 
         cache_cfg = self._get_config_section("cache")
         l1_config = self._build_cache_config(
@@ -185,6 +196,7 @@ class AdaptiveSimulator:
         self._cq_next_spm_offset = 0
         self._cq_dma_bytes = 0
         self._cq_gemm_cycle_log: list[int] = []
+        self._cq_dma_cycle_log: list[int] = []
 
     def _reset_cq_runtime(self) -> None:
         self._cq_dram_allocations.clear()
@@ -193,6 +205,9 @@ class AdaptiveSimulator:
         self._cq_next_spm_offset = 0
         self._cq_dma_bytes = 0
         self._cq_gemm_cycle_log = []
+        self._cq_dma_cycle_log = []
+        self._cq_spm_model.reset()
+        self._cq_te_model.update_cores(self._resolve_npu_cores())
 
     def load_cq_tensors(self, tensors: Mapping[str, Any]) -> None:
         """Register initial tensor contents for CQ URIs.
@@ -314,6 +329,7 @@ class AdaptiveSimulator:
             "skipped": skipped,
             "count": counts,
             "estimate_cycles": sum(self._cq_gemm_cycle_log),
+            "dma_cycles": sum(self._cq_dma_cycle_log),
             "dma_bytes": self._cq_dma_bytes,
         }
 
@@ -390,6 +406,9 @@ class AdaptiveSimulator:
             data = self.bus.read(base, size)
         elif space == "spm":
             offset = entry["offset"]
+            spm_done = self._cq_spm_model.access(offset, size, at=self.bus.now)
+            if spm_done > self.bus.now:
+                self.bus.sync_time(spm_done)
             data = self.bus.read(SPM_REGION.base + offset, size)
         else:
             raise ValueError(f"Unsupported CQ memory space: {space}")
@@ -445,6 +464,11 @@ class AdaptiveSimulator:
         if space == "dram":
             self.bus.write(entry["base"], buffer)
         elif space == "spm":
+            spm_done = self._cq_spm_model.access(
+                entry["offset"], len(buffer), at=self.bus.now
+            )
+            if spm_done > self.bus.now:
+                self.bus.sync_time(spm_done)
             self.bus.write(SPM_REGION.base + entry["offset"], buffer)
         else:
             raise ValueError(f"Unsupported CQ memory space: {space}")
@@ -453,17 +477,24 @@ class AdaptiveSimulator:
         src = action.get("src")
         dst = action.get("dst")
         shape = tuple(int(dim) for dim in action.get("shape", ()))
+        strides = action.get("strides")
         if not src or not dst or not shape:
             self.logger.warning("DMA action missing required fields: %s", action)
             return False
-        bytes_len = int(np.prod(shape) * 4)
+        plan = self._cq_dma_model.plan(shape, strides or None)
+        bytes_len = plan.total_bytes
         self._ensure_cq_allocation(src, bytes_len, shape=shape)
         self._ensure_cq_allocation(dst, bytes_len, shape=shape)
         data = self._read_cq_tensor(src, shape)
         self._write_cq_tensor(dst, data)
         if bytes_len > 0:
-            self._issue_bus_transfer(bytes_len)
+            grant, done = self._issue_bus_transfer(bytes_len)
+            bus_completion = self._cq_bus_model.completion_cycle(grant, bytes_len)
+            dma_completion = max(done, bus_completion, grant + plan.estimated_cycles)
+            if dma_completion > done:
+                self.bus.sync_time(dma_completion)
             self._cq_dma_bytes += bytes_len
+            self._cq_dma_cycle_log.append(dma_completion - grant)
         self.logger.debug("CQ DMA executed: %s -> %s shape=%s", src, dst, shape)
         return True
 
@@ -533,9 +564,7 @@ class AdaptiveSimulator:
         return grant, done
 
     def _estimate_gemm_cycles(self, m: int, n: int, k: int) -> int:
-        scale = self._get_config_section("npu").get("cores", 1) or 1
-        cycles = max(1, int((m * n * k) / max(1, scale * 128)))
-        return cycles
+        return self._cq_te_model.estimate_cycles(m, n, k)
 
     def _get_config_section(self, *keys: str) -> Mapping[str, Any]:
         """Safely retrieve a nested mapping from the config tree."""

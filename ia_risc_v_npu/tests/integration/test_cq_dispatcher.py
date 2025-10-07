@@ -76,6 +76,7 @@ def test_adaptive_simulator_cq_summary(tmp_path):
     assert {action["type"] for action in summary["actions"]} == {"dma", "gemm"}
     assert summary["execution"]["count"]["dma"] == 2
     assert summary["execution"]["count"]["gemm"] == 1
+    assert summary["execution"]["dma_cycles"] > 0
     assert set(summary["execution"]["executed"]) == set(
         summary["dispatch"]["completed"]
     )

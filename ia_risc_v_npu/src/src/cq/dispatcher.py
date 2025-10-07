@@ -13,6 +13,35 @@ from typing import Dict, Iterable, List, Optional
 from .schema import CommandQueue, CQCommand
 
 
+class CQDeadlockError(RuntimeError):
+    """Raised when a dependency cycle prevents CQ execution."""
+
+
+def _assert_acyclic(queue: CommandQueue) -> None:
+    graph = {command.cmd_id: set(command.dependencies) for command in queue}
+    visited: set[str] = set()
+    stack: set[str] = set()
+    path: list[str] = []
+
+    def visit(node: str) -> None:
+        if node in stack:
+            cycle_path = path[path.index(node) :] + [node]
+            raise CQDeadlockError("Detected dependency cycle: " + "->".join(cycle_path))
+        if node in visited:
+            return
+        stack.add(node)
+        path.append(node)
+        for dep in graph.get(node, ()):  # only consider dependencies within the queue
+            if dep in graph:
+                visit(dep)
+        stack.remove(node)
+        path.pop()
+        visited.add(node)
+
+    for node in graph:
+        visit(node)
+
+
 @dataclass(slots=True)
 class DispatchStats:
     """Aggregate metrics calculated from the dispatcher run."""
@@ -94,6 +123,7 @@ class CQDispatcher:
         self.trace = trace or DispatchTrace()
 
     def run(self, queue: CommandQueue) -> DispatchOutcome:
+        _assert_acyclic(queue)
         remaining_deps = {
             command.cmd_id: set(command.dependencies) for command in queue
         }
@@ -170,5 +200,6 @@ __all__ = [
     "DispatchOutcome",
     "DispatchTrace",
     "DispatchStats",
+    "CQDeadlockError",
     "replay_dependencies",
 ]
