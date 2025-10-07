@@ -76,6 +76,6 @@ def test_missing_operand_raises() -> None:
     try:
         build_execution_plan(queue, spec)
     except Exception as exc:  # noqa: BLE001 - simple guard for ISASpecError
-        assert "missing required operand" in str(exc)
+        assert "operand 'k' must be present" in str(exc)
     else:  # pragma: no cover - fail fast if exception not raised
         raise AssertionError("Expected build_execution_plan to raise")
