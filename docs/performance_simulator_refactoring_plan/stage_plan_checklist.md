@@ -25,11 +25,11 @@ Stage 0 — 리포 준비 & 가드레일
 - [x] CQ DMA/GEMM 실행이 버스/NPU 클러스터 타이밍과 연동
 
 ## Stage 4 — 자원/타이밍/경합 모델
-- [ ] spm.py: bank/port 충돌 (백로그 `CQ-BG-003`)
-- [ ] bus.py: slice 단위 모델 (백로그 `CQ-BG-003`)
-- [ ] dma.py: row-based 지연 (백로그 `CQ-BG-003`)
-- [ ] te.py: GEMM 지연 근사 (백로그 `CQ-BG-003`)
-- [ ] Deadlock 감지 로직 (백로그 `CQ-BG-003`)
+- [x] spm.py: bank/port 충돌 (백로그 `CQ-BG-003`, `src/cq/models/spm.py`)
+- [x] bus.py: slice 단위 모델 (백로그 `CQ-BG-003`, `src/cq/models/bus.py`)
+- [x] dma.py: row-based 지연 (백로그 `CQ-BG-003`, `src/cq/models/dma.py`)
+- [x] te.py: GEMM 지연 근사 (백로그 `CQ-BG-003`, `src/cq/models/te.py`)
+- [x] Deadlock 감지 로직 (백로그 `CQ-BG-003`, `src/cq/dispatcher.py`)
 - [x] CQ vs ELF 비교 스텁 (`src/simulator/cq_runner.py`) 마련
 - [x] CQ 텐서 초기화/실데이터 주입 (`AdaptiveSimulator.load_cq_tensors`)
 

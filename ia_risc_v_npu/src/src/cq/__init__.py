@@ -23,6 +23,13 @@ from .dispatcher import (
 from .generator import generate_command_queue
 from .io import dump_cq_trace, load_cq_trace
 from .mapper import Rule, RuleError, load_rules, map_ir_to_isa
+from .models import (
+    BusTimingModel,
+    DMATimingModel,
+    DMATransferPlan,
+    ScratchpadTimingModel,
+    TensorEngineTimingModel,
+)
 from .schema import CommandQueue, CQCommand, CQValidationError
 from .spec import (
     ISAOperation,
@@ -65,4 +72,9 @@ __all__ = [
     "map_ir_to_isa",
     "Rule",
     "RuleError",
+    "BusTimingModel",
+    "DMATimingModel",
+    "DMATransferPlan",
+    "ScratchpadTimingModel",
+    "TensorEngineTimingModel",
 ]
