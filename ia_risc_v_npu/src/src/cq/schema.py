@@ -1,9 +1,8 @@
 """CQ schema primitives used by the command-queue pipeline.
 
-These helpers intentionally avoid third-party runtime validation libraries so
-that the simulator keeps a minimal dependency footprint.  The dataclasses offer
-`from_dict` constructors that enforce basic type and content checks while
-preserving unknown attributes for future extensions of the schema.
+Incoming payloads are normalised via the auto-generated Pydantic model so that
+the runtime stays aligned with ``cq.schema.json`` while still preserving
+forward-compatible attributes for experimentation.
 """
 
 from __future__ import annotations
@@ -20,34 +19,16 @@ from typing import (
     Tuple,
 )
 
+from pydantic import ValidationError as PydanticValidationError
+
+from .generated.command_model import CQCommandModel
+
 if TYPE_CHECKING:
     from .trace import TraceIndex
 
 
 class CQValidationError(ValueError):
     """Raised when a CQ payload fails basic schema validation."""
-
-
-def _ensure_str(value: Any, *, field_name: str) -> str:
-    if not isinstance(value, str):
-        raise CQValidationError(f"{field_name} must be a string")
-    cleaned = value.strip()
-    if not cleaned:
-        raise CQValidationError(f"{field_name} cannot be empty")
-    return cleaned
-
-
-def _ensure_str_sequence(value: Any, *, field_name: str) -> Tuple[str, ...]:
-    if value is None:
-        return tuple()
-    if isinstance(value, str):  # allow single string for convenience
-        return (_ensure_str(value, field_name=field_name),)
-    if not isinstance(value, Iterable):
-        raise CQValidationError(f"{field_name} must be a sequence of strings")
-    result = []
-    for item in value:
-        result.append(_ensure_str(item, field_name=field_name))
-    return tuple(result)
 
 
 def _ensure_mapping(value: Any, *, field_name: str) -> Dict[str, Any]:
@@ -92,25 +73,22 @@ class CQCommand:
         if not isinstance(payload, Mapping):
             raise CQValidationError("CQ command must be represented as an object")
 
-        working: Dict[str, Any] = dict(payload)
-        cmd_id = _ensure_str(working.pop("cmd_id", None), field_name="cmd_id")
-        opcode = _ensure_str(working.pop("opcode", None), field_name="opcode")
+        try:
+            model = CQCommandModel.parse_obj(payload)
+        except (
+            PydanticValidationError
+        ) as exc:  # pragma: no cover - formatting handled by pydantic
+            raise CQValidationError(str(exc)) from exc
 
-        deps_key = "deps" if "deps" in working else "dependencies"
-        dependencies = _ensure_str_sequence(
-            working.pop(deps_key, ()), field_name="dependencies"
-        )
+        data = model.dict()
+        cmd_id = data["cmd_id"]
+        opcode = data["opcode"]
+        operands = dict(data.get("operands", {}))
+        dependencies = tuple(data.get("deps", []))
+        trace = dict(data.get("trace", {}))
 
-        operands = _ensure_mapping(working.pop("operands", {}), field_name="operands")
-        trace = _ensure_mapping(working.pop("trace", {}), field_name="trace")
-
-        # Preserve remaining keys for forward compatibility.
-        attributes = dict(working)
-        if strict:
-            duplicate_deps = _find_duplicates(dependencies)
-            if duplicate_deps:
-                dup_str = ", ".join(sorted(duplicate_deps))
-                raise CQValidationError(f"dependencies contain duplicates: {dup_str}")
+        known = {"cmd_id", "opcode", "operands", "deps", "dependencies", "trace"}
+        attributes = {key: value for key, value in payload.items() if key not in known}
 
         return cls(
             cmd_id=cmd_id,
@@ -136,17 +114,6 @@ class CQCommand:
             payload["trace"] = dict(self.trace)
         payload.update(self.attributes)
         return payload
-
-
-def _find_duplicates(items: Iterable[str]) -> set[str]:
-    seen: set[str] = set()
-    duplicates: set[str] = set()
-    for item in items:
-        if item in seen:
-            duplicates.add(item)
-        else:
-            seen.add(item)
-    return duplicates
 
 
 @dataclass(slots=True)

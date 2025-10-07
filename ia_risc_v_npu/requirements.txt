@@ -1,3 +1,4 @@
 pyelftools
 numpy
 pyyaml
+pydantic>=1.10,<2

@@ -9,9 +9,15 @@ having to re-parse the JSON payloads.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Iterable, List, Mapping, Optional
+from typing import List, Mapping, Optional
 
-from .schema import CommandQueue, CQCommand
+from .generated.isa_operands import (
+    OPERAND_MODELS,
+    DMA_2D_Operands,
+    FENCE_SPM_Operands,
+    TE_GEMM_Operands,
+)
+from .schema import CommandQueue
 from .spec import ISASpec, ISASpecError
 
 
@@ -56,96 +62,56 @@ class CQExecutionPlan:
         }
 
 
-def _require_operand(command: CQCommand, name: str) -> object:
-    if name not in command.operands:
-        raise ISASpecError(
-            "Command '{cmd}' ({opcode}) missing required operand '{operand}'".format(
-                cmd=command.cmd_id,
-                opcode=command.opcode,
-                operand=name,
-            )
-        )
-    return command.operands[name]
-
-
-def _ensure_int(value: object, *, context: str) -> int:
-    if not isinstance(value, int):
-        raise ISASpecError(f"Operand '{context}' must be an integer")
-    return value
-
-
-def _ensure_sequence(value: object, *, context: str, length: int) -> tuple[int, ...]:
-    if not isinstance(value, Iterable) or isinstance(value, (str, bytes)):
-        raise ISASpecError(
-            f"Operand '{context}' must be an iterable of length {length}"
-        )
-    items = tuple(value)
-    if len(items) != length:
-        raise ISASpecError(f"Operand '{context}' must contain exactly {length} entries")
-    result: list[int] = []
-    for index, item in enumerate(items):
-        if not isinstance(item, int):
-            raise ISASpecError(f"Operand '{context}' entry {index} must be an integer")
-        result.append(int(item))
-    return tuple(result)
-
-
 def build_execution_plan(queue: CommandQueue, spec: ISASpec) -> CQExecutionPlan:
     plan = CQExecutionPlan(metadata=queue.metadata)
     for command in queue:
         opcode = command.opcode
-        if opcode == "DMA_2D":
-            src = str(_require_operand(command, "src"))
-            dst = str(_require_operand(command, "dst"))
-            shape_raw = _require_operand(command, "shape")
-            shape = _ensure_sequence(shape_raw, context="shape", length=2)
-            strides_raw = command.operands.get("strides")
-            strides = (
-                _ensure_sequence(strides_raw, context="strides", length=2)
-                if strides_raw is not None
-                else None
+
+        operands_cls = OPERAND_MODELS.get(opcode)
+        if operands_cls is None:
+            if spec.get_operation(opcode) is None:
+                raise ISASpecError(f"Opcode '{opcode}' is not declared in ISA spec")
+            raise ISASpecError(
+                f"Opcode '{opcode}' does not have an adapter implementation yet"
             )
+
+        operands = operands_cls.from_command(command)
+
+        if isinstance(operands, DMA_2D_Operands):
             plan.dma_ops.append(
                 DMAPlan(
                     cmd_id=command.cmd_id,
-                    src=src,
-                    dst=dst,
-                    shape=(int(shape[0]), int(shape[1])),
+                    src=operands.src,
+                    dst=operands.dst,
+                    shape=tuple(int(dim) for dim in operands.shape),
                     strides=(
-                        (int(strides[0]), int(strides[1]))
-                        if strides is not None
+                        tuple(int(dim) for dim in operands.strides)
+                        if operands.strides is not None
                         else None
                     ),
                 )
             )
-        elif opcode == "TE_GEMM":
-            m = _ensure_int(_require_operand(command, "m"), context="m")
-            n = _ensure_int(_require_operand(command, "n"), context="n")
-            k = _ensure_int(_require_operand(command, "k"), context="k")
-            a = str(_require_operand(command, "a"))
-            b = str(_require_operand(command, "b"))
-            c_operand = command.operands.get("c")
-            c_addr = str(c_operand) if c_operand is not None else None
+        elif isinstance(operands, TE_GEMM_Operands):
             plan.gemm_ops.append(
                 GEMMPlan(
                     cmd_id=command.cmd_id,
-                    m=m,
-                    n=n,
-                    k=k,
-                    a=a,
-                    b=b,
-                    c=c_addr,
+                    m=int(operands.m),
+                    n=int(operands.n),
+                    k=int(operands.k),
+                    a=operands.a,
+                    b=operands.b,
+                    c=operands.c,
                 )
             )
-        elif opcode == "FENCE_SPM":
-            target = command.operands.get("target")
+        elif isinstance(operands, FENCE_SPM_Operands):
+            target_value = command.operands.get("target")
             plan.fence_ops.append(
-                FencePlan(cmd_id=command.cmd_id, target=str(target) if target else None)
+                FencePlan(
+                    cmd_id=command.cmd_id,
+                    target=str(target_value) if target_value else None,
+                )
             )
         else:
-            # Ensure the opcode exists in the spec to surface meaningful errors.
-            if spec.get_operation(opcode) is None:
-                raise ISASpecError(f"Opcode '{opcode}' is not declared in ISA spec")
             raise ISASpecError(
                 f"Opcode '{opcode}' does not have an adapter implementation yet"
             )
