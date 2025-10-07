@@ -109,7 +109,9 @@ def _render_operand(
     accessor = "_require_operand" if required else "_optional_operand"
     context = f"{opcode}.{operand_name}"
 
-    lines: list[str] = [f"{value_var} = {accessor}(command, operands, '{operand_name}')"]
+    lines: list[str] = [
+        f"{value_var} = {accessor}(command, operands, '{operand_name}')"
+    ]
     if annotation.startswith("Tuple["):
         tuple_len = annotation.count(",") + 1
         tuple_call = (
@@ -228,7 +230,7 @@ def _generate_operands_module(spec: Mapping[str, Any]) -> str:
         "    from src.cq.schema import CQCommand",
         "",
         "",
-        "def _require_operand(command: \"CQCommand\", operands: dict, name: str) -> Any:",
+        'def _require_operand(command: "CQCommand", operands: dict, name: str) -> Any:',
         "    if name not in operands:",
         "        raise ISASpecError(",
         "            f\"Command '{command.cmd_id}' ({command.opcode}) operand '{name}' must be present\"",
@@ -236,11 +238,11 @@ def _generate_operands_module(spec: Mapping[str, Any]) -> str:
         "    return operands[name]",
         "",
         "",
-        "def _optional_operand(command: \"CQCommand\", operands: dict, name: str) -> Any | None:",
+        'def _optional_operand(command: "CQCommand", operands: dict, name: str) -> Any | None:',
         "    return operands.get(name)",
         "",
         "",
-        "def _coerce_int(value: Any, command: \"CQCommand\", name: str) -> int:",
+        'def _coerce_int(value: Any, command: "CQCommand", name: str) -> int:',
         "    if not isinstance(value, int):",
         "        raise ISASpecError(",
         "            f\"Command '{command.cmd_id}' ({command.opcode}) operand '{name}' must be an integer\"",
@@ -248,7 +250,7 @@ def _generate_operands_module(spec: Mapping[str, Any]) -> str:
         "    return int(value)",
         "",
         "",
-        "def _coerce_float(value: Any, command: \"CQCommand\", name: str) -> float:",
+        'def _coerce_float(value: Any, command: "CQCommand", name: str) -> float:',
         "    if not isinstance(value, (int, float)):",
         "        raise ISASpecError(",
         "            f\"Command '{command.cmd_id}' ({command.opcode}) operand '{name}' must be numeric\"",
@@ -256,7 +258,7 @@ def _generate_operands_module(spec: Mapping[str, Any]) -> str:
         "    return float(value)",
         "",
         "",
-        "def _coerce_bool(value: Any, command: \"CQCommand\", name: str) -> bool:",
+        'def _coerce_bool(value: Any, command: "CQCommand", name: str) -> bool:',
         "    if not isinstance(value, bool):",
         "        raise ISASpecError(",
         "            f\"Command '{command.cmd_id}' ({command.opcode}) operand '{name}' must be boolean\"",
@@ -264,7 +266,7 @@ def _generate_operands_module(spec: Mapping[str, Any]) -> str:
         "    return bool(value)",
         "",
         "",
-        "def _coerce_str(value: Any, command: \"CQCommand\", name: str) -> str:",
+        'def _coerce_str(value: Any, command: "CQCommand", name: str) -> str:',
         "    if not isinstance(value, str) or not value:",
         "        raise ISASpecError(",
         "            f\"Command '{command.cmd_id}' ({command.opcode}) operand '{name}' must be a non-empty string\"",
@@ -272,15 +274,15 @@ def _generate_operands_module(spec: Mapping[str, Any]) -> str:
         "    return value",
         "",
         "",
-        "def _coerce_any(value: Any, command: \"CQCommand\", name: str) -> Any:",
+        'def _coerce_any(value: Any, command: "CQCommand", name: str) -> Any:',
         "    return value",
         "",
         "",
         "def _coerce_tuple(",
-        "    element_fn: Callable[[Any, \"CQCommand\", str], Any],",
+        '    element_fn: Callable[[Any, "CQCommand", str], Any],',
         "    length: int,",
         "    value: Any,",
-        "    command: \"CQCommand\",",
+        '    command: "CQCommand",',
         "    name: str,",
         ") -> Tuple[Any, ...]:",
         "    if not isinstance(value, (list, tuple)):",
@@ -292,7 +294,7 @@ def _generate_operands_module(spec: Mapping[str, Any]) -> str:
         "            f\"Command '{command.cmd_id}' ({command.opcode}) operand '{name}' must contain exactly {length} entries\"",
         "        )",
         "    coerced = [",
-        "        element_fn(item, command, f\"{name}[{index}]\")",
+        '        element_fn(item, command, f"{name}[{index}]")',
         "        for index, item in enumerate(value)",
         "    ]",
         "    return tuple(coerced)",
