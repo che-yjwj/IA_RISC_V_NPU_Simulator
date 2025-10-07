@@ -73,7 +73,7 @@ D & TDD: 성능 시뮬레이터 리팩토링 기반 개발 계획 (Spec-Driven W
 | 3 | 주3~4 | Dispatcher 통합 & 기본 테스트 | `src/cq/dispatcher.py`, `tests/integration/test_cq_dispatcher.py` |
 | 4 | 주4~6 | 자원/타이밍 모델링 | 백로그 `CQ-BG-003` (SPM/Bus/DMA/TE) |
 | 5 | 주6~7 | Spec 기반 코드젠 | 백로그 `CQ-BG-002` |
-| 6 | 주7~8 | IR→ISA, ISA→CQ 변환 | 백로그 `CQ-BG-005` |
+| 6 | 주7~8 | IR→ISA, ISA→CQ 변환 | 백로그 `CQ-BG-005` (`src/cq/rules`, `src/cq/mapper.py`, `src/cq/generator.py`) |
 | 7 | 주8~9 | Accuracy Guard & Golden | 백로그 `CQ-BG-006` |
 | 8 | 주9+ | 스케줄/모델 확장 | 백로그 `CQ-BG-007` |
 | 9 | 주9+ | 문서화/시각화 | 백로그 `CQ-BG-008` |

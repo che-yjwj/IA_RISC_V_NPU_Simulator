@@ -6,7 +6,6 @@
 - [ ] **CQ-BG-002** · ISA/CQ spec 기반 dataclass/codegen 파이프라인 도입 (`src/cq/spec.py`, `src/cq/adapter.py` 개선)
 - [ ] **CQ-BG-003** · 자원/타이밍/경합 모델 구현 (SPM bank, Bus slice, DMA row latency, GEMM 근사, deadlock 감지)
 - [ ] **CQ-BG-004** · Conv→GEMM 변환 및 ISA/워크로드 확장 (Conv opcode, CQ workload)
-- [ ] **CQ-BG-005** · IR→ISA→CQ trace ID 체인 구현 (`rules/*.yaml`, mapper, cq/generator)
 - [ ] **CQ-BG-006** · Golden 워크로드 5종 및 Accuracy Guard diff 통합
 - [ ] **CQ-BG-007** · 스케줄 정책(RR/EDF) 및 멀티 lane 모델링
 - [ ] **CQ-BG-008** · ISA/CQ 레퍼런스 자동 생성, Gantt/Timeline CSV, 튜토리얼 노트북
@@ -16,6 +15,7 @@
 
 ## Done
 - [x] **CQ-BG-001** · 기존 ELF 실행 경로 회귀 테스트 자동화 및 결과 보존 (`tests/integration/test_cli_run_simulate.py`)
+- [x] **CQ-BG-005** · IR→ISA→CQ trace ID 체인 구현 (`src/cq/trace.py`, `src/cq/mapper.py`, `src/cq/generator.py`, trace index & 변환 테스트)
 
 ## 사용 방법 메모
 - 각 항목의 체크박스를 갱신하면 문서 내에서도 진행 상황을 추적할 수 있습니다.

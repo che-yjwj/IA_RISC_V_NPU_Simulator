@@ -9,7 +9,19 @@ preserving unknown attributes for future extensions of the schema.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, Iterator, Mapping, Optional, Tuple
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Iterable,
+    Iterator,
+    Mapping,
+    Optional,
+    Tuple,
+)
+
+if TYPE_CHECKING:
+    from .trace import TraceIndex
 
 
 class CQValidationError(ValueError):
@@ -193,6 +205,13 @@ class CommandQueue:
 
     def to_list(self) -> list[Dict[str, Any]]:
         return [command.to_dict() for command in self.commands]
+
+    def trace_index(self) -> TraceIndex:
+        """Build and return a `TraceIndex` for this queue."""
+
+        from .trace import build_trace_index
+
+        return build_trace_index(self)
 
 
 __all__ = ["CQValidationError", "CQCommand", "CommandQueue"]

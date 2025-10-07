@@ -11,6 +11,8 @@ commands:
       shape: [64, 64]
       strides: [64, 1]
     trace:
+      ir_id: matmul_tile0
+      isa_idx: 0
       ir_operation: load
   - cmd_id: gemm_0
     opcode: TE_GEMM
@@ -22,6 +24,8 @@ commands:
       a: spm://tile0
       b: dram://weights
     trace:
+      ir_id: matmul_tile0
+      isa_idx: 1
       ir_operation: matmul
   - cmd_id: dma_out
     opcode: DMA_2D
@@ -32,4 +36,6 @@ commands:
       shape: [64, 64]
       strides: [64, 1]
     trace:
+      ir_id: matmul_tile0
+      isa_idx: 2
       ir_operation: store

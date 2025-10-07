@@ -1,0 +1,29 @@
+rules:
+  - name: conv2d_tile_to_gemm
+    match:
+      op: conv2d
+    emit:
+      - cmd_id: "{{ir.commands.compute}}"
+        opcode: TE_GEMM
+        deps: "{{ir.depends_on}}"
+        operands:
+          m: "{{ir.tile.m}}"
+          n: "{{ir.tile.n}}"
+          k: "{{ir.tile.k}}"
+          a: "{{ir.operands.activation}}"
+          b: "{{ir.operands.weights}}"
+        trace:
+          ir_id: "{{ir.trace_id}}"
+          ir_operation: "{{ir.ir_operation}}"
+      - cmd_id: "{{ir.commands.store}}"
+        opcode: DMA_2D
+        deps:
+          - "{{ir.commands.compute}}"
+        operands:
+          src: "{{ir.operands.output}}"
+          dst: "{{ir.output}}"
+          shape: "{{ir.output_shape}}"
+          strides: "{{ir.output_strides}}"
+        trace:
+          ir_id: "{{ir.trace_id}}"
+          ir_operation: "{{ir.store_operation}}"

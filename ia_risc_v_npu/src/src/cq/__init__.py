@@ -20,7 +20,9 @@ from .dispatcher import (
     DispatchTrace,
     replay_dependencies,
 )
+from .generator import generate_command_queue
 from .io import dump_cq_trace, load_cq_trace
+from .mapper import Rule, RuleError, load_rules, map_ir_to_isa
 from .schema import CommandQueue, CQCommand, CQValidationError
 from .spec import (
     ISAOperation,
@@ -30,6 +32,7 @@ from .spec import (
     OperandSpec,
     load_isa_spec,
 )
+from .trace import TraceIndex, TraceLink, build_trace_index
 
 __all__ = [
     "CQCommand",
@@ -54,4 +57,12 @@ __all__ = [
     "FencePlan",
     "build_execution_plan",
     "tools",
+    "TraceIndex",
+    "TraceLink",
+    "build_trace_index",
+    "generate_command_queue",
+    "load_rules",
+    "map_ir_to_isa",
+    "Rule",
+    "RuleError",
 ]

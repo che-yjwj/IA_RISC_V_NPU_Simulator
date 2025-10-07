@@ -1,0 +1,15 @@
+rules:
+  - name: copy_dma_load
+    match:
+      op: copy
+    emit:
+      - cmd_id: "{{ir.cmd_id}}"
+        opcode: DMA_2D
+        operands:
+          src: "{{ir.src}}"
+          dst: "{{ir.dst}}"
+          shape: "{{ir.shape}}"
+          strides: "{{ir.strides}}"
+        trace:
+          ir_id: "{{ir.trace_id}}"
+          ir_operation: "{{ir.ir_operation}}"

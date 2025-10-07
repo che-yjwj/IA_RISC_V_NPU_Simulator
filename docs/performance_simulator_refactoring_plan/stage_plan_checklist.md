@@ -13,7 +13,7 @@ Stage 0 — 리포 준비 & 가드레일
 ## Stage 2 — CQ I/O + 실행 골격
 - [x] `cq/io.py`: JSONL reader/writer
 - [x] CLI `run-cq path/to/trace.jsonl`
-- [ ] trace_id 체계 (ir_id → isa_idx → cmd_id) (백로그 `CQ-BG-005`)
+- [x] trace_id 체계 (ir_id → isa_idx → cmd_id) (백로그 `CQ-BG-005`, `src/cq/trace.py`)
 
 ## Stage 3 — Dispatcher CQ Consumer
 - [x] `src/cq/dispatcher.py` 구현 (스켈레톤, 상태 추적 포함)
@@ -39,9 +39,9 @@ Stage 0 — 리포 준비 & 가드레일
 - [ ] pre-commit 훅 추가 (백로그 `CQ-BG-002`)
 
 ## Stage 6 — IR→ISA & ISA→CQ 변환
-- [ ] `rules/*.yaml`: Conv/Copy 룰 정의 (백로그 `CQ-BG-005`)
-- [ ] mapper.py: 룰 엔진 구현 (백로그 `CQ-BG-005`)
-- [ ] cq/generator.py: ISA → CQ 변환 (백로그 `CQ-BG-005`)
+- [x] `rules/*.yaml`: Conv/Copy 룰 정의 (백로그 `CQ-BG-005`, `src/cq/rules/*.yaml`)
+- [x] mapper.py: 룰 엔진 구현 (백로그 `CQ-BG-005`, `src/cq/mapper.py`)
+- [x] cq/generator.py: ISA → CQ 변환 (백로그 `CQ-BG-005`, `src/cq/generator.py`)
 
 ## Stage 7 — Accuracy Guard & Golden Test
 - [ ] 골든 워크로드 5종 준비 (백로그 `CQ-BG-006`)
