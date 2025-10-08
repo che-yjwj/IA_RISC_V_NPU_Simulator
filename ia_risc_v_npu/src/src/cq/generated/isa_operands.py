@@ -112,20 +112,24 @@ class DMA_2D_Operands:
     @classmethod
     def from_command(cls, command: "CQCommand") -> "DMA_2D_Operands":
         operands = command.operands
-        src_raw = _require_operand(command, operands, 'src')
-        src = _coerce_str(src_raw, command, 'DMA_2D.src')
-        dst_raw = _require_operand(command, operands, 'dst')
-        dst = _coerce_str(dst_raw, command, 'DMA_2D.dst')
-        shape_raw = _require_operand(command, operands, 'shape')
+        src_raw = _require_operand(command, operands, "src")
+        src = _coerce_str(src_raw, command, "DMA_2D.src")
+        dst_raw = _require_operand(command, operands, "dst")
+        dst = _coerce_str(dst_raw, command, "DMA_2D.dst")
+        shape_raw = _require_operand(command, operands, "shape")
         shape = _coerce_tuple(
             _coerce_int,
             2,
             shape_raw,
             command,
-            'DMA_2D.shape',
+            "DMA_2D.shape",
         )
-        strides_raw = _optional_operand(command, operands, 'strides')
-        strides = _coerce_tuple(_coerce_int, 2, strides_raw, command, 'DMA_2D.strides') if strides_raw is not None else None
+        strides_raw = _optional_operand(command, operands, "strides")
+        strides = (
+            _coerce_tuple(_coerce_int, 2, strides_raw, command, "DMA_2D.strides")
+            if strides_raw is not None
+            else None
+        )
 
         return cls(
             src=src,
@@ -147,18 +151,18 @@ class TE_GEMM_Operands:
     @classmethod
     def from_command(cls, command: "CQCommand") -> "TE_GEMM_Operands":
         operands = command.operands
-        m_raw = _require_operand(command, operands, 'm')
-        m = _coerce_int(m_raw, command, 'TE_GEMM.m')
-        n_raw = _require_operand(command, operands, 'n')
-        n = _coerce_int(n_raw, command, 'TE_GEMM.n')
-        k_raw = _require_operand(command, operands, 'k')
-        k = _coerce_int(k_raw, command, 'TE_GEMM.k')
-        a_raw = _require_operand(command, operands, 'a')
-        a = _coerce_str(a_raw, command, 'TE_GEMM.a')
-        b_raw = _require_operand(command, operands, 'b')
-        b = _coerce_str(b_raw, command, 'TE_GEMM.b')
-        c_raw = _optional_operand(command, operands, 'c')
-        c = _coerce_str(c_raw, command, 'TE_GEMM.c') if c_raw is not None else None
+        m_raw = _require_operand(command, operands, "m")
+        m = _coerce_int(m_raw, command, "TE_GEMM.m")
+        n_raw = _require_operand(command, operands, "n")
+        n = _coerce_int(n_raw, command, "TE_GEMM.n")
+        k_raw = _require_operand(command, operands, "k")
+        k = _coerce_int(k_raw, command, "TE_GEMM.k")
+        a_raw = _require_operand(command, operands, "a")
+        a = _coerce_str(a_raw, command, "TE_GEMM.a")
+        b_raw = _require_operand(command, operands, "b")
+        b = _coerce_str(b_raw, command, "TE_GEMM.b")
+        c_raw = _optional_operand(command, operands, "c")
+        c = _coerce_str(c_raw, command, "TE_GEMM.c") if c_raw is not None else None
 
         return cls(
             m=m,
@@ -183,20 +187,36 @@ class TE_CONV2D_Operands:
     @classmethod
     def from_command(cls, command: "CQCommand") -> "TE_CONV2D_Operands":
         operands = command.operands
-        input_raw = _require_operand(command, operands, 'input')
-        input = _coerce_str(input_raw, command, 'TE_CONV2D.input')
-        weights_raw = _require_operand(command, operands, 'weights')
-        weights = _coerce_str(weights_raw, command, 'TE_CONV2D.weights')
-        output_raw = _require_operand(command, operands, 'output')
-        output = _coerce_str(output_raw, command, 'TE_CONV2D.output')
-        stride_raw = _optional_operand(command, operands, 'stride')
-        stride = _coerce_tuple(_coerce_int, 2, stride_raw, command, 'TE_CONV2D.stride') if stride_raw is not None else None
-        padding_raw = _optional_operand(command, operands, 'padding')
-        padding = _coerce_tuple(_coerce_int, 2, padding_raw, command, 'TE_CONV2D.padding') if padding_raw is not None else None
-        dilation_raw = _optional_operand(command, operands, 'dilation')
-        dilation = _coerce_tuple(_coerce_int, 2, dilation_raw, command, 'TE_CONV2D.dilation') if dilation_raw is not None else None
-        groups_raw = _optional_operand(command, operands, 'groups')
-        groups = _coerce_int(groups_raw, command, 'TE_CONV2D.groups') if groups_raw is not None else None
+        input_raw = _require_operand(command, operands, "input")
+        input = _coerce_str(input_raw, command, "TE_CONV2D.input")
+        weights_raw = _require_operand(command, operands, "weights")
+        weights = _coerce_str(weights_raw, command, "TE_CONV2D.weights")
+        output_raw = _require_operand(command, operands, "output")
+        output = _coerce_str(output_raw, command, "TE_CONV2D.output")
+        stride_raw = _optional_operand(command, operands, "stride")
+        stride = (
+            _coerce_tuple(_coerce_int, 2, stride_raw, command, "TE_CONV2D.stride")
+            if stride_raw is not None
+            else None
+        )
+        padding_raw = _optional_operand(command, operands, "padding")
+        padding = (
+            _coerce_tuple(_coerce_int, 2, padding_raw, command, "TE_CONV2D.padding")
+            if padding_raw is not None
+            else None
+        )
+        dilation_raw = _optional_operand(command, operands, "dilation")
+        dilation = (
+            _coerce_tuple(_coerce_int, 2, dilation_raw, command, "TE_CONV2D.dilation")
+            if dilation_raw is not None
+            else None
+        )
+        groups_raw = _optional_operand(command, operands, "groups")
+        groups = (
+            _coerce_int(groups_raw, command, "TE_CONV2D.groups")
+            if groups_raw is not None
+            else None
+        )
 
         return cls(
             input=input,
