@@ -64,8 +64,9 @@ sim.load_cq_tensors(
 summary = sim.run_cq_trace(queue)
 print(summary["dispatch"]["queue_wait"])
 print(summary["dispatch"]["lane_usage"])
-print(summary["execution"]["count"])  # DMA/GEMM/FENCE counts recorded by dispatcher
-print(summary["cq_execution"]["dispatch"]["lane_usage"])  # identical to CLI simulate mode
+
+# Note: When using the CLI with --simulate, the summary is nested under the "cq_execution" key.
+# The Python API returns the summary directly.
 
 # Multi-tile example: aligns with tests/integration/test_cq_dispatcher.py::test_cq_multi_gemm_with_repeated_fence
 queue_mt = load_cq_trace("workloads/cq/multi_tile_gemm.jsonl")

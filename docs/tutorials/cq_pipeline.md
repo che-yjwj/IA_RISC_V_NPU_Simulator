@@ -17,7 +17,14 @@ python -m src.cq.tools.plan_generator \
 
 ## 3. CQ 실행
 
-### 3.1 구조 검증
+### 3.1 실행 단계 흐름
+1. `load_cq_trace`가 JSONL을 파싱해 `CommandQueue`를 생성합니다.
+2. `build_execution_plan`이 ISA 명세 기반으로 DMA/GEMM/FENCE 액션을 정리합니다.
+3. `CQDispatcher.run`이 큐를 순회하며 의존성 검증, 큐 대기시간 기록, 실행 콜백을 호출합니다.
+4. 실행 콜백은 `AdaptiveSimulator`의 DMA/TE 핸들러에 위임해 버스/클러스터 자원을 스케줄링합니다.
+5. dispatcher가 완료/실패 상태를 갱신하고, 통계(`dispatch`, `execution`)를 CLI 요약에 담아 반환합니다.
+
+### 3.2 구조 검증
 
 기본 모드는 CQ JSONL 구조와 ISA 준수 여부를 확인합니다.
 
@@ -30,7 +37,7 @@ python -m src.simulator.cli run-cq \
 검증 결과는 `status: validated`로 표시되며, ISA 명세를 통과한 명령 목록과
 기본 통계(명령 수, 의존성 그래프)를 제공합니다.
 
-### 3.2 시뮬레이터 실행 (`--simulate`)
+### 3.3 시뮬레이터 실행 (`--simulate`)
 
 실제 디스패처 파이프라인을 거쳐 자원 모델(DMA/Bus/TE/SPM)을 실행하려면
 `--simulate` 플래그를 추가합니다. 구성 파일과 CQ 디스패처 정책은 기존
@@ -54,7 +61,7 @@ python -m src.simulator.cli run-cq \
 > Accuracy Guard 골든 리포트(`scripts.check_cq_accuracy`)도 동일한 통계를 기준으로
 > ±5% 편차 정책을 적용합니다.
 
-### 3.3 타임라인 CSV 내보내기
+### 3.4 타임라인 CSV 내보내기
 
 Stage 9에서 `dispatch.timeline`이 포함되므로, 새 스크립트
 `src/scripts/cq_timeline_export.py`를 사용해 Gantt/Timeline 입력을 만들 수 있습니다.
@@ -70,7 +77,7 @@ Plotly Express `px.timeline` 등으로 바로 시각화할 수 있습니다.
 Jupyter 노트북 예시는 `notebooks/cq_pipeline_walkthrough.ipynb`를 참고하세요
 (`pip install plotly`가 필요).
 
-### 3.4 Conv→GEMM 샘플 실행
+### 3.5 Conv→GEMM 샘플 실행
 
 Stage 10에서는 Conv IR을 GEMM 커맨드로 낮춰 동일한 CQ 경로를 재사용합니다.
 `workloads/cq/sample_conv.yaml`을 사용하면 DMA 로드/스토어 + GEMM + FENCE 흐름을
@@ -88,13 +95,6 @@ python -m src.simulator.cli run-cq /tmp/sample_conv.jsonl \
 
 출력에는 `trace.source_opcode: TE_CONV2D` 메타데이터가 포함되며,
 `dispatch.timeline`에서 conv 파생 GEMM 단계의 대기/실행 구간을 확인할 수 있습니다.
-
-### 3.1 실행 단계 흐름
-1. `load_cq_trace`가 JSONL을 파싱해 `CommandQueue`를 생성합니다.
-2. `build_execution_plan`이 ISA 명세 기반으로 DMA/GEMM/FENCE 액션을 정리합니다.
-3. `CQDispatcher.run`이 큐를 순회하며 의존성 검증, 큐 대기시간 기록, 실행 콜백을 호출합니다.
-4. 실행 콜백은 `AdaptiveSimulator`의 DMA/TE 핸들러에 위임해 버스/클러스터 자원을 스케줄링합니다.
-5. dispatcher가 완료/실패 상태를 갱신하고, 통계(`dispatch`, `execution`)를 CLI 요약에 담아 반환합니다.
 
 ## 4. ELF 결과와 비교
 ```bash

@@ -127,32 +127,16 @@ def _render_operand(
                 ]
             )
         else:
-            lines.extend(
-                [
-                    f"if {value_var} is None:",
-                    f"    {operand_name} = None",
-                    "else:",
-                    f"    {operand_name} = _coerce_tuple(",
-                    f"        {func},",
-                    f"        {tuple_len},",
-                    f"        {value_var},",
-                    "        command,",
-                    f"        '{context}',",
-                    "    )",
-                ]
+            lines.append(
+                f"{operand_name} = _coerce_tuple({func}, {tuple_len}, {value_var}, command, '{context}') if {value_var} is not None else None"
             )
     else:
         coerce_call = f"{func}({value_var}, command, '{context}')"
         if required:
             lines.append(f"{operand_name} = {coerce_call}")
         else:
-            lines.extend(
-                [
-                    f"if {value_var} is None:",
-                    f"    {operand_name} = None",
-                    "else:",
-                    f"    {operand_name} = {coerce_call}",
-                ]
+            lines.append(
+                f"{operand_name} = {coerce_call} if {value_var} is not None else None"
             )
 
     imports = type_imports | coercer_imports

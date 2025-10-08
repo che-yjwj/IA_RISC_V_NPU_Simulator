@@ -116,6 +116,5 @@
   "metadata": {
     "workload_id": "cq_conv_single",
     "description": "Single-tile Conv\u2192GEMM lowering with DMA load/store and fence."
-  },
-  "status": "cq_actions_executed"
+  }
 }

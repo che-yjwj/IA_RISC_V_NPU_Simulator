@@ -59,7 +59,6 @@ commands:
     opcode: FENCE_SPM
     deps:
       - dma_conv_store
-    operands: {}
     trace:
       ir_id: conv_tile0
       isa_idx: 4
