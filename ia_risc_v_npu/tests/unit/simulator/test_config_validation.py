@@ -2,6 +2,7 @@ import copy
 
 import pytest
 
+from src.cq import SchedulingPolicy
 from src.simulator.config import (
     ConfigValidationError,
     default_simulator_config,
@@ -32,6 +33,7 @@ def test_validate_simulator_config_applies_overrides():
         "bus": {"bandwidth_bytes_per_cycle": 32},
         "dram": {"t_cas": 14},
         "npu": {"policy": "rr", "cores": 4},
+        "cq": {"dispatcher": {"policy": "edf", "lane_limits": {"dma": 2, "te": 3}}},
         "determinism": {"seed": 7, "blas_threads": 2},
     }
     validated = validate_simulator_config(overrides)
@@ -41,6 +43,9 @@ def test_validate_simulator_config_applies_overrides():
     assert validated["dram"]["t_cas"] == 14
     assert validated["npu"]["policy"] == "rr"
     assert validated["npu"]["cores"] == 4
+    assert validated["cq"]["dispatcher"]["policy"] == "edf"
+    assert validated["cq"]["dispatcher"]["lane_limits"]["dma"] == 2
+    assert validated["cq"]["dispatcher"]["lane_limits"]["te"] == 3
     assert validated["determinism"]["seed"] == 7
     assert validated["determinism"]["blas_threads"] == 2
 
@@ -52,6 +57,7 @@ def test_validate_simulator_config_applies_overrides():
         {"bus": {"slice_bytes": 0}},
         {"cpu": {"execution": {"mul_latency": -1}}},
         {"npu": {"policy": "invalid"}},
+        {"cq": {"dispatcher": {"lane_limits": {"dma": 0}}}},
         {"determinism": {"blas_threads": 0}},
         {"accuracy_guard": {"max_single_deviation": -0.1}},
     ],
@@ -80,6 +86,8 @@ def test_adaptive_simulator_applies_validated_config(monkeypatch):
         {"mispredict_penalty": 7, "static_backwards_taken": False}
     )
     config["npu"].update({"cores": 3, "policy": "rr"})
+
+    config["cq"]["dispatcher"].update({"policy": "edf", "lane_limits": {"dma": 2, "te": 2, "fence": 1, "misc": 1}})
 
     captured = {}
 
@@ -113,3 +121,6 @@ def test_adaptive_simulator_applies_validated_config(monkeypatch):
     assert simulator.risc_v_engine.branch_config.static_backwards_taken is False
     assert simulator.npu_cluster.cores == 3
     assert simulator.npu_cluster.policy.value == "rr"
+    assert simulator._cq_dispatcher_policy is SchedulingPolicy.EARLIEST_DEADLINE_FIRST
+    assert simulator._cq_lane_limits["dma"] == 2
+    assert simulator._cq_lane_limits["te"] == 2

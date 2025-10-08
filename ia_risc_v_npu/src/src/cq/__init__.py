@@ -18,6 +18,7 @@ from .dispatcher import (
     DispatchOutcome,
     DispatchStats,
     DispatchTrace,
+    SchedulingPolicy,
     replay_dependencies,
 )
 from .generated.command_model import CQCommandModel
@@ -59,6 +60,7 @@ __all__ = [
     "DispatchOutcome",
     "DispatchStats",
     "DispatchTrace",
+    "SchedulingPolicy",
     "replay_dependencies",
     "CQExecutionPlan",
     "DMAPlan",

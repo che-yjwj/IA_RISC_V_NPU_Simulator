@@ -23,6 +23,7 @@ from src.cq import (
     CQCommand,
     CQDispatcher,
     ISASpec,
+    SchedulingPolicy,
     build_execution_plan,
     load_isa_spec,
 )
@@ -44,6 +45,7 @@ from src.simulator.config import (
     DEFAULT_L1_CONFIG,
     DEFAULT_L2_CONFIG,
     default_simulator_config,
+    validate_simulator_config,
 )
 from src.simulator.determinism import (
     DeterminismConfig,
@@ -157,9 +159,10 @@ class AdaptiveSimulator:
         logger: Optional[logging.Logger] = None,
     ) -> None:
         self.logger = logger or logging.getLogger(__name__)
-        self._config = (
-            deepcopy(config) if config is not None else default_simulator_config()
-        )
+        if config is None:
+            self._config = default_simulator_config()
+        else:
+            self._config = validate_simulator_config(deepcopy(config))
 
         determinism = self._build_determinism_config()
         configure_deterministic_environment(
@@ -178,6 +181,10 @@ class AdaptiveSimulator:
         self._cq_spm_model = ScratchpadTimingModel()
         self._cq_te_model = TensorEngineTimingModel()
         self._cq_te_model.update_cores(self._resolve_npu_cores())
+
+        dispatcher_cfg = self._get_config_section("cq", "dispatcher")
+        self._cq_dispatcher_policy = self._resolve_cq_dispatcher_policy(dispatcher_cfg)
+        self._cq_lane_limits = self._resolve_cq_lane_limits(dispatcher_cfg)
 
         cache_cfg = self._get_config_section("cache")
         l1_config = self._build_cache_config(
@@ -328,7 +335,11 @@ class AdaptiveSimulator:
             }
 
         runtime = _CQActionExecutor(self, action_lookup)
-        dispatcher = CQDispatcher(clock=lambda: self.bus.now)
+        dispatcher = CQDispatcher(
+            clock=lambda: self.bus.now,
+            policy=self._cq_dispatcher_policy,
+            lane_limits=self._cq_lane_limits,
+        )
         outcome = dispatcher.run(queue, executor=runtime.execute)
 
         dispatch_summary = {
@@ -340,6 +351,10 @@ class AdaptiveSimulator:
                 "max": outcome.stats.max_queue_wait,
                 "total": outcome.stats.total_queue_wait,
                 "zero_wait": outcome.stats.commands_with_zero_wait,
+            },
+            "lane_usage": {
+                "totals": dict(outcome.stats.lane_totals),
+                "max_concurrency": dict(outcome.stats.lane_max_concurrency),
             },
         }
 
@@ -665,6 +680,49 @@ class AdaptiveSimulator:
             ),
         }
         return DRAMConfig(**params)
+
+    def _resolve_cq_dispatcher_policy(
+        self, dispatcher_cfg: Mapping[str, Any]
+    ) -> SchedulingPolicy:
+        policy_value = dispatcher_cfg.get("policy", SchedulingPolicy.FIFO.value)
+        try:
+            return SchedulingPolicy(policy_value)
+        except ValueError:
+            self.logger.warning(
+                "Unknown CQ dispatcher policy '%s'; falling back to FIFO",
+                policy_value,
+            )
+            return SchedulingPolicy.FIFO
+
+    def _resolve_cq_lane_limits(
+        self, dispatcher_cfg: Mapping[str, Any]
+    ) -> Dict[str, int]:
+        lane_limits = dispatcher_cfg.get("lane_limits")
+        if not isinstance(lane_limits, Mapping):
+            return {}
+        resolved: Dict[str, int] = {}
+        for lane, capacity in lane_limits.items():
+            name = str(lane).strip().lower()
+            if not name:
+                continue
+            try:
+                value = int(capacity)
+            except (TypeError, ValueError):
+                self.logger.warning(
+                    "Invalid lane limit '%s' for lane '%s'; skipping.",
+                    capacity,
+                    lane,
+                )
+                continue
+            if value < 1:
+                self.logger.warning(
+                    "Lane limit for '%s' must be >= 1 (got %s); skipping.",
+                    lane,
+                    capacity,
+                )
+                continue
+            resolved[name] = value
+        return resolved
 
     def _resolve_npu_policy(self) -> ClusterPolicy:
         npu_cfg = self._get_config_section("npu")

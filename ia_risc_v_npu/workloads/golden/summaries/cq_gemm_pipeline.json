@@ -17,10 +17,22 @@
     ],
     "rejected": [],
     "queue_wait": {
-      "average": 0.0,
-      "max": 0,
-      "total": 0,
-      "zero_wait": 7
+      "average": 36.42857142857143,
+      "max": 78,
+      "total": 255,
+      "zero_wait": 1
+    },
+    "lane_usage": {
+      "totals": {
+        "dma": 4,
+        "te": 2,
+        "fence": 1
+      },
+      "max_concurrency": {
+        "dma": 1,
+        "te": 1,
+        "fence": 1
+      }
     }
   },
   "actions": [

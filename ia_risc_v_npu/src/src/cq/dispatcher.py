@@ -8,8 +8,14 @@ without reworking call sites.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Callable, Dict, Iterable, List, Optional
+from typing import Callable, Dict, Iterable, List, Mapping, Optional, Set
 
+from .scheduler import (
+    SchedulingContext,
+    SchedulingPolicy,
+    build_strategy,
+    lane_for_command,
+)
 from .schema import CommandQueue, CQCommand
 
 
@@ -68,6 +74,14 @@ def _assert_acyclic(queue: CommandQueue) -> None:
                     stack.append((dep, False))
 
 
+_DEFAULT_LANE_LIMITS: Dict[str, int] = {
+    "dma": 1,
+    "te": 1,
+    "fence": 1,
+    "misc": 1,
+}
+
+
 @dataclass(slots=True)
 class DispatchStats:
     """Aggregate metrics calculated from the dispatcher run."""
@@ -76,6 +90,8 @@ class DispatchStats:
     max_queue_wait: int = 0
     total_queue_wait: int = 0
     commands_with_zero_wait: int = 0
+    lane_totals: Dict[str, int] = field(default_factory=dict)
+    lane_max_concurrency: Dict[str, int] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -138,10 +154,10 @@ class DispatchOutcome:
 
 
 class CQDispatcher:
-    """Simple FIFO dispatcher for CQ commands.
+    """CQ dispatcher with pluggable scheduling policies.
 
-    The current implementation is a stub that validates ordering and records
-    basic execution markers.  Future iterations will translate each command
+    The runtime validates dependency graphs, records queue statistics, and invokes
+    the provided executor callback.  Future iterations will translate each command
     into bus/NPU operations and integrate with the simulator event scheduler.
     """
 
@@ -150,9 +166,13 @@ class CQDispatcher:
         *,
         trace: Optional[DispatchTrace] = None,
         clock: Optional[Callable[[], int]] = None,
+        policy: SchedulingPolicy = SchedulingPolicy.FIFO,
+        lane_limits: Optional[Mapping[str, int]] = None,
     ) -> None:
         self.trace = trace or DispatchTrace()
         self._clock = clock
+        self.policy = policy
+        self._lane_limits = self._normalise_lane_limits(lane_limits)
 
     def run(
         self,
@@ -160,70 +180,164 @@ class CQDispatcher:
         *,
         executor: Optional[Callable[[CQCommand], bool]] = None,
     ) -> DispatchOutcome:
+        commands = list(queue)
+        if not commands:
+            return DispatchOutcome(
+                commands_executed=0, trace=self.trace, stats=DispatchStats()
+            )
+
         _assert_acyclic(queue)
-        remaining_deps = {
-            command.cmd_id: set(command.dependencies) for command in queue
-        }
-        executed = 0
+        strategy = build_strategy(self.policy)
+        context = SchedulingContext()
+
         queue_wait_ticks: list[int] = []
         tick = 0
-
-        for command in queue:
+        queued_order: Dict[str, int] = {}
+        pending_ids: Set[str] = set()
+        executed_ids: Set[str] = set()
+        rejected_ids: Set[str] = set()
+        failure_ids: Set[str] = set()
+        lane_totals: Dict[str, int] = {}
+        lane_max_concurrency: Dict[str, int] = {}
+        for index, command in enumerate(commands):
             queued_tick = self._now(tick)
             self.trace.record_queued(command, tick=queued_tick)
+            queued_order[command.cmd_id] = index
+            pending_ids.add(command.cmd_id)
             if self._clock is None:
                 tick += 1
-            unmet = remaining_deps[command.cmd_id]
-            if unmet:
-                self.trace.record_rejection(
-                    command,
-                    reason=f"dependencies not satisfied: {', '.join(sorted(unmet))}",
-                    tick=self._now(tick),
+
+        if self._clock is None:
+            tick = 0
+
+        while pending_ids:
+            ready: list[CQCommand] = [
+                command
+                for command in commands
+                if command.cmd_id in pending_ids
+                and set(command.dependencies or ()).issubset(executed_ids)
+            ]
+            if not ready:
+                unschedulable = [
+                    command
+                    for command in commands
+                    if command.cmd_id in pending_ids and command.cmd_id not in rejected_ids
+                ]
+                if not unschedulable:
+                    break
+                for command in unschedulable:
+                    reason = self._resolve_rejection_reason(
+                        command,
+                        executed_ids=executed_ids,
+                        failure_ids=failure_ids,
+                    )
+                    self.trace.record_rejection(
+                        command,
+                        reason=reason,
+                        tick=self._now(tick),
+                    )
+                    rejected_ids.add(command.cmd_id)
+                    pending_ids.remove(command.cmd_id)
+                continue
+
+            context.tick = tick
+            context.lane_usage.clear()
+            scheduled_batch: list[CQCommand] = []
+            remaining_ready: list[CQCommand] = list(ready)
+
+            while remaining_ready:
+                lane_filtered = [
+                    command
+                    for command in remaining_ready
+                    if self._lane_has_capacity(command, context=context)
+                ]
+                if not lane_filtered:
+                    break
+                selected = strategy.select(
+                    lane_filtered,
+                    context=context,
+                    queued_order=queued_order,
                 )
-                continue
+                scheduled_batch.append(selected)
+                lane = lane_for_command(selected)
+                context.lane_usage[lane] = context.lane_usage.get(lane, 0) + 1
+                remaining_ready = [
+                    command
+                    for command in remaining_ready
+                    if command.cmd_id != selected.cmd_id
+                ]
 
-            schedule_tick = self._now(tick)
-            self.trace.record_schedule(command, tick=schedule_tick)
-            queued_tick = self.trace.timestamps[command.cmd_id]["queued"]
-            queue_wait = schedule_tick - queued_tick
-            queue_wait_ticks.append(queue_wait)
+            if not scheduled_batch:
+                selected = strategy.select(
+                    ready,
+                    context=context,
+                    queued_order=queued_order,
+                )
+                scheduled_batch = [selected]
+                lane = lane_for_command(selected)
+                context.lane_usage[lane] = context.lane_usage.get(lane, 0) + 1
+
+            batch_lane_counts: Dict[str, int] = {}
+            for selected in scheduled_batch:
+                lane = lane_for_command(selected)
+                batch_lane_counts[lane] = batch_lane_counts.get(lane, 0) + 1
+                lane_totals[lane] = lane_totals.get(lane, 0) + 1
+            for lane, count in batch_lane_counts.items():
+                if count > lane_max_concurrency.get(lane, 0):
+                    lane_max_concurrency[lane] = count
+
+            schedule_tick_base = self._now(tick)
+            for selected in scheduled_batch:
+                queued_tick = self.trace.timestamps[selected.cmd_id]["queued"]
+                schedule_tick = max(schedule_tick_base, queued_tick)
+                self.trace.record_schedule(selected, tick=schedule_tick)
+                queue_wait = schedule_tick - queued_tick
+                queue_wait_ticks.append(queue_wait)
             if self._clock is None:
                 tick += 1
 
-            success = True
-            failure_logged = False
-            if executor is not None:
-                try:
-                    success = bool(executor(command))
-                except Exception as exc:  # pragma: no cover - defensive guard
-                    success = False
-                    self.trace.record_rejection(
-                        command,
-                        reason=f"execution_failed: {exc}",
-                        tick=self._now(tick),
-                    )
-                    failure_logged = True
-            if not success:
-                if executor is not None and not failure_logged:
-                    self.trace.record_rejection(
-                        command,
-                        reason="execution_failed",
-                        tick=self._now(tick),
-                    )
-                continue
+            for selected in scheduled_batch:
+                success = True
+                failure_logged = False
+                if executor is not None:
+                    try:
+                        success = bool(executor(selected))
+                    except Exception as exc:  # pragma: no cover - defensive guard
+                        success = False
+                        self.trace.record_rejection(
+                            selected,
+                            reason=f"execution_failed: {exc}",
+                            tick=self._now(tick),
+                        )
+                        failure_logged = True
 
-            completion_tick = self._now(tick)
-            self.trace.record_completion(command, tick=completion_tick)
-            executed += 1
-            if self._clock is None:
-                tick += 1
+                if not success:
+                    if executor is not None and not failure_logged:
+                        self.trace.record_rejection(
+                            selected,
+                            reason="execution_failed",
+                            tick=self._now(tick),
+                        )
+                    failure_ids.add(selected.cmd_id)
+                    pending_ids.discard(selected.cmd_id)
+                    rejected_ids.add(selected.cmd_id)
+                    continue
 
-            for dependents in remaining_deps.values():
-                dependents.discard(command.cmd_id)
+                completion_tick = max(
+                    self._now(tick),
+                    self.trace.timestamps[selected.cmd_id].get("scheduled", 0),
+                )
+                self.trace.record_completion(selected, tick=completion_tick)
+                executed_ids.add(selected.cmd_id)
+                pending_ids.discard(selected.cmd_id)
 
-        stats = self._build_stats(queue_wait_ticks)
+        stats = self._build_stats(
+            queue_wait_ticks,
+            lane_totals=lane_totals,
+            lane_max_concurrency=lane_max_concurrency,
+        )
         return DispatchOutcome(
-            commands_executed=executed, trace=self.trace, stats=stats
+            commands_executed=len(executed_ids), trace=self.trace, stats=stats
         )
 
     def _now(self, fallback: int) -> int:
@@ -232,9 +346,74 @@ class CQDispatcher:
         return fallback
 
     @staticmethod
-    def _build_stats(queue_wait_ticks: List[int]) -> DispatchStats:
+    def _normalise_lane_limits(
+        lane_limits: Optional[Mapping[str, int]],
+    ) -> Dict[str, int]:
+        limits = dict(_DEFAULT_LANE_LIMITS)
+        if lane_limits is None:
+            return limits
+        for lane, value in lane_limits.items():
+            lane_key = str(lane).strip().lower()
+            if not lane_key:
+                raise ValueError("lane name must be a non-empty string")
+            try:
+                capacity = int(value)
+            except (TypeError, ValueError) as exc:  # pragma: no cover - defensive guard
+                raise ValueError(
+                    f"lane limit for '{lane}' must be an integer"
+                ) from exc
+            if capacity < 1:
+                raise ValueError(
+                    f"lane limit for '{lane}' must be >= 1 (got {capacity})"
+                )
+            limits[lane_key] = capacity
+        return limits
+
+    def _lane_capacity(self, lane: str) -> int:
+        lane_key = lane.lower()
+        if lane_key in self._lane_limits:
+            return self._lane_limits[lane_key]
+        return self._lane_limits.get("misc", 1)
+
+    def _lane_has_capacity(
+        self,
+        command: CQCommand,
+        *,
+        context: SchedulingContext,
+    ) -> bool:
+        lane = lane_for_command(command)
+        capacity = self._lane_capacity(lane)
+        usage = context.lane_usage.get(lane, 0)
+        return usage < capacity
+
+    @staticmethod
+    def _resolve_rejection_reason(
+        command: CQCommand,
+        *,
+        executed_ids: Set[str],
+        failure_ids: Set[str],
+    ) -> str:
+        unmet = sorted(set(command.dependencies or ()) - executed_ids)
+        if unmet:
+            return f"dependencies not satisfied: {', '.join(unmet)}"
+        if command.dependencies:
+            return "dependencies_unresolved"
+        if command.cmd_id in failure_ids:
+            return "execution_failed"
+        return "unschedulable"
+
+    @staticmethod
+    def _build_stats(
+        queue_wait_ticks: List[int],
+        *,
+        lane_totals: Dict[str, int],
+        lane_max_concurrency: Dict[str, int],
+    ) -> DispatchStats:
         if not queue_wait_ticks:
-            return DispatchStats()
+            return DispatchStats(
+                lane_totals=dict(lane_totals),
+                lane_max_concurrency=dict(lane_max_concurrency),
+            )
         total = sum(queue_wait_ticks)
         max_wait = max(queue_wait_ticks)
         zero_wait = sum(1 for value in queue_wait_ticks if value == 0)
@@ -244,6 +423,8 @@ class CQDispatcher:
             max_queue_wait=max_wait,
             total_queue_wait=total,
             commands_with_zero_wait=zero_wait,
+            lane_totals=dict(lane_totals),
+            lane_max_concurrency=dict(lane_max_concurrency),
         )
 
 
@@ -271,4 +452,5 @@ __all__ = [
     "DispatchStats",
     "CQDeadlockError",
     "replay_dependencies",
+    "SchedulingPolicy",
 ]

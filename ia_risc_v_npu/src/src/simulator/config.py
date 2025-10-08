@@ -12,6 +12,7 @@ from copy import deepcopy
 from dataclasses import asdict
 from typing import Any, Dict
 
+from src.cq import SchedulingPolicy
 from src.npu.cluster import ClusterPolicy
 from src.risc_v.engine import BranchPredictorConfig, ExecutionTimingConfig
 from src.simulator.models import CacheConfig, DRAMConfig
@@ -63,6 +64,17 @@ def default_simulator_config() -> Dict[str, Any]:
         "npu": {
             "cores": 2,
             "policy": ClusterPolicy.MIN_FINISH_TIME.value,
+        },
+        "cq": {
+            "dispatcher": {
+                "policy": SchedulingPolicy.FIFO.value,
+                "lane_limits": {
+                    "dma": 1,
+                    "te": 1,
+                    "fence": 1,
+                    "misc": 1,
+                },
+            }
         },
         "determinism": {
             "seed": 0,
@@ -226,6 +238,59 @@ def _validate_npu_section(
     return result
 
 
+def _validate_cq_dispatcher(
+    data: Dict[str, Any], defaults: Dict[str, Any]
+) -> Dict[str, Any]:
+    if not isinstance(data, dict):
+        raise ConfigValidationError("cq.dispatcher must be an object")
+    result = deepcopy(defaults)
+    if "policy" in data:
+        if not isinstance(data["policy"], str):
+            raise ConfigValidationError("cq.dispatcher.policy must be a string")
+        normalised = data["policy"].lower()
+        valid = {policy.value: policy for policy in SchedulingPolicy}
+        if normalised not in valid:
+            raise ConfigValidationError(
+                f"cq.dispatcher.policy must be one of {sorted(valid)}"
+            )
+        result["policy"] = normalised
+    if "lane_limits" in data:
+        lane_limits = data["lane_limits"]
+        if not isinstance(lane_limits, dict):
+            raise ConfigValidationError(
+                "cq.dispatcher.lane_limits must be an object"
+            )
+        resolved: Dict[str, int] = deepcopy(result.get("lane_limits", {}))
+        for lane, value in lane_limits.items():
+            if not isinstance(lane, str):
+                raise ConfigValidationError(
+                    "cq.dispatcher.lane_limits keys must be strings"
+                )
+            key = lane.strip().lower()
+            if not key:
+                raise ConfigValidationError(
+                    "cq.dispatcher.lane_limits keys must be non-empty strings"
+                )
+            resolved[key] = _validate_int(
+                f"cq.dispatcher.lane_limits.{lane}", value, minimum=1
+            )
+        result["lane_limits"] = resolved
+    return result
+
+
+def _validate_cq_section(
+    data: Dict[str, Any], defaults: Dict[str, Any]
+) -> Dict[str, Any]:
+    if not isinstance(data, dict):
+        raise ConfigValidationError("cq section must be an object")
+    result = deepcopy(defaults)
+    if "dispatcher" in data:
+        result["dispatcher"] = _validate_cq_dispatcher(
+            data["dispatcher"], defaults["dispatcher"]
+        )
+    return result
+
+
 def _validate_determinism_section(
     data: Dict[str, Any], defaults: Dict[str, Any]
 ) -> Dict[str, Any]:
@@ -351,6 +416,9 @@ def validate_simulator_config(raw: Dict[str, Any]) -> Dict[str, Any]:
 
     if "npu" in raw:
         defaults["npu"] = _validate_npu_section(raw["npu"], defaults["npu"])
+
+    if "cq" in raw:
+        defaults["cq"] = _validate_cq_section(raw["cq"], defaults["cq"])
 
     if "determinism" in raw:
         defaults["determinism"] = _validate_determinism_section(
