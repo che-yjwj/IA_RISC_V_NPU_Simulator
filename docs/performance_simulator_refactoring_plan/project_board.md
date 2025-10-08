@@ -4,11 +4,11 @@
 
 ## Todo
 - [ ] **CQ-BG-004** · Conv→GEMM 변환 및 ISA/워크로드 확장 (Conv opcode, CQ workload)
-- [ ] **CQ-BG-008** · ISA/CQ 레퍼런스 자동 생성, Gantt/Timeline CSV, 튜토리얼 노트북
 
 ## In Progress
 
 ## Done
+- [x] **CQ-BG-008** · ISA/CQ 레퍼런스 자동 생성, Gantt/Timeline CSV, 튜토리얼 노트북 — Stage 9 자산(`src/scripts/generate_isa_cq_reference.py`, `src/scripts/cq_timeline_export.py`, `docs/tutorials/cq_pipeline.md`, `notebooks/cq_pipeline_walkthrough.ipynb`)으로 문서/시각화 경로를 정리하고 체크리스트 완료.
 - [x] **CQ-BG-007** · 스케줄 정책(RR/EDF) 및 멀티 lane 모델링 — 디스패처 정책/레인 구성 옵션(`src/cq/scheduler.py`, `src/cq/dispatcher.py`, CLI `--cq-policy`/`--cq-lane-limit`/`--simulate`)을 도입하고 `run-cq --simulate` 실행 경로 및 Accuracy Guard 골든 리포트(`workloads/golden/summaries/*.json`)에 `dispatch.lane_usage` 통계를 반영하여 병렬 스케줄링 회귀를 자동 검사 가능하도록 완료 (`tests/unit/test_cq_scheduler_policy.py`, `tests/unit/test_cli_cq_overrides.py`, `tests/integration/test_cli_run_cq.py`, `scripts.check_cq_accuracy`).
 - [x] **CQ-BG-001** · 기존 ELF 실행 경로 회귀 테스트 자동화 및 결과 보존 (`tests/integration/test_cli_run_simulate.py`)
 - [x] **CQ-BG-003** · 자원/타이밍/경합 모델 1차 구현 및 디스패처 통합 완료 (`src/cq/models/*`, `src/simulator/main.py`, `src/cq/dispatcher.py`)

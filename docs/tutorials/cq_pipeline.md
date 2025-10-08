@@ -17,20 +17,58 @@ python -m src.cq.tools.plan_generator \
 
 ## 3. CQ 실행
 
-`run-cq` CLI 명령어는 `CQDispatcher`를 활용하여 커맨드 큐(CQ)를 처리하고 시뮬레이션 결과를 생성합니다. 이 방식은 `AdaptiveSimulator.run_cq_trace`와 동일한 디스패처 기반 실행 파이프라인을 공유하며, DMA, 버스, TE(Tensor Engine), SPM(Scratchpad Memory) 등 자원 모델을 효율적으로 관리합니다. CLI 출력의 `dispatch` 및 `execution` 섹션은 디스패처가 기록한 큐 대기 시간과 자원 사용 통계를 상세하게 반영합니다.
+### 3.1 구조 검증
+
+기본 모드는 CQ JSONL 구조와 ISA 준수 여부를 확인합니다.
+
+```bash
+python -m src.simulator.cli run-cq \
+  --trace /tmp/sample_plan.jsonl \
+  --output /tmp/cq_validate.json
+```
+
+검증 결과는 `status: validated`로 표시되며, ISA 명세를 통과한 명령 목록과
+기본 통계(명령 수, 의존성 그래프)를 제공합니다.
+
+### 3.2 시뮬레이터 실행 (`--simulate`)
+
+실제 디스패처 파이프라인을 거쳐 자원 모델(DMA/Bus/TE/SPM)을 실행하려면
+`--simulate` 플래그를 추가합니다. 구성 파일과 CQ 디스패처 정책은 기존
+플래그(`--cq-policy`, `--cq-lane-limit`)로 덮어쓸 수 있습니다.
 
 ```bash
 python -m src.simulator.cli run-cq \
   --trace /tmp/sample_plan.jsonl \
   --config ia_risc_v_npu/workloads/calibration/configs/rr_baseline.json \
-  --output /tmp/cq_summary.json
+  --cq-policy rr \
+  --cq-lane-limit dma=2 \
+  --simulate \
+  --output /tmp/cq_simulated.json
 ```
 
-> 디스패처 경로 안내: `run-cq`는 `CQDispatcher`를 통해 명령을 순회하며,
-> 동일한 자원 모델(DMA/Bus/TE/SPM)을 사용하는 `AdaptiveSimulator.run_cq_trace`
-> 호출과 동일한 실행 파이프라인을 공유합니다. CLI 출력의 `dispatch` 및
-> `execution` 섹션은 dispatcher가 기록한 큐 대기시간과 자원 사용 통계를
-> 반영합니다.
+출력 JSON에는 `cq_execution` 블록이 추가되며, `dispatch.lane_usage`(레인별 처리량과
+최대 동시 실행)과 `execution` 통계(DMA/GEMM/FENCE 카운트, 바이트/사이클)가 포함됩니다.
+
+> 참고: `run-cq --simulate`는 내부적으로 `AdaptiveSimulator.run_cq_trace`를 호출하므로
+> Python API와 동일한 디스패처 스케줄링 결과를 제공합니다.  
+> Accuracy Guard 골든 리포트(`scripts.check_cq_accuracy`)도 동일한 통계를 기준으로
+> ±5% 편차 정책을 적용합니다.
+
+### 3.3 타임라인 CSV 내보내기
+
+Stage 9에서 `dispatch.timeline`이 포함되므로, 새 스크립트
+`src/scripts/cq_timeline_export.py`를 사용해 Gantt/Timeline 입력을 만들 수 있습니다.
+
+```bash
+python -m src.scripts.cq_timeline_export \
+  /tmp/cq_simulated.json \
+  --output /tmp/cq_timeline.csv
+```
+
+결과 CSV는 `cmd_id,start_tick,end_tick,lane` 컬럼을 포함하며,
+Plotly Express `px.timeline` 등으로 바로 시각화할 수 있습니다.  
+Jupyter 노트북 예시는 `notebooks/cq_pipeline_walkthrough.ipynb`를 참고하세요
+(`pip install plotly`가 필요).
 
 ### 3.1 실행 단계 흐름
 1. `load_cq_trace`가 JSONL을 파싱해 `CommandQueue`를 생성합니다.
@@ -52,8 +90,8 @@ python -m scripts.cq_vs_elf_benchmark \
   --json
 ```
 
-Dispatcher 통계를 함께 확인하려면 `--show-dispatch` 플래그를 추가하세요. 인간
-친화적 출력에 queue wait, DMA 사이클, 실행 횟수가 포함됩니다.
+Dispatcher 통계에는 `queue_wait`뿐 아니라 `lane_usage`(병렬 레인 처리량/동시성)이 포함되므로
+스케줄링 정책 변경(RR/EDF, lane 제한 등)의 효과를 정량화할 수 있습니다.
 
 ```bash
 python -m scripts.cq_vs_elf_benchmark \
@@ -88,3 +126,8 @@ python -m scripts.cq_vs_elf_benchmark \
 ## 6. 확장 아이디어
 - Stage 6에서 WFQ/EDF 정책을 CQ 경로와 조합해 비교 실험을 진행합니다.
 - 노트북(`notebooks/cq_vs_elf_analysis.ipynb`)에 결과를 로드해 시각화하면 추세를 빠르게 파악할 수 있습니다.
+
+## 7. ISA/CQ 참고자료 업데이트
+- Stage 9 스크립트 `python -m src.scripts.generate_isa_cq_reference`를 실행하면
+  `docs/reference/isa_cq_reference.md`가 사양에 맞춰 자동 갱신됩니다.
+- ISA 또는 CQ 스키마가 변경되면 이 스크립트를 다시 실행해 문서를 최신 상태로 유지하세요.

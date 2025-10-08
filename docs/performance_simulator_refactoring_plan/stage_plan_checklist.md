@@ -53,6 +53,11 @@ Stage 0 — 리포 준비 & 가드레일
 - [x] 멀티-TE, 멀티-DMA lane (백로그 `CQ-BG-007`) — 레인 용량 제한(`lane_limits`) 및 `dispatch.lane_usage` 통계를 실행 요약/골든 리포트에 반영(`scripts.check_cq_accuracy`, `workloads/golden/summaries/*.json`)하여 CQ 병렬 스케줄링 회귀를 Accuracy Guard로 모니터링 가능.
 
 ## Stage 9 — 문서화/시각화
-- [ ] ISA/CQ Reference 자동 생성 (백로그 `CQ-BG-008`) — Stage 8에서 정비한 CLI (`run-cq --simulate`)와 Accuracy Guard 메트릭을 참조하도록 레퍼런스 문서를 확장
-- [ ] Gantt chart/Timeline CSV 산출 (백로그 `CQ-BG-008`)
-- [ ] 튜토리얼 노트북 작성 (백로그 `CQ-BG-008`) — 새로운 CQ 실행 흐름과 레인 통계 해석을 튜토리얼에 반영 (`docs/performance_simulator_refactoring_plan/cq_run_cli_extension.md`, `cq_lane_metrics_golden_integration.md`)
+- [x] ISA/CQ Reference 자동 생성 (백로그 `CQ-BG-008`) — Stage 8 자산을 기반으로 ISA/CQ 명세를 자동 수집해 `docs/reference/isa_cq_reference.md` 작성 (`stage9_doc_plan.md`)
+- [x] Gantt chart/Timeline CSV 산출 (백로그 `CQ-BG-008`) — CQ 실행 타임라인을 CSV/시각화로 제공하는 도구 및 노트북 준비 (`stage9_doc_plan.md`)
+- [x] 튜토리얼 노트북 작성 (백로그 `CQ-BG-008`) — `run-cq --simulate`, Accuracy Guard, 레인 통계 해석을 통합한 워크플로 문서화 (`docs/tutorials/cq_pipeline.md`, `stage9_doc_plan.md`)
+
+## Stage 10 — Conv→GEMM 확장
+- [ ] ISA 업데이트 및 코드젠 반영 (`specs/isa.yaml`, `src/cq/generated/*`, `docs/reference/isa_cq_reference.md`, `stage10_conv_plan.md`)
+- [ ] Conv IR→CQ 매핑 규칙 및 단위 테스트 (`src/cq/rules/conv.yaml`, `tests/unit/test_cq_mapper_conv.py`)
+- [ ] Conv CQ 샘플/골든 자산 + 시뮬레이터 통합 (`workloads/cq/sample_conv.*`, `workloads/golden/`, `tests/integration/test_cli_run_cq.py`, `docs/tutorials/cq_pipeline.md`)
