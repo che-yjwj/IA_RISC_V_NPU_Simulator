@@ -1,0 +1,102 @@
+{
+  "plan_summary": {
+    "dma": 3,
+    "gemm": 1,
+    "fence": 1
+  },
+  "dispatch": {
+    "executed": 5,
+    "completed": [
+      "dma_strided_a",
+      "dma_stream_b",
+      "gemm_mixed",
+      "fence_mixed",
+      "dma_result_flush"
+    ],
+    "rejected": [],
+    "queue_wait": {
+      "average": 0.0,
+      "max": 0,
+      "total": 0,
+      "zero_wait": 5
+    }
+  },
+  "actions": [
+    {
+      "type": "dma",
+      "cmd_id": "dma_strided_a",
+      "src": "dram://mixed_mat_a",
+      "dst": "spm://mixed_mat_a_tile",
+      "shape": [
+        3,
+        2
+      ],
+      "strides": [
+        5,
+        2
+      ]
+    },
+    {
+      "type": "dma",
+      "cmd_id": "dma_stream_b",
+      "src": "dram://mixed_mat_b",
+      "dst": "spm://mixed_mat_b_tile",
+      "shape": [
+        2,
+        2
+      ],
+      "strides": null
+    },
+    {
+      "type": "gemm",
+      "cmd_id": "gemm_mixed",
+      "m": 3,
+      "n": 2,
+      "k": 2,
+      "inputs": {
+        "a": "spm://mixed_mat_a_tile",
+        "b": "spm://mixed_mat_b_tile"
+      },
+      "output": "dram://mixed_mat_c"
+    },
+    {
+      "type": "fence",
+      "cmd_id": "fence_mixed",
+      "target": null
+    },
+    {
+      "type": "dma",
+      "cmd_id": "dma_result_flush",
+      "src": "dram://mixed_mat_c",
+      "dst": "spm://mixed_mat_c_tile",
+      "shape": [
+        3,
+        2
+      ],
+      "strides": null
+    }
+  ],
+  "execution": {
+    "executed": [
+      "dma_strided_a",
+      "dma_stream_b",
+      "gemm_mixed",
+      "fence_mixed",
+      "dma_result_flush"
+    ],
+    "skipped": [],
+    "count": {
+      "dma": 3,
+      "gemm": 1,
+      "fence": 1
+    },
+    "estimate_cycles": 15,
+    "dma_cycles": 46,
+    "dma_bytes": 64
+  },
+  "metadata": {
+    "workload_id": "cq_mixed_latency",
+    "description": "Mixed DMA and GEMM trace with stride stressors for latency checks."
+  },
+  "status": "cq_actions_executed"
+}

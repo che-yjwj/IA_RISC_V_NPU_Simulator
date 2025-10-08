@@ -1,0 +1,4 @@
+{"metadata": {"workload_id": "cq_dma_roundtrip", "description": "DMA roundtrip between DRAM and SPM for a 4x4 tile."}}
+{"cmd_id": "dma_load_tile", "opcode": "DMA_2D", "operands": {"src": "dram://tensor_a", "dst": "spm://tensor_a_tile", "shape": [4, 4], "strides": [4, 4]}, "trace": {"ir_id": "dma_load_0"}}
+{"cmd_id": "fence_tile_sync", "opcode": "FENCE_SPM", "deps": ["dma_load_tile"], "trace": {"ir_id": "fence_0"}}
+{"cmd_id": "dma_store_tile", "opcode": "DMA_2D", "operands": {"src": "spm://tensor_a_tile", "dst": "dram://tensor_a_copy", "shape": [4, 4]}, "deps": ["fence_tile_sync"], "trace": {"ir_id": "dma_store_0"}}

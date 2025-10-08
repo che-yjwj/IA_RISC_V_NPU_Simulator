@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "accuracy_guard": {
+    "enabled": true,
+    "golds_path": "../summaries/cq_gemm_single.json",
+    "max_average_deviation": 0.05,
+    "max_single_deviation": 0.05
+  }
+}

@@ -1,0 +1,46 @@
+metadata:
+  workload_id: cq_gemm_single
+  description: Baseline GEMM fed by DMA-loaded tiles with a post-compute fence.
+commands:
+  - cmd_id: dma_a_tile
+    opcode: DMA_2D
+    operands:
+      src: "dram://mat_a"
+      dst: "spm://mat_a_tile"
+      shape: [2, 3]
+    trace:
+      ir_id: "dma_a"
+  - cmd_id: dma_b_tile
+    opcode: DMA_2D
+    operands:
+      src: "dram://mat_b"
+      dst: "spm://mat_b_tile"
+      shape: [3, 2]
+    trace:
+      ir_id: "dma_b"
+  - cmd_id: gemm_compute
+    opcode: TE_GEMM
+    operands:
+      m: 2
+      n: 2
+      k: 3
+      a: "spm://mat_a_tile"
+      b: "spm://mat_b_tile"
+      c: "dram://mat_c"
+    deps: ["dma_a_tile", "dma_b_tile"]
+    trace:
+      ir_id: "gemm0"
+  - cmd_id: fence_gemm
+    opcode: FENCE_SPM
+    deps: ["gemm_compute"]
+    trace:
+      ir_id: "fence_gemm"
+  - cmd_id: dma_result_tile
+    opcode: DMA_2D
+    operands:
+      src: "dram://mat_c"
+      dst: "spm://mat_c_tile"
+      shape: [2, 2]
+    deps: ["fence_gemm"]
+    trace:
+      ir_id: "dma_result"

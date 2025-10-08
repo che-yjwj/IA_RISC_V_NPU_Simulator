@@ -1,0 +1,8 @@
+{"metadata": {"workload_id": "cq_gemm_pipeline", "description": "Two-stage GEMM pipeline with intermediate DMA hand-offs."}}
+{"cmd_id": "dma_stage0_a", "opcode": "DMA_2D", "operands": {"src": "dram://stage0_mat_a", "dst": "spm://stage0_mat_a_tile", "shape": [2, 2]}, "trace": {"ir_id": "dma_stage0_a"}}
+{"cmd_id": "dma_stage0_b", "opcode": "DMA_2D", "operands": {"src": "dram://stage0_mat_b", "dst": "spm://stage0_mat_b_tile", "shape": [2, 2]}, "trace": {"ir_id": "dma_stage0_b"}}
+{"cmd_id": "gemm_stage0", "opcode": "TE_GEMM", "operands": {"m": 2, "n": 2, "k": 2, "a": "spm://stage0_mat_a_tile", "b": "spm://stage0_mat_b_tile", "c": "dram://stage0_mat_c"}, "deps": ["dma_stage0_a", "dma_stage0_b"], "trace": {"ir_id": "gemm_stage0"}}
+{"cmd_id": "dma_stage0_out", "opcode": "DMA_2D", "operands": {"src": "dram://stage0_mat_c", "dst": "spm://stage0_mat_c_tile", "shape": [2, 2]}, "deps": ["gemm_stage0"], "trace": {"ir_id": "dma_stage0_out"}}
+{"cmd_id": "dma_stage1_b", "opcode": "DMA_2D", "operands": {"src": "dram://stage1_mat_b", "dst": "spm://stage1_mat_b_tile", "shape": [2, 2]}, "deps": ["dma_stage0_out"], "trace": {"ir_id": "dma_stage1_b"}}
+{"cmd_id": "gemm_stage1", "opcode": "TE_GEMM", "operands": {"m": 2, "n": 2, "k": 2, "a": "spm://stage0_mat_c_tile", "b": "spm://stage1_mat_b_tile", "c": "dram://stage1_mat_c"}, "deps": ["dma_stage0_out", "dma_stage1_b"], "trace": {"ir_id": "gemm_stage1"}}
+{"cmd_id": "fence_pipeline", "opcode": "FENCE_SPM", "deps": ["gemm_stage1"], "trace": {"ir_id": "fence_pipeline"}}

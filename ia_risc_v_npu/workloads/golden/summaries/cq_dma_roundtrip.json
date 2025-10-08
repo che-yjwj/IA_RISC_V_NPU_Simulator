@@ -1,0 +1,75 @@
+{
+  "plan_summary": {
+    "dma": 2,
+    "gemm": 0,
+    "fence": 1
+  },
+  "dispatch": {
+    "executed": 3,
+    "completed": [
+      "dma_load_tile",
+      "fence_tile_sync",
+      "dma_store_tile"
+    ],
+    "rejected": [],
+    "queue_wait": {
+      "average": 0.0,
+      "max": 0,
+      "total": 0,
+      "zero_wait": 3
+    }
+  },
+  "actions": [
+    {
+      "type": "dma",
+      "cmd_id": "dma_load_tile",
+      "src": "dram://tensor_a",
+      "dst": "spm://tensor_a_tile",
+      "shape": [
+        4,
+        4
+      ],
+      "strides": [
+        4,
+        4
+      ]
+    },
+    {
+      "type": "fence",
+      "cmd_id": "fence_tile_sync",
+      "target": null
+    },
+    {
+      "type": "dma",
+      "cmd_id": "dma_store_tile",
+      "src": "spm://tensor_a_tile",
+      "dst": "dram://tensor_a_copy",
+      "shape": [
+        4,
+        4
+      ],
+      "strides": null
+    }
+  ],
+  "execution": {
+    "executed": [
+      "dma_load_tile",
+      "fence_tile_sync",
+      "dma_store_tile"
+    ],
+    "skipped": [],
+    "count": {
+      "dma": 2,
+      "gemm": 0,
+      "fence": 1
+    },
+    "estimate_cycles": 0,
+    "dma_cycles": 24,
+    "dma_bytes": 128
+  },
+  "metadata": {
+    "workload_id": "cq_dma_roundtrip",
+    "description": "DMA roundtrip between DRAM and SPM for a 4x4 tile."
+  },
+  "status": "cq_actions_executed"
+}

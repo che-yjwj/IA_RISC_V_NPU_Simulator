@@ -4,12 +4,11 @@
 
 ## Todo
 - [ ] **CQ-BG-004** · Conv→GEMM 변환 및 ISA/워크로드 확장 (Conv opcode, CQ workload)
-- [ ] **CQ-BG-006** · Golden 워크로드 5종 및 Accuracy Guard diff 통합
 - [ ] **CQ-BG-007** · 스케줄 정책(RR/EDF) 및 멀티 lane 모델링
 - [ ] **CQ-BG-008** · ISA/CQ 레퍼런스 자동 생성, Gantt/Timeline CSV, 튜토리얼 노트북
 
 ## In Progress
-- *(비어 있음)* 진행 중인 작업이 생기면 이 칸으로 이동하세요.
+- [ ] **CQ-BG-006** · Golden 워크로드 5종 및 Accuracy Guard diff 통합 — CQ 트레이스/컨피그/요약(+Guard 임계값) 준비, CI 워크플로/리포트 업로드 완료 (`workloads/golden/*`, `.github/workflows/cq-accuracy.yml`)
 
 ## Done
 - [x] **CQ-BG-001** · 기존 ELF 실행 경로 회귀 테스트 자동화 및 결과 보존 (`tests/integration/test_cli_run_simulate.py`)

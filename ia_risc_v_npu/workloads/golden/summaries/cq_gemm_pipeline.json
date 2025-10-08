@@ -1,0 +1,126 @@
+{
+  "plan_summary": {
+    "dma": 4,
+    "gemm": 2,
+    "fence": 1
+  },
+  "dispatch": {
+    "executed": 7,
+    "completed": [
+      "dma_stage0_a",
+      "dma_stage0_b",
+      "gemm_stage0",
+      "dma_stage0_out",
+      "dma_stage1_b",
+      "gemm_stage1",
+      "fence_pipeline"
+    ],
+    "rejected": [],
+    "queue_wait": {
+      "average": 0.0,
+      "max": 0,
+      "total": 0,
+      "zero_wait": 7
+    }
+  },
+  "actions": [
+    {
+      "type": "dma",
+      "cmd_id": "dma_stage0_a",
+      "src": "dram://stage0_mat_a",
+      "dst": "spm://stage0_mat_a_tile",
+      "shape": [
+        2,
+        2
+      ],
+      "strides": null
+    },
+    {
+      "type": "dma",
+      "cmd_id": "dma_stage0_b",
+      "src": "dram://stage0_mat_b",
+      "dst": "spm://stage0_mat_b_tile",
+      "shape": [
+        2,
+        2
+      ],
+      "strides": null
+    },
+    {
+      "type": "gemm",
+      "cmd_id": "gemm_stage0",
+      "m": 2,
+      "n": 2,
+      "k": 2,
+      "inputs": {
+        "a": "spm://stage0_mat_a_tile",
+        "b": "spm://stage0_mat_b_tile"
+      },
+      "output": "dram://stage0_mat_c"
+    },
+    {
+      "type": "dma",
+      "cmd_id": "dma_stage0_out",
+      "src": "dram://stage0_mat_c",
+      "dst": "spm://stage0_mat_c_tile",
+      "shape": [
+        2,
+        2
+      ],
+      "strides": null
+    },
+    {
+      "type": "dma",
+      "cmd_id": "dma_stage1_b",
+      "src": "dram://stage1_mat_b",
+      "dst": "spm://stage1_mat_b_tile",
+      "shape": [
+        2,
+        2
+      ],
+      "strides": null
+    },
+    {
+      "type": "gemm",
+      "cmd_id": "gemm_stage1",
+      "m": 2,
+      "n": 2,
+      "k": 2,
+      "inputs": {
+        "a": "spm://stage0_mat_c_tile",
+        "b": "spm://stage1_mat_b_tile"
+      },
+      "output": "dram://stage1_mat_c"
+    },
+    {
+      "type": "fence",
+      "cmd_id": "fence_pipeline",
+      "target": null
+    }
+  ],
+  "execution": {
+    "executed": [
+      "dma_stage0_a",
+      "dma_stage0_b",
+      "gemm_stage0",
+      "dma_stage0_out",
+      "dma_stage1_b",
+      "gemm_stage1",
+      "fence_pipeline"
+    ],
+    "skipped": [],
+    "count": {
+      "dma": 4,
+      "gemm": 2,
+      "fence": 1
+    },
+    "estimate_cycles": 30,
+    "dma_cycles": 32,
+    "dma_bytes": 64
+  },
+  "metadata": {
+    "workload_id": "cq_gemm_pipeline",
+    "description": "Two-stage GEMM pipeline with intermediate DMA hand-offs."
+  },
+  "status": "cq_actions_executed"
+}

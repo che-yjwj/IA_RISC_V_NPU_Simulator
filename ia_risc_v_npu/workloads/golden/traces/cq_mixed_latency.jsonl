@@ -1,0 +1,6 @@
+{"metadata": {"workload_id": "cq_mixed_latency", "description": "Mixed DMA and GEMM trace with stride stressors for latency checks."}}
+{"cmd_id": "dma_strided_a", "opcode": "DMA_2D", "operands": {"src": "dram://mixed_mat_a", "dst": "spm://mixed_mat_a_tile", "shape": [3, 2], "strides": [5, 2]}, "trace": {"ir_id": "dma_strided_a"}}
+{"cmd_id": "dma_stream_b", "opcode": "DMA_2D", "operands": {"src": "dram://mixed_mat_b", "dst": "spm://mixed_mat_b_tile", "shape": [2, 2]}, "deps": ["dma_strided_a"], "trace": {"ir_id": "dma_stream_b"}}
+{"cmd_id": "gemm_mixed", "opcode": "TE_GEMM", "operands": {"m": 3, "n": 2, "k": 2, "a": "spm://mixed_mat_a_tile", "b": "spm://mixed_mat_b_tile", "c": "dram://mixed_mat_c"}, "deps": ["dma_stream_b"], "trace": {"ir_id": "gemm_mixed"}}
+{"cmd_id": "fence_mixed", "opcode": "FENCE_SPM", "deps": ["gemm_mixed"], "trace": {"ir_id": "fence_mixed"}}
+{"cmd_id": "dma_result_flush", "opcode": "DMA_2D", "operands": {"src": "dram://mixed_mat_c", "dst": "spm://mixed_mat_c_tile", "shape": [3, 2]}, "deps": ["fence_mixed"], "trace": {"ir_id": "dma_result_flush"}}

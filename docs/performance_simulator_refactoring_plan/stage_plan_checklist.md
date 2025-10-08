@@ -44,9 +44,9 @@ Stage 0 — 리포 준비 & 가드레일
 - [x] cq/generator.py: ISA → CQ 변환 (백로그 `CQ-BG-005`, `src/cq/generator.py`)
 
 ## Stage 7 — Accuracy Guard & Golden Test
-- [ ] 골든 워크로드 5종 준비 (백로그 `CQ-BG-006`)
-- [ ] golden diff CI 통합 (백로그 `CQ-BG-006`)
-- [ ] 허용 편차 정책 설정 (백로그 `CQ-BG-006`)
+- [x] 골든 워크로드 5종 준비 (백로그 `CQ-BG-006`) — manifest/traces/configs/summaries 초안 확보 (`workloads/golden/*`)
+- [x] golden diff CI 통합 (백로그 `CQ-BG-006`) — GitHub Actions 워크플로(`.github/workflows/cq-accuracy.yml`)에서 `scripts.check_cq_accuracy` 실행 및 JSON 리포트 업로드
+- [x] 허용 편차 정책 설정 (백로그 `CQ-BG-006`) — Guard 활성화 및 ±5% 임계값 적용 (`workloads/golden/configs/*.json`)
 
 ## Stage 8 — 모델 정밀도/정책 확장
 - [ ] 스케줄 정책 (RR, EDF) (백로그 `CQ-BG-007`)
