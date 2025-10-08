@@ -16,7 +16,8 @@ if TYPE_CHECKING:
 def _require_operand(command: "CQCommand", operands: dict, name: str) -> Any:
     if name not in operands:
         raise ISASpecError(
-            f"Command '{command.cmd_id}' ({command.opcode}) operand '{name}' must be present"
+            f"Command '{command.cmd_id}' ({command.opcode}) "
+            f"operand '{name}' must be present"
         )
     return operands[name]
 
@@ -28,7 +29,8 @@ def _optional_operand(command: "CQCommand", operands: dict, name: str) -> Any | 
 def _coerce_int(value: Any, command: "CQCommand", name: str) -> int:
     if not isinstance(value, int):
         raise ISASpecError(
-            f"Command '{command.cmd_id}' ({command.opcode}) operand '{name}' must be an integer"
+            f"Command '{command.cmd_id}' ({command.opcode}) "
+            f"operand '{name}' must be an integer"
         )
     return int(value)
 
@@ -36,7 +38,8 @@ def _coerce_int(value: Any, command: "CQCommand", name: str) -> int:
 def _coerce_float(value: Any, command: "CQCommand", name: str) -> float:
     if not isinstance(value, (int, float)):
         raise ISASpecError(
-            f"Command '{command.cmd_id}' ({command.opcode}) operand '{name}' must be numeric"
+            f"Command '{command.cmd_id}' ({command.opcode}) "
+            f"operand '{name}' must be numeric"
         )
     return float(value)
 
@@ -44,7 +47,8 @@ def _coerce_float(value: Any, command: "CQCommand", name: str) -> float:
 def _coerce_bool(value: Any, command: "CQCommand", name: str) -> bool:
     if not isinstance(value, bool):
         raise ISASpecError(
-            f"Command '{command.cmd_id}' ({command.opcode}) operand '{name}' must be boolean"
+            f"Command '{command.cmd_id}' ({command.opcode}) "
+            f"operand '{name}' must be boolean"
         )
     return bool(value)
 
@@ -52,7 +56,8 @@ def _coerce_bool(value: Any, command: "CQCommand", name: str) -> bool:
 def _coerce_str(value: Any, command: "CQCommand", name: str) -> str:
     if not isinstance(value, str) or not value:
         raise ISASpecError(
-            f"Command '{command.cmd_id}' ({command.opcode}) operand '{name}' must be a non-empty string"
+            f"Command '{command.cmd_id}' ({command.opcode}) "
+            f"operand '{name}' must be a non-empty string"
         )
     return value
 
@@ -70,11 +75,13 @@ def _coerce_tuple(
 ) -> Tuple[Any, ...]:
     if not isinstance(value, (list, tuple)):
         raise ISASpecError(
-            f"Command '{command.cmd_id}' ({command.opcode}) operand '{name}' must be a sequence"
+            f"Command '{command.cmd_id}' ({command.opcode}) "
+            f"operand '{name}' must be a sequence"
         )
     if len(value) != length:
         raise ISASpecError(
-            f"Command '{command.cmd_id}' ({command.opcode}) operand '{name}' must contain exactly {length} entries"
+            f"Command '{command.cmd_id}' ({command.opcode}) "
+            f"operand '{name}' must contain exactly {length} entries"
         )
     coerced = [
         element_fn(item, command, f"{name}[{index}]")
@@ -154,7 +161,6 @@ class FENCE_SPM_Operands:
 
     @classmethod
     def from_command(cls, command: "CQCommand") -> "FENCE_SPM_Operands":
-        operands = command.operands
         return cls()
 
 OPERAND_MODELS = {

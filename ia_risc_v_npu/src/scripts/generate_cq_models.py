@@ -196,9 +196,10 @@ def _generate_operands_module(spec: Mapping[str, Any]) -> str:
                 "",
                 "    @classmethod",
                 f'    def from_command(cls, command: "CQCommand") -> "{class_name}":',
-                "        operands = command.operands",
             ]
         )
+        if operand_order:
+            class_lines.append("        operands = command.operands")
         for block in extractor_blocks:
             for line in block:
                 class_lines.append(f"        {line}")
@@ -233,7 +234,8 @@ def _generate_operands_module(spec: Mapping[str, Any]) -> str:
         'def _require_operand(command: "CQCommand", operands: dict, name: str) -> Any:',
         "    if name not in operands:",
         "        raise ISASpecError(",
-        "            f\"Command '{command.cmd_id}' ({command.opcode}) operand '{name}' must be present\"",
+        "            f\"Command '{command.cmd_id}' ({command.opcode}) \"",
+        "            f\"operand '{name}' must be present\"",
         "        )",
         "    return operands[name]",
         "",
@@ -245,7 +247,8 @@ def _generate_operands_module(spec: Mapping[str, Any]) -> str:
         'def _coerce_int(value: Any, command: "CQCommand", name: str) -> int:',
         "    if not isinstance(value, int):",
         "        raise ISASpecError(",
-        "            f\"Command '{command.cmd_id}' ({command.opcode}) operand '{name}' must be an integer\"",
+        "            f\"Command '{command.cmd_id}' ({command.opcode}) \"",
+        "            f\"operand '{name}' must be an integer\"",
         "        )",
         "    return int(value)",
         "",
@@ -253,7 +256,8 @@ def _generate_operands_module(spec: Mapping[str, Any]) -> str:
         'def _coerce_float(value: Any, command: "CQCommand", name: str) -> float:',
         "    if not isinstance(value, (int, float)):",
         "        raise ISASpecError(",
-        "            f\"Command '{command.cmd_id}' ({command.opcode}) operand '{name}' must be numeric\"",
+        "            f\"Command '{command.cmd_id}' ({command.opcode}) \"",
+        "            f\"operand '{name}' must be numeric\"",
         "        )",
         "    return float(value)",
         "",
@@ -261,7 +265,8 @@ def _generate_operands_module(spec: Mapping[str, Any]) -> str:
         'def _coerce_bool(value: Any, command: "CQCommand", name: str) -> bool:',
         "    if not isinstance(value, bool):",
         "        raise ISASpecError(",
-        "            f\"Command '{command.cmd_id}' ({command.opcode}) operand '{name}' must be boolean\"",
+        "            f\"Command '{command.cmd_id}' ({command.opcode}) \"",
+        "            f\"operand '{name}' must be boolean\"",
         "        )",
         "    return bool(value)",
         "",
@@ -269,7 +274,8 @@ def _generate_operands_module(spec: Mapping[str, Any]) -> str:
         'def _coerce_str(value: Any, command: "CQCommand", name: str) -> str:',
         "    if not isinstance(value, str) or not value:",
         "        raise ISASpecError(",
-        "            f\"Command '{command.cmd_id}' ({command.opcode}) operand '{name}' must be a non-empty string\"",
+        "            f\"Command '{command.cmd_id}' ({command.opcode}) \"",
+        "            f\"operand '{name}' must be a non-empty string\"",
         "        )",
         "    return value",
         "",
@@ -287,11 +293,13 @@ def _generate_operands_module(spec: Mapping[str, Any]) -> str:
         ") -> Tuple[Any, ...]:",
         "    if not isinstance(value, (list, tuple)):",
         "        raise ISASpecError(",
-        "            f\"Command '{command.cmd_id}' ({command.opcode}) operand '{name}' must be a sequence\"",
+        "            f\"Command '{command.cmd_id}' ({command.opcode}) \"",
+        "            f\"operand '{name}' must be a sequence\"",
         "        )",
         "    if len(value) != length:",
         "        raise ISASpecError(",
-        "            f\"Command '{command.cmd_id}' ({command.opcode}) operand '{name}' must contain exactly {length} entries\"",
+        "            f\"Command '{command.cmd_id}' ({command.opcode}) \"",
+        "            f\"operand '{name}' must contain exactly {length} entries\"",
         "        )",
         "    coerced = [",
         '        element_fn(item, command, f"{name}[{index}]")',
@@ -370,8 +378,7 @@ def _generate_command_model(schema: Mapping[str, Any]) -> str:
         "        return values",
         "",
         "",
-        '__all__ = ["CQCommandModel", "ValidationError"]',
-    ]
+        '__all__ = ["CQCommandModel", "ValidationError"]\n',    ]
     return "\n".join(lines)
 
 
