@@ -32,7 +32,7 @@ Stage 0 — 리포 준비 & 가드레일
 - [x] Deadlock 감지 로직 (백로그 `CQ-BG-003`, `src/cq/dispatcher.py`)
 - [x] CQ vs ELF 비교 스텁 (`src/simulator/cq_runner.py`) 마련
 - [x] CQ 텐서 초기화/실데이터 주입 (`AdaptiveSimulator.load_cq_tensors`)
-- [ ] 디스패처 자원 스케줄링 통합 (백로그 `CQ-BG-003`, `src/cq/dispatcher.py` TODO)
+- [x] 디스패처 자원 스케줄링 통합 (백로그 `CQ-BG-003`, `src/cq/dispatcher.py`, `src/simulator/main.py`)
 
 ## Stage 5 — Spec-Codegen v1
 - [x] `isa.yaml` → dataclass 자동 생성 (백로그 `CQ-BG-002`, `src/scripts/generate_cq_models.py`, `src/cq/generated/isa_operands.py`)

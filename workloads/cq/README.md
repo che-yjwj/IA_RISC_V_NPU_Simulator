@@ -5,6 +5,8 @@ the experimental `run-cq` CLI subcommand.
 
 - `sample_gemm.jsonl` – A minimal load/compute/store sequence that demonstrates
   the JSONL schema (metadata header followed by command entries).
+- `multi_tile_gemm.jsonl` – Two GEMM tiles with repeated DMA/FENCE steps that
+  accumulate into a shared output buffer.
 
 Validate a trace with:
 
@@ -27,7 +29,8 @@ print(plan.summary())
 ```
 
 You can also run the queue through the simulator scaffold to obtain dispatcher
-통계:
+stats. The CQ path now streams commands directly via `CQDispatcher`, so the
+results reflect the same resource scheduling pipeline used by the CLI:
 
 ```python
 import numpy as np
@@ -43,6 +46,12 @@ sim.load_cq_tensors(
 )
 summary = sim.run_cq_trace(queue)
 print(summary["dispatch"]["queue_wait"])
+print(summary["execution"]["count"])  # DMA/GEMM/FENCE counts recorded by dispatcher
+
+# Multi-tile example: aligns with tests/integration/test_cq_dispatcher.py::test_cq_multi_gemm_with_repeated_fence
+queue_mt = load_cq_trace("workloads/cq/multi_tile_gemm.jsonl")
+mt_summary = sim.run_cq_trace(queue_mt)
+print(mt_summary["execution"]["count"])  # {'dma': 5, 'gemm': 2, 'fence': 2}
 ```
 
 CQ ↔ ELF 비교 스텁으로 결과를 대비하려면:
@@ -54,4 +63,13 @@ from src.simulator.cq_runner import compare_cq_vs_elf
 root = Path(".")
 report = compare_cq_vs_elf(cq_trace=root / "workloads/cq/sample_gemm.jsonl")
 print(report["status"], report["cq_summary"]["plan_summary"])
+print(report["cq_summary"]["dispatch"]["executed"])
+
+# Dispatcher metrics with the extended CQ sample
+report_mt = compare_cq_vs_elf(cq_trace=root / "workloads/cq/multi_tile_gemm.jsonl")
+print(report_mt["cq_summary"]["execution"]["count"])
 ```
+
+`compare_cq_vs_elf` internally calls `AdaptiveSimulator.run_cq_trace`, so the
+CQ summary in the report is generated via the same dispatcher-driven execution
+path as the CLI.

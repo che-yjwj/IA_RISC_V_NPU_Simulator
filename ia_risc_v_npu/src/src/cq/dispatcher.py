@@ -8,7 +8,7 @@ without reworking call sites.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional
+from typing import Callable, Dict, Iterable, List, Optional
 
 from .schema import CommandQueue, CQCommand
 
@@ -145,10 +145,21 @@ class CQDispatcher:
     into bus/NPU operations and integrate with the simulator event scheduler.
     """
 
-    def __init__(self, *, trace: Optional[DispatchTrace] = None) -> None:
+    def __init__(
+        self,
+        *,
+        trace: Optional[DispatchTrace] = None,
+        clock: Optional[Callable[[], int]] = None,
+    ) -> None:
         self.trace = trace or DispatchTrace()
+        self._clock = clock
 
-    def run(self, queue: CommandQueue) -> DispatchOutcome:
+    def run(
+        self,
+        queue: CommandQueue,
+        *,
+        executor: Optional[Callable[[CQCommand], bool]] = None,
+    ) -> DispatchOutcome:
         _assert_acyclic(queue)
         remaining_deps = {
             command.cmd_id: set(command.dependencies) for command in queue
@@ -158,27 +169,54 @@ class CQDispatcher:
         tick = 0
 
         for command in queue:
-            self.trace.record_queued(command, tick=tick)
-            tick += 1
+            queued_tick = self._now(tick)
+            self.trace.record_queued(command, tick=queued_tick)
+            if self._clock is None:
+                tick += 1
             unmet = remaining_deps[command.cmd_id]
             if unmet:
                 self.trace.record_rejection(
                     command,
                     reason=f"dependencies not satisfied: {', '.join(sorted(unmet))}",
-                    tick=tick,
+                    tick=self._now(tick),
                 )
-                tick += 1
                 continue
 
-            self.trace.record_schedule(command, tick=tick)
+            schedule_tick = self._now(tick)
+            self.trace.record_schedule(command, tick=schedule_tick)
             queued_tick = self.trace.timestamps[command.cmd_id]["queued"]
-            queue_wait = tick - queued_tick
+            queue_wait = schedule_tick - queued_tick
             queue_wait_ticks.append(queue_wait)
-            tick += 1
-            # TODO: integrate with simulator subsystems (DMA, TE, etc.).
-            self.trace.record_completion(command, tick=tick)
+            if self._clock is None:
+                tick += 1
+
+            success = True
+            failure_logged = False
+            if executor is not None:
+                try:
+                    success = bool(executor(command))
+                except Exception as exc:  # pragma: no cover - defensive guard
+                    success = False
+                    self.trace.record_rejection(
+                        command,
+                        reason=f"execution_failed: {exc}",
+                        tick=self._now(tick),
+                    )
+                    failure_logged = True
+            if not success:
+                if executor is not None and not failure_logged:
+                    self.trace.record_rejection(
+                        command,
+                        reason="execution_failed",
+                        tick=self._now(tick),
+                    )
+                continue
+
+            completion_tick = self._now(tick)
+            self.trace.record_completion(command, tick=completion_tick)
             executed += 1
-            tick += 1
+            if self._clock is None:
+                tick += 1
 
             for dependents in remaining_deps.values():
                 dependents.discard(command.cmd_id)
@@ -187,6 +225,11 @@ class CQDispatcher:
         return DispatchOutcome(
             commands_executed=executed, trace=self.trace, stats=stats
         )
+
+    def _now(self, fallback: int) -> int:
+        if self._clock is not None:
+            return int(self._clock())
+        return fallback
 
     @staticmethod
     def _build_stats(queue_wait_ticks: List[int]) -> DispatchStats:

@@ -34,10 +34,18 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Emit the raw comparison report as JSON",
     )
+    parser.add_argument(
+        "--show-dispatch",
+        action="store_true",
+        help=(
+            "Include dispatcher metrics (queue wait, execution counts, DMA stats) "
+            "in the human-readable output"
+        ),
+    )
     return parser
 
 
-def _format_report(report: Dict[str, Any]) -> str:
+def _format_report(report: Dict[str, Any], *, verbose_dispatch: bool = False) -> str:
     lines = ["=== CQ vs ELF Comparison ==="]
     cq_summary = report["cq_summary"]
     elf_summary = report["elf_summary"]
@@ -70,6 +78,17 @@ def _format_report(report: Dict[str, Any]) -> str:
         message = elf_summary.get("message", "n/a")
         lines.append(f"ELF status: {status} ({message})")
 
+    if verbose_dispatch:
+        lines.append("--- Dispatcher Metrics ---")
+        dispatch = cq_summary.get("dispatch", {})
+        execution = cq_summary.get("execution", {})
+        lines.append(f"  executed: {dispatch.get('executed')}")
+        lines.append(f"  rejected: {dispatch.get('rejected')}")
+        lines.append(f"  queue_wait: {dispatch.get('queue_wait')}")
+        lines.append(f"  execution.count: {execution.get('count')}")
+        lines.append(f"  execution.dma_bytes: {execution.get('dma_bytes')}")
+        lines.append(f"  execution.dma_cycles: {execution.get('dma_cycles')}")
+
     lines.append(f"Overall status: {report['status']}")
     return "\n".join(lines)
 
@@ -87,7 +106,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.json:
         print(json.dumps(report, indent=2, ensure_ascii=False))
     else:
-        print(_format_report(report))
+        print(_format_report(report, verbose_dispatch=args.show_dispatch))
     return 0
 
 
