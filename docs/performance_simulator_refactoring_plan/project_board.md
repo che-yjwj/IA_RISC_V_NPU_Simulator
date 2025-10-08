@@ -9,11 +9,11 @@
 - [ ] **CQ-BG-008** · ISA/CQ 레퍼런스 자동 생성, Gantt/Timeline CSV, 튜토리얼 노트북
 
 ## In Progress
-- [ ] **CQ-BG-003** · 자원/타이밍/경합 모델 구현 (디스패처 자원 스케줄링 통합 남음) (`src/cq/models/*`, `src/simulator/main.py`, `src/cq/dispatcher.py`)
+- *(비어 있음)* 진행 중인 작업이 생기면 이 칸으로 이동하세요.
 
 ## Done
 - [x] **CQ-BG-001** · 기존 ELF 실행 경로 회귀 테스트 자동화 및 결과 보존 (`tests/integration/test_cli_run_simulate.py`)
-- [x] **CQ-BG-003** · 자원/타이밍/경합 모델 1차 구현 완료 (`src/cq/models/*`, `src/simulator/main.py`)
+- [x] **CQ-BG-003** · 자원/타이밍/경합 모델 1차 구현 및 디스패처 통합 완료 (`src/cq/models/*`, `src/simulator/main.py`, `src/cq/dispatcher.py`)
 - [x] **CQ-BG-002** · ISA/CQ spec 기반 dataclass/codegen 파이프라인 도입 (`src/scripts/generate_cq_models.py`, `src/cq/generated/*`, `src/cq/schema.py`, `src/cq/adapter.py`)
 - [x] **CQ-BG-005** · IR→ISA→CQ trace ID 체인 구현 (`src/cq/trace.py`, `src/cq/mapper.py`, `src/cq/generator.py`, trace index & 변환 테스트)
 

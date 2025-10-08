@@ -3,6 +3,7 @@ from pathlib import Path
 import numpy as np
 
 from src.cq import (
+    CommandQueue,
     CQDispatcher,
     build_execution_plan,
     load_cq_trace,
@@ -99,3 +100,282 @@ def test_adaptive_simulator_cq_summary(tmp_path):
     expected = inputs @ weights
     np.testing.assert_allclose(spm_tensor, expected, rtol=1e-5, atol=1e-6)
     np.testing.assert_allclose(out, expected, rtol=1e-5, atol=1e-6)
+
+
+def test_cq_dma_contention_roundtrip():
+    data = np.arange(1024, dtype=np.float32).reshape((32, 32))
+    queue = CommandQueue.from_iterable(
+        [
+            {
+                "cmd_id": "dma_stage",
+                "opcode": "DMA_2D",
+                "operands": {
+                    "src": "dram://weights",
+                    "dst": "spm://tile0",
+                    "shape": [32, 32],
+                    "strides": [32, 1],
+                },
+                "trace": {"isa_idx": 0, "ir_operation": "load_weights"},
+            },
+            {
+                "cmd_id": "dma_store",
+                "opcode": "DMA_2D",
+                "deps": ["dma_stage"],
+                "operands": {
+                    "src": "spm://tile0",
+                    "dst": "dram://outputs",
+                    "shape": [32, 32],
+                    "strides": [32, 1],
+                },
+                "trace": {"isa_idx": 1, "ir_operation": "store_outputs"},
+            },
+        ],
+        strict=True,
+    )
+
+    simulator = AdaptiveSimulator()
+    simulator.load_cq_tensors({"dram://weights": data})
+
+    summary = simulator.run_cq_trace(queue)
+
+    assert summary["dispatch"]["executed"] == len(queue)
+    assert summary["execution"]["count"]["dma"] == 2
+    assert summary["execution"]["dma_cycles"] > 0
+    assert summary["execution"]["dma_bytes"] == data.size * data.itemsize * 2
+
+    outputs_entry = simulator._cq_dram_allocations["outputs"]
+    out_bytes = simulator.bus.read(outputs_entry["base"], outputs_entry["size"])
+    out = np.frombuffer(out_bytes, dtype=np.float32).reshape(data.shape)
+    np.testing.assert_allclose(out, data, rtol=1e-5, atol=1e-6)
+
+
+def test_cq_interleaved_gemm_dma_with_fence():
+    queue = CommandQueue.from_iterable(
+        [
+            {
+                "cmd_id": "dma_a",
+                "opcode": "DMA_2D",
+                "operands": {
+                    "src": "dram://inputs_a",
+                    "dst": "spm://tile_a",
+                    "shape": [32, 16],
+                    "strides": [16, 1],
+                },
+                "trace": {"isa_idx": 0, "ir_operation": "load_a"},
+            },
+            {
+                "cmd_id": "dma_b",
+                "opcode": "DMA_2D",
+                "operands": {
+                    "src": "dram://inputs_b",
+                    "dst": "spm://tile_b",
+                    "shape": [16, 8],
+                    "strides": [8, 1],
+                },
+                "trace": {"isa_idx": 1, "ir_operation": "load_b"},
+            },
+            {
+                "cmd_id": "gemm_main",
+                "opcode": "TE_GEMM",
+                "deps": ["dma_a", "dma_b"],
+                "operands": {
+                    "m": 32,
+                    "n": 8,
+                    "k": 16,
+                    "a": "spm://tile_a",
+                    "b": "spm://tile_b",
+                    "c": "dram://outputs",
+                },
+                "trace": {"isa_idx": 2, "ir_operation": "matmul"},
+            },
+            {
+                "cmd_id": "fence_flush",
+                "opcode": "FENCE_SPM",
+                "deps": ["gemm_main"],
+                "operands": {},
+                "trace": {"isa_idx": 3, "ir_operation": "fence"},
+            },
+            {
+                "cmd_id": "dma_out",
+                "opcode": "DMA_2D",
+                "deps": ["fence_flush"],
+                "operands": {
+                    "src": "dram://outputs",
+                    "dst": "dram://final",
+                    "shape": [32, 8],
+                    "strides": [8, 1],
+                },
+                "trace": {"isa_idx": 4, "ir_operation": "store"},
+            },
+        ],
+        strict=True,
+    )
+
+    m, n, k = 32, 8, 16
+    inputs_a = np.arange(m * k, dtype=np.float32).reshape((m, k))
+    inputs_b = np.linspace(1, 2, num=k * n, dtype=np.float32).reshape((k, n))
+
+    simulator = AdaptiveSimulator()
+    simulator.load_cq_tensors(
+        {
+            "dram://inputs_a": inputs_a,
+            "dram://inputs_b": inputs_b,
+        }
+    )
+
+    summary = simulator.run_cq_trace(queue)
+
+    assert summary["dispatch"]["executed"] == len(queue)
+    counts = summary["execution"]["count"]
+    assert counts["dma"] == 3  # two loads + store
+    assert counts["gemm"] == 1
+    assert counts["fence"] == 1
+
+    final_entry = simulator._cq_dram_allocations["final"]
+    final_bytes = simulator.bus.read(final_entry["base"], final_entry["size"])
+    final = np.frombuffer(final_bytes, dtype=np.float32).reshape((m, n))
+    np.testing.assert_allclose(final, inputs_a @ inputs_b, rtol=1e-5, atol=1e-6)
+
+
+def test_cq_multi_gemm_with_repeated_fence():
+    queue = CommandQueue.from_iterable(
+        [
+            {
+                "cmd_id": "dma_tile0_a",
+                "opcode": "DMA_2D",
+                "operands": {
+                    "src": "dram://inputs0_a",
+                    "dst": "spm://tile0_a",
+                    "shape": [16, 16],
+                    "strides": [16, 1],
+                },
+                "trace": {"isa_idx": 0, "ir_operation": "load0_a"},
+            },
+            {
+                "cmd_id": "dma_tile0_b",
+                "opcode": "DMA_2D",
+                "operands": {
+                    "src": "dram://inputs0_b",
+                    "dst": "spm://tile0_b",
+                    "shape": [16, 16],
+                    "strides": [16, 1],
+                },
+                "trace": {"isa_idx": 1, "ir_operation": "load0_b"},
+            },
+            {
+                "cmd_id": "gemm_tile0",
+                "opcode": "TE_GEMM",
+                "deps": ["dma_tile0_a", "dma_tile0_b"],
+                "operands": {
+                    "m": 16,
+                    "n": 16,
+                    "k": 16,
+                    "a": "spm://tile0_a",
+                    "b": "spm://tile0_b",
+                    "c": "dram://accum",
+                },
+                "trace": {"isa_idx": 2, "ir_operation": "gemm0"},
+            },
+            {
+                "cmd_id": "fence_tile0",
+                "opcode": "FENCE_SPM",
+                "deps": ["gemm_tile0"],
+                "operands": {},
+                "trace": {"isa_idx": 3, "ir_operation": "fence0"},
+            },
+            {
+                "cmd_id": "dma_tile1_a",
+                "opcode": "DMA_2D",
+                "deps": ["fence_tile0"],
+                "operands": {
+                    "src": "dram://inputs1_a",
+                    "dst": "spm://tile1_a",
+                    "shape": [16, 16],
+                    "strides": [16, 1],
+                },
+                "trace": {"isa_idx": 4, "ir_operation": "load1_a"},
+            },
+            {
+                "cmd_id": "dma_tile1_b",
+                "opcode": "DMA_2D",
+                "deps": ["fence_tile0"],
+                "operands": {
+                    "src": "dram://inputs1_b",
+                    "dst": "spm://tile1_b",
+                    "shape": [16, 16],
+                    "strides": [16, 1],
+                },
+                "trace": {"isa_idx": 5, "ir_operation": "load1_b"},
+            },
+            {
+                "cmd_id": "gemm_tile1",
+                "opcode": "TE_GEMM",
+                "deps": ["dma_tile1_a", "dma_tile1_b"],
+                "operands": {
+                    "m": 16,
+                    "n": 16,
+                    "k": 16,
+                    "a": "spm://tile1_a",
+                    "b": "spm://tile1_b",
+                    "c": "dram://accum",
+                },
+                "trace": {"isa_idx": 6, "ir_operation": "gemm1"},
+            },
+            {
+                "cmd_id": "fence_tile1",
+                "opcode": "FENCE_SPM",
+                "deps": ["gemm_tile1"],
+                "operands": {},
+                "trace": {"isa_idx": 7, "ir_operation": "fence1"},
+            },
+            {
+                "cmd_id": "dma_flush",
+                "opcode": "DMA_2D",
+                "deps": ["fence_tile1"],
+                "operands": {
+                    "src": "dram://accum",
+                    "dst": "dram://output",
+                    "shape": [16, 16],
+                    "strides": [16, 1],
+                },
+                "trace": {"isa_idx": 8, "ir_operation": "flush"},
+            },
+        ],
+        strict=True,
+    )
+
+    tile_shape = (16, 16)
+    inputs0_a = np.random.default_rng(0).standard_normal(tile_shape).astype(np.float32)
+    inputs0_b = np.random.default_rng(1).standard_normal(tile_shape).astype(np.float32)
+    inputs1_a = np.random.default_rng(2).standard_normal(tile_shape).astype(np.float32)
+    inputs1_b = np.random.default_rng(3).standard_normal(tile_shape).astype(np.float32)
+
+    simulator = AdaptiveSimulator()
+    simulator.load_cq_tensors(
+        {
+            "dram://inputs0_a": inputs0_a,
+            "dram://inputs0_b": inputs0_b,
+            "dram://inputs1_a": inputs1_a,
+            "dram://inputs1_b": inputs1_b,
+            "dram://accum": np.zeros(tile_shape, dtype=np.float32),
+        }
+    )
+
+    summary = simulator.run_cq_trace(queue)
+
+    assert summary["dispatch"]["executed"] == len(queue)
+    counts = summary["execution"]["count"]
+    assert counts["gemm"] == 2
+    assert counts["fence"] == 2
+    assert counts["dma"] == 5
+
+    output_entry = simulator._cq_dram_allocations["output"]
+    output_bytes = simulator.bus.read(output_entry["base"], output_entry["size"])
+    output = np.frombuffer(output_bytes, dtype=np.float32).reshape(tile_shape)
+    expected_last = inputs1_a @ inputs1_b
+    np.testing.assert_allclose(output, expected_last, rtol=1e-5, atol=1e-6)
+
+    accum_entry = simulator._cq_dram_allocations["accum"]
+    accum_bytes = simulator.bus.read(accum_entry["base"], accum_entry["size"])
+    accum = np.frombuffer(accum_bytes, dtype=np.float32).reshape(tile_shape)
+    np.testing.assert_allclose(accum, expected_last, rtol=1e-5, atol=1e-6)

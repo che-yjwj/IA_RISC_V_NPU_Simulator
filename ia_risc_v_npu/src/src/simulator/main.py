@@ -20,6 +20,7 @@ if __package__ is None:
 
 from src.cq import (
     CommandQueue,
+    CQCommand,
     CQDispatcher,
     ISASpec,
     build_execution_plan,
@@ -90,6 +91,60 @@ class SimulationReport:
 
 MIN_EVENT_DELAY = 1
 FETCH_LATENCY_SAMPLE_LIMIT = 4096
+
+
+class _CQActionExecutor:
+    """Bridge CQDispatcher commands to simulator resource handlers."""
+
+    def __init__(
+        self,
+        simulator: "AdaptiveSimulator",
+        action_lookup: Mapping[str, Dict[str, Any]],
+    ) -> None:
+        self._simulator = simulator
+        self._action_lookup = action_lookup
+        self.executed: list[str] = []
+        self.skipped: list[str] = []
+        self.counts: Dict[str, int] = {"dma": 0, "gemm": 0, "fence": 0}
+        self.actions: list[Dict[str, Any]] = []
+
+    def execute(self, command: CQCommand) -> bool:
+        action = self._action_lookup.get(command.cmd_id)
+        if action is None:
+            self._simulator.logger.warning(
+                "CQ action not found for command %s", command.cmd_id
+            )
+            self.skipped.append(command.cmd_id)
+            return False
+
+        handler = {
+            "dma": self._simulator._handle_cq_dma,
+            "gemm": self._simulator._handle_cq_gemm,
+            "fence": self._simulator._handle_cq_fence,
+        }.get(action.get("type"), self._simulator._handle_cq_unknown)
+
+        success = handler(action)
+        if success:
+            action_type = action.get("type", "unknown")
+            if action_type in self.counts:
+                self.counts[action_type] += 1
+            self.executed.append(command.cmd_id)
+            self.actions.append(action)
+        else:
+            self.skipped.append(command.cmd_id)
+
+        self._simulator.npu_cluster.schedule(self._simulator.bus.now)
+        return success
+
+    def build_report(self) -> Dict[str, Any]:
+        return {
+            "executed": list(self.executed),
+            "skipped": list(self.skipped),
+            "count": dict(self.counts),
+            "estimate_cycles": sum(self._simulator._cq_gemm_cycle_log),
+            "dma_cycles": sum(self._simulator._cq_dma_cycle_log),
+            "dma_bytes": self._simulator._cq_dma_bytes,
+        }
 
 
 class AdaptiveSimulator:
@@ -245,9 +300,6 @@ class AdaptiveSimulator:
         self._reset_cq_runtime()
         spec = isa_spec or load_isa_spec()
         plan = build_execution_plan(queue, spec)
-        dispatcher = CQDispatcher()
-        outcome = dispatcher.run(queue)
-
         action_lookup: Dict[str, dict[str, Any]] = {}
         for dma in plan.dma_ops:
             action_lookup[dma.cmd_id] = {
@@ -275,13 +327,9 @@ class AdaptiveSimulator:
                 "target": fence.target,
             }
 
-        actions: list[dict[str, Any]] = []
-        for command in queue:
-            action = action_lookup.get(command.cmd_id)
-            if action is not None:
-                actions.append(action)
-
-        execution_report = self._execute_cq_actions(actions)
+        runtime = _CQActionExecutor(self, action_lookup)
+        dispatcher = CQDispatcher(clock=lambda: self.bus.now)
+        outcome = dispatcher.run(queue, executor=runtime.execute)
 
         dispatch_summary = {
             "executed": outcome.commands_executed,
@@ -295,42 +343,15 @@ class AdaptiveSimulator:
             },
         }
 
+        execution_report = runtime.build_report()
+
         return {
             "plan_summary": plan.summary(),
             "dispatch": dispatch_summary,
-            "actions": actions,
+            "actions": runtime.actions,
             "execution": execution_report,
             "metadata": plan.metadata,
             "status": "cq_actions_executed",
-        }
-
-    def _execute_cq_actions(self, actions: list[dict[str, Any]]) -> dict[str, Any]:
-        executed: list[str] = []
-        skipped: list[str] = []
-        counts = {"dma": 0, "gemm": 0, "fence": 0}
-
-        for action in actions:
-            action_type = action.get("type")
-            if action_type in counts:
-                counts[action_type] += 1
-            handler = {
-                "dma": self._handle_cq_dma,
-                "gemm": self._handle_cq_gemm,
-                "fence": self._handle_cq_fence,
-            }.get(action_type, self._handle_cq_unknown)
-            if handler(action):
-                executed.append(action["cmd_id"])
-            else:
-                skipped.append(action["cmd_id"])
-            self.npu_cluster.schedule(self.bus.now)
-
-        return {
-            "executed": executed,
-            "skipped": skipped,
-            "count": counts,
-            "estimate_cycles": sum(self._cq_gemm_cycle_log),
-            "dma_cycles": sum(self._cq_dma_cycle_log),
-            "dma_bytes": self._cq_dma_bytes,
         }
 
     def _parse_cq_uri(self, uri: str) -> Tuple[str, str]:

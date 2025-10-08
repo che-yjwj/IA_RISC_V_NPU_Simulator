@@ -1,0 +1,10 @@
+{"metadata": {"name": "multi_tile_gemm", "description": "Two-tile GEMM accumulation with repeated fences", "version": 1}}
+{"cmd_id": "dma_tile0_a", "opcode": "DMA_2D", "operands": {"src": "dram://inputs0_a", "dst": "spm://tile0_a", "shape": [16, 16], "strides": [16, 1]}, "trace": {"ir_id": "tile0", "isa_idx": 0, "ir_operation": "load0_a"}}
+{"cmd_id": "dma_tile0_b", "opcode": "DMA_2D", "operands": {"src": "dram://inputs0_b", "dst": "spm://tile0_b", "shape": [16, 16], "strides": [16, 1]}, "trace": {"ir_id": "tile0", "isa_idx": 1, "ir_operation": "load0_b"}}
+{"cmd_id": "gemm_tile0", "opcode": "TE_GEMM", "deps": ["dma_tile0_a", "dma_tile0_b"], "operands": {"m": 16, "n": 16, "k": 16, "a": "spm://tile0_a", "b": "spm://tile0_b", "c": "dram://accum"}, "trace": {"ir_id": "tile0", "isa_idx": 2, "ir_operation": "gemm0"}}
+{"cmd_id": "fence_tile0", "opcode": "FENCE_SPM", "deps": ["gemm_tile0"], "operands": {}, "trace": {"ir_id": "tile0", "isa_idx": 3, "ir_operation": "fence0"}}
+{"cmd_id": "dma_tile1_a", "opcode": "DMA_2D", "deps": ["fence_tile0"], "operands": {"src": "dram://inputs1_a", "dst": "spm://tile1_a", "shape": [16, 16], "strides": [16, 1]}, "trace": {"ir_id": "tile1", "isa_idx": 4, "ir_operation": "load1_a"}}
+{"cmd_id": "dma_tile1_b", "opcode": "DMA_2D", "deps": ["fence_tile0"], "operands": {"src": "dram://inputs1_b", "dst": "spm://tile1_b", "shape": [16, 16], "strides": [16, 1]}, "trace": {"ir_id": "tile1", "isa_idx": 5, "ir_operation": "load1_b"}}
+{"cmd_id": "gemm_tile1", "opcode": "TE_GEMM", "deps": ["dma_tile1_a", "dma_tile1_b"], "operands": {"m": 16, "n": 16, "k": 16, "a": "spm://tile1_a", "b": "spm://tile1_b", "c": "dram://accum"}, "trace": {"ir_id": "tile1", "isa_idx": 6, "ir_operation": "gemm1"}}
+{"cmd_id": "fence_tile1", "opcode": "FENCE_SPM", "deps": ["gemm_tile1"], "operands": {}, "trace": {"ir_id": "tile1", "isa_idx": 7, "ir_operation": "fence1"}}
+{"cmd_id": "dma_flush", "opcode": "DMA_2D", "deps": ["fence_tile1"], "operands": {"src": "dram://accum", "dst": "dram://output", "shape": [16, 16], "strides": [16, 1]}, "trace": {"ir_id": "final", "isa_idx": 8, "ir_operation": "flush"}}
