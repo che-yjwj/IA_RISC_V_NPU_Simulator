@@ -28,6 +28,8 @@ plan = build_execution_plan(queue, spec)
 print(plan.summary())
 ```
 
+`CQDispatcher`는 시뮬레이터 스캐폴드를 통해 커맨드 큐(CQ)를 실행하는 핵심 요소입니다. 이 디스패처는 `AdaptiveSimulator.run_cq_trace`와 동일한 자원 스케줄링 파이프라인을 사용하여 명령을 직접 스트리밍하므로, CLI에서 얻는 결과와 동일한 정확한 시뮬레이션 결과를 제공합니다. 이를 통해 DMA, 버스, TE(Tensor Engine), SPM(Scratchpad Memory) 등 자원 모델의 동작을 일관되게 반영할 수 있습니다.
+
 You can also run the queue through the simulator scaffold to obtain dispatcher
 stats. The CQ path now streams commands directly via `CQDispatcher`, so the
 results reflect the same resource scheduling pipeline used by the CLI:

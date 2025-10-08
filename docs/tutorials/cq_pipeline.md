@@ -16,6 +16,9 @@ python -m src.cq.tools.plan_generator \
 ```
 
 ## 3. CQ 실행
+
+`run-cq` CLI 명령어는 `CQDispatcher`를 활용하여 커맨드 큐(CQ)를 처리하고 시뮬레이션 결과를 생성합니다. 이 방식은 `AdaptiveSimulator.run_cq_trace`와 동일한 디스패처 기반 실행 파이프라인을 공유하며, DMA, 버스, TE(Tensor Engine), SPM(Scratchpad Memory) 등 자원 모델을 효율적으로 관리합니다. CLI 출력의 `dispatch` 및 `execution` 섹션은 디스패처가 기록한 큐 대기 시간과 자원 사용 통계를 상세하게 반영합니다.
+
 ```bash
 python -m src.simulator.cli run-cq \
   --trace /tmp/sample_plan.jsonl \
