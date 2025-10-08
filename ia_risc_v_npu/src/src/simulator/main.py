@@ -33,6 +33,7 @@ from src.cq.models import (
     ScratchpadTimingModel,
     TensorEngineTimingModel,
 )
+from src.cq.scheduler import lane_for_command
 from src.npu.cluster import ClusterPolicy, ClusterTask, NPUCluster
 from src.npu.model import NPU
 from src.risc_v.engine import (
@@ -306,6 +307,7 @@ class AdaptiveSimulator:
 
         self._reset_cq_runtime()
         spec = isa_spec or load_isa_spec()
+        command_lookup = {command.cmd_id: command for command in queue}
         plan = build_execution_plan(queue, spec)
         action_lookup: Dict[str, dict[str, Any]] = {}
         for dma in plan.dma_ops:
@@ -357,6 +359,35 @@ class AdaptiveSimulator:
                 "max_concurrency": dict(outcome.stats.lane_max_concurrency),
             },
         }
+
+        trace_timestamps = outcome.trace.timestamps
+        timeline_entries: list[dict[str, Any]] = []
+        for cmd_id, stamps in trace_timestamps.items():
+            command = command_lookup.get(cmd_id)
+            lane = lane_for_command(command) if command is not None else "unknown"
+            queued_tick = stamps.get("queued")
+            start_tick = stamps.get("scheduled", queued_tick)
+            end_tick = stamps.get("completed", start_tick)
+            if start_tick is None:
+                start_tick = queued_tick or 0
+            if end_tick is None:
+                end_tick = start_tick
+            duration = max(0, int(end_tick) - int(start_tick))
+            timeline_entries.append(
+                {
+                    "cmd_id": cmd_id,
+                    "lane": lane,
+                    "queued_tick": (
+                        int(queued_tick) if queued_tick is not None else None
+                    ),
+                    "start_tick": int(start_tick),
+                    "end_tick": int(end_tick),
+                    "duration_ticks": duration,
+                    "states": outcome.trace.states(cmd_id),
+                }
+            )
+        timeline_entries.sort(key=lambda item: (item["start_tick"], item["cmd_id"]))
+        dispatch_summary["timeline"] = timeline_entries
 
         execution_report = runtime.build_report()
 
