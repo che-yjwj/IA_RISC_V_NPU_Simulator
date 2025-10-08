@@ -7,6 +7,8 @@ the experimental `run-cq` CLI subcommand.
   the JSONL schema (metadata header followed by command entries).
 - `multi_tile_gemm.jsonl` – Two GEMM tiles with repeated DMA/FENCE steps that
   accumulate into a shared output buffer.
+- `sample_conv.yaml/jsonl` – Conv→GEMM lowering example with explicit DMA load/store,
+  GEMM compute, and an SPM fence to flush the tile.
 
 Validate a trace with:
 
@@ -62,7 +64,9 @@ sim.load_cq_tensors(
 summary = sim.run_cq_trace(queue)
 print(summary["dispatch"]["queue_wait"])
 print(summary["dispatch"]["lane_usage"])
-print(summary["execution"]["count"])  # DMA/GEMM/FENCE counts recorded by dispatcher
+
+# Note: When using the CLI with --simulate, the summary is nested under the "cq_execution" key.
+# The Python API returns the summary directly.
 
 # Multi-tile example: aligns with tests/integration/test_cq_dispatcher.py::test_cq_multi_gemm_with_repeated_fence
 queue_mt = load_cq_trace("workloads/cq/multi_tile_gemm.jsonl")

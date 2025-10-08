@@ -32,6 +32,22 @@
 | b | address | yes | Source buffer for matrix B. |
 | c | address | no | Optional destination buffer override. |
 
+### TE_CONV2D
+- **Category:** tensor_engine
+- **Summary:** 2D convolution executed via GEMM lowering on the tensor engine.
+- **Tags:** compute
+
+#### Operands
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| input | address | yes | Source activation tensor URI. |
+| weights | address | yes | Filter tensor URI. |
+| output | address | yes | Destination tensor URI. |
+| stride | int[2] | no | [stride_h, stride_w] overrides (default 1). |
+| padding | int[2] | no | [pad_top, pad_left] symmetric padding. |
+| dilation | int[2] | no | [dilation_h, dilation_w] factors. |
+| groups | int | no | Group count for grouped convolution. |
+
 ### FENCE_SPM
 - **Category:** synchronisation
 - **Summary:** Synchronise outstanding scratchpad memory operations.

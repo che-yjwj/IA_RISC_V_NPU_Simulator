@@ -52,3 +52,8 @@
 - **Golden drift**: Conv workloads may introduce longer runtimes — keep sample tensor sizes small and document expected cycle counts.
 - **Scheduler mismatch**: If Conv maps to GEMM opcodes, lane accounting must stay consistent — add regression tests verifying `lane_usage` counters for Conv-derived commands.
 - **Doc/code divergence**: Tie regeneration commands into checklist and note them in `project_board.md` to keep specs aligned.
+
+## 7. Progress Notes
+- TE_CONV2D opcode 추가 및 자동 문서화 파이프라인(`generate_cq_models`, `generate_isa_cq_reference`) 갱신 완료.
+- Conv→GEMM 매핑을 검증하는 단위/통합 테스트가 `tests/unit/test_cq_mapper_conv.py`, `tests/integration/test_cli_run_cq.py::test_run_cq_simulate_conv_workload`에 추가됨.
+- 샘플/골든 자산(`workloads/cq/sample_conv.*`, `workloads/golden/cq_conv_single*`)이 Accuracy Guard 경로와 연동되고 문서(`docs/tutorials/cq_pipeline.md`)에 소개됨.

@@ -58,6 +58,6 @@ Stage 0 — 리포 준비 & 가드레일
 - [x] 튜토리얼 노트북 작성 (백로그 `CQ-BG-008`) — `run-cq --simulate`, Accuracy Guard, 레인 통계 해석을 통합한 워크플로 문서화 (`docs/tutorials/cq_pipeline.md`, `stage9_doc_plan.md`)
 
 ## Stage 10 — Conv→GEMM 확장
-- [ ] ISA 업데이트 및 코드젠 반영 (`specs/isa.yaml`, `src/cq/generated/*`, `docs/reference/isa_cq_reference.md`, `stage10_conv_plan.md`)
-- [ ] Conv IR→CQ 매핑 규칙 및 단위 테스트 (`src/cq/rules/conv.yaml`, `tests/unit/test_cq_mapper_conv.py`)
-- [ ] Conv CQ 샘플/골든 자산 + 시뮬레이터 통합 (`workloads/cq/sample_conv.*`, `workloads/golden/`, `tests/integration/test_cli_run_cq.py`, `docs/tutorials/cq_pipeline.md`)
+- [x] ISA 업데이트 및 코드젠 반영 (`specs/isa.yaml`, `src/cq/generated/*`, `docs/reference/isa_cq_reference.md`, `stage10_conv_plan.md`)
+- [x] Conv IR→CQ 매핑 규칙 및 단위 테스트 (`src/cq/rules/conv.yaml`, `tests/unit/test_cq_mapper_conv.py`)
+- [x] Conv CQ 샘플/골든 자산 + 시뮬레이터 통합 (`workloads/cq/sample_conv.*`, `workloads/golden/`, `tests/integration/test_cli_run_cq.py`, `docs/tutorials/cq_pipeline.md`)
