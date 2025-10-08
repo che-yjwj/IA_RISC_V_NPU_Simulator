@@ -257,9 +257,7 @@ def _validate_cq_dispatcher(
     if "lane_limits" in data:
         lane_limits = data["lane_limits"]
         if not isinstance(lane_limits, dict):
-            raise ConfigValidationError(
-                "cq.dispatcher.lane_limits must be an object"
-            )
+            raise ConfigValidationError("cq.dispatcher.lane_limits must be an object")
         resolved: Dict[str, int] = deepcopy(result.get("lane_limits", {}))
         for lane, value in lane_limits.items():
             if not isinstance(lane, str):

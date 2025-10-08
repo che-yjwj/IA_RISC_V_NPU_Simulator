@@ -813,7 +813,10 @@ def build_parser() -> argparse.ArgumentParser:
     cq_parser.add_argument(
         "--simulate",
         action="store_true",
-        help="Execute the CQ trace with the simulator and include dispatcher statistics.",
+        help=(
+            "Execute the CQ trace with the simulator and include dispatcher "
+            "statistics."
+        ),
     )
     _add_logging_arguments(cq_parser)
     _add_cq_dispatcher_arguments(cq_parser)

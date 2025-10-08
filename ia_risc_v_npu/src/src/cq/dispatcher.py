@@ -221,7 +221,8 @@ class CQDispatcher:
                 unschedulable = [
                     command
                     for command in commands
-                    if command.cmd_id in pending_ids and command.cmd_id not in rejected_ids
+                    if command.cmd_id in pending_ids
+                    and command.cmd_id not in rejected_ids
                 ]
                 if not unschedulable:
                     break
@@ -359,9 +360,7 @@ class CQDispatcher:
             try:
                 capacity = int(value)
             except (TypeError, ValueError) as exc:  # pragma: no cover - defensive guard
-                raise ValueError(
-                    f"lane limit for '{lane}' must be an integer"
-                ) from exc
+                raise ValueError(f"lane limit for '{lane}' must be an integer") from exc
             if capacity < 1:
                 raise ValueError(
                     f"lane limit for '{lane}' must be >= 1 (got {capacity})"

@@ -87,7 +87,9 @@ def test_adaptive_simulator_applies_validated_config(monkeypatch):
     )
     config["npu"].update({"cores": 3, "policy": "rr"})
 
-    config["cq"]["dispatcher"].update({"policy": "edf", "lane_limits": {"dma": 2, "te": 2, "fence": 1, "misc": 1}})
+    config["cq"]["dispatcher"].update(
+        {"policy": "edf", "lane_limits": {"dma": 2, "te": 2, "fence": 1, "misc": 1}}
+    )
 
     captured = {}
 
