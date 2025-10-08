@@ -70,6 +70,25 @@ Plotly Express `px.timeline` 등으로 바로 시각화할 수 있습니다.
 Jupyter 노트북 예시는 `notebooks/cq_pipeline_walkthrough.ipynb`를 참고하세요
 (`pip install plotly`가 필요).
 
+### 3.4 Conv→GEMM 샘플 실행
+
+Stage 10에서는 Conv IR을 GEMM 커맨드로 낮춰 동일한 CQ 경로를 재사용합니다.
+`workloads/cq/sample_conv.yaml`을 사용하면 DMA 로드/스토어 + GEMM + FENCE 흐름을
+한 번에 살펴볼 수 있습니다.
+
+```bash
+python -m src.cq.tools.plan_generator \
+  --input workloads/cq/sample_conv.yaml \
+  --output /tmp/sample_conv.jsonl
+
+python -m src.simulator.cli run-cq /tmp/sample_conv.jsonl \
+  --simulate \
+  --output /tmp/sample_conv_summary.json
+```
+
+출력에는 `trace.source_opcode: TE_CONV2D` 메타데이터가 포함되며,
+`dispatch.timeline`에서 conv 파생 GEMM 단계의 대기/실행 구간을 확인할 수 있습니다.
+
 ### 3.1 실행 단계 흐름
 1. `load_cq_trace`가 JSONL을 파싱해 `CommandQueue`를 생성합니다.
 2. `build_execution_plan`이 ISA 명세 기반으로 DMA/GEMM/FENCE 액션을 정리합니다.

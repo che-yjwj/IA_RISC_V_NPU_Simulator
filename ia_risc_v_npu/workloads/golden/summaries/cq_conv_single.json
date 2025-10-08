@@ -1,0 +1,121 @@
+{
+  "plan_summary": {
+    "dma": 3,
+    "gemm": 1,
+    "fence": 1
+  },
+  "dispatch": {
+    "executed": 5,
+    "completed": [
+      "dma_conv_input",
+      "dma_conv_weights",
+      "conv_tile0_gemm",
+      "dma_conv_store",
+      "fence_conv_flush"
+    ],
+    "rejected": [],
+    "queue_wait": {
+      "average": 152.4,
+      "max": 293,
+      "total": 762,
+      "zero_wait": 1
+    },
+    "lane_usage": {
+      "totals": {
+        "dma": 3,
+        "te": 1,
+        "fence": 1
+      },
+      "max_concurrency": {
+        "dma": 1,
+        "te": 1,
+        "fence": 1
+      }
+    }
+  },
+  "actions": [
+    {
+      "type": "dma",
+      "cmd_id": "dma_conv_input",
+      "src": "dram://conv_inputs",
+      "dst": "spm://conv_input_tile",
+      "shape": [
+        16,
+        16
+      ],
+      "strides": [
+        16,
+        1
+      ]
+    },
+    {
+      "type": "dma",
+      "cmd_id": "dma_conv_weights",
+      "src": "dram://conv_weights",
+      "dst": "spm://conv_weight_tile",
+      "shape": [
+        16,
+        8
+      ],
+      "strides": [
+        8,
+        1
+      ]
+    },
+    {
+      "type": "gemm",
+      "cmd_id": "conv_tile0_gemm",
+      "m": 16,
+      "n": 8,
+      "k": 16,
+      "inputs": {
+        "a": "spm://conv_input_tile",
+        "b": "spm://conv_weight_tile"
+      },
+      "output": "spm://conv_output_tile"
+    },
+    {
+      "type": "dma",
+      "cmd_id": "dma_conv_store",
+      "src": "spm://conv_output_tile",
+      "dst": "dram://conv_outputs",
+      "shape": [
+        16,
+        8
+      ],
+      "strides": [
+        8,
+        1
+      ]
+    },
+    {
+      "type": "fence",
+      "cmd_id": "fence_conv_flush",
+      "target": null
+    }
+  ],
+  "execution": {
+    "executed": [
+      "dma_conv_input",
+      "dma_conv_weights",
+      "conv_tile0_gemm",
+      "dma_conv_store",
+      "fence_conv_flush"
+    ],
+    "skipped": [],
+    "count": {
+      "dma": 3,
+      "gemm": 1,
+      "fence": 1
+    },
+    "estimate_cycles": 18,
+    "dma_cycles": 137,
+    "dma_bytes": 2048
+  },
+  "status": "cq_actions_executed",
+  "metadata": {
+    "workload_id": "cq_conv_single",
+    "description": "Single-tile Conv\u2192GEMM lowering with DMA load/store and fence."
+  },
+  "status": "cq_actions_executed"
+}

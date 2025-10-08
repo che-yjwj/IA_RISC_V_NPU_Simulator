@@ -1,0 +1,66 @@
+metadata:
+  name: sample_conv
+  description: Single-tile Conv→GEMM CQ workload
+  version: 1
+commands:
+  - cmd_id: dma_conv_input
+    opcode: DMA_2D
+    operands:
+      src: dram://conv_inputs
+      dst: spm://conv_input_tile
+      shape: [16, 16]
+      strides: [16, 1]
+    trace:
+      ir_id: conv_tile0
+      isa_idx: 0
+      ir_operation: load_activation
+  - cmd_id: dma_conv_weights
+    opcode: DMA_2D
+    operands:
+      src: dram://conv_weights
+      dst: spm://conv_weight_tile
+      shape: [16, 8]
+      strides: [8, 1]
+    trace:
+      ir_id: conv_tile0
+      isa_idx: 1
+      ir_operation: load_weights
+  - cmd_id: conv_tile0_gemm
+    opcode: TE_GEMM
+    deps:
+      - dma_conv_input
+      - dma_conv_weights
+    operands:
+      m: 16
+      n: 8
+      k: 16
+      a: spm://conv_input_tile
+      b: spm://conv_weight_tile
+      c: spm://conv_output_tile
+    trace:
+      ir_id: conv_tile0
+      isa_idx: 2
+      ir_operation: te_conv2d_lowered
+      source_opcode: TE_CONV2D
+  - cmd_id: dma_conv_store
+    opcode: DMA_2D
+    deps:
+      - conv_tile0_gemm
+    operands:
+      src: spm://conv_output_tile
+      dst: dram://conv_outputs
+      shape: [16, 8]
+      strides: [8, 1]
+    trace:
+      ir_id: conv_tile0
+      isa_idx: 3
+      ir_operation: store_output
+  - cmd_id: fence_conv_flush
+    opcode: FENCE_SPM
+    deps:
+      - dma_conv_store
+    operands: {}
+    trace:
+      ir_id: conv_tile0
+      isa_idx: 4
+      ir_operation: fence

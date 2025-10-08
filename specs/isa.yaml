@@ -53,6 +53,40 @@ operations:
         description: Optional destination buffer override.
     tags:
       - compute
+  - name: TE_CONV2D
+    category: tensor_engine
+    summary: "2D convolution executed via GEMM lowering on the tensor engine."
+    operands:
+      input:
+        type: address
+        required: true
+        description: Source activation tensor URI.
+      weights:
+        type: address
+        required: true
+        description: Filter tensor URI.
+      output:
+        type: address
+        required: true
+        description: Destination tensor URI.
+      stride:
+        type: int[2]
+        required: false
+        description: "[stride_h, stride_w] overrides (default 1)."
+      padding:
+        type: int[2]
+        required: false
+        description: "[pad_top, pad_left] symmetric padding."
+      dilation:
+        type: int[2]
+        required: false
+        description: "[dilation_h, dilation_w] factors."
+      groups:
+        type: int
+        required: false
+        description: "Group count for grouped convolution."
+    tags:
+      - compute
   - name: FENCE_SPM
     category: synchronisation
     summary: "Synchronise outstanding scratchpad memory operations."

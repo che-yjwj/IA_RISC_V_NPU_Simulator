@@ -15,6 +15,8 @@ automation once the trace pipeline is fully wired up.
 - `manifest.py` – lightweight registry describing each workload, including the
   intended trace plan and the placeholder location for future accuracy guard
   summaries.
+- 신규 Stage 10 자산: `cq_conv_single` (Conv→GEMM 단일 타일) 플랜/트레이스/요약이 추가되어
+  Conv 파이프라인 회귀도 Accuracy Guard로 측정할 수 있습니다.
 
 ## Regeneration Workflow
 

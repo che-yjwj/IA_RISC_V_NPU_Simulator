@@ -7,6 +7,9 @@
 - Output JSON (simulate mode):
   - `cq_execution.dispatch.timeline` → per-command ticks (`cmd_id,start_tick,end_tick,lane`)
   - `cq_execution.config` → resolved dispatcher policy/lane limits for reproducibility
+- Sample traces:
+  - `workloads/cq/sample_gemm.yaml` (baseline GEMM)
+  - `workloads/cq/sample_conv.yaml` (Conv→GEMM lowering with fence)
 - TODO: Add detailed argument table and examples.
 
 ## check_cq_accuracy

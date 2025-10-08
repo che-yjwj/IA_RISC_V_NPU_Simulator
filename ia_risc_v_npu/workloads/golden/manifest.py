@@ -93,6 +93,15 @@ def _build_manifest() -> Dict[str, GoldenWorkload]:
             accuracy_summary_relpath="summaries/cq_gemm_pipeline.json",
             tags=("gemm", "pipeline"),
         ),
+        "cq_conv_single": GoldenWorkload(
+            workload_id="cq_conv_single",
+            plan_relpath="plans/cq_conv_single.yaml",
+            trace_relpath="traces/cq_conv_single.jsonl",
+            config_relpath="configs/cq_conv_single.json",
+            description="Single-tile conv lowering into GEMM with DMA load/store and fence.",
+            accuracy_summary_relpath="summaries/cq_conv_single.json",
+            tags=("conv", "gemm"),
+        ),
         "cq_mixed_latency": GoldenWorkload(
             workload_id="cq_mixed_latency",
             plan_relpath="plans/cq_mixed_latency.yaml",
