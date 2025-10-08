@@ -19,9 +19,7 @@ class CQCommandModel(BaseModel):
         extra = "allow"
 
     @root_validator(pre=True)
-    def _alias_dependencies(
-        cls, values: Dict[str, Any]
-    ) -> Dict[str, Any]:
+    def _alias_dependencies(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         if "deps" not in values and "dependencies" in values:
             values["deps"] = values.pop("dependencies")
         return values

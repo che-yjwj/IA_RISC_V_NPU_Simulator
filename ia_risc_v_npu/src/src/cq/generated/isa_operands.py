@@ -112,19 +112,19 @@ class DMA_2D_Operands:
     @classmethod
     def from_command(cls, command: "CQCommand") -> "DMA_2D_Operands":
         operands = command.operands
-        src_raw = _require_operand(command, operands, 'src')
-        src = _coerce_str(src_raw, command, 'DMA_2D.src')
-        dst_raw = _require_operand(command, operands, 'dst')
-        dst = _coerce_str(dst_raw, command, 'DMA_2D.dst')
-        shape_raw = _require_operand(command, operands, 'shape')
+        src_raw = _require_operand(command, operands, "src")
+        src = _coerce_str(src_raw, command, "DMA_2D.src")
+        dst_raw = _require_operand(command, operands, "dst")
+        dst = _coerce_str(dst_raw, command, "DMA_2D.dst")
+        shape_raw = _require_operand(command, operands, "shape")
         shape = _coerce_tuple(
             _coerce_int,
             2,
             shape_raw,
             command,
-            'DMA_2D.shape',
+            "DMA_2D.shape",
         )
-        strides_raw = _optional_operand(command, operands, 'strides')
+        strides_raw = _optional_operand(command, operands, "strides")
         if strides_raw is None:
             strides = None
         else:
@@ -133,7 +133,7 @@ class DMA_2D_Operands:
                 2,
                 strides_raw,
                 command,
-                'DMA_2D.strides',
+                "DMA_2D.strides",
             )
 
         return cls(
@@ -156,21 +156,21 @@ class TE_GEMM_Operands:
     @classmethod
     def from_command(cls, command: "CQCommand") -> "TE_GEMM_Operands":
         operands = command.operands
-        m_raw = _require_operand(command, operands, 'm')
-        m = _coerce_int(m_raw, command, 'TE_GEMM.m')
-        n_raw = _require_operand(command, operands, 'n')
-        n = _coerce_int(n_raw, command, 'TE_GEMM.n')
-        k_raw = _require_operand(command, operands, 'k')
-        k = _coerce_int(k_raw, command, 'TE_GEMM.k')
-        a_raw = _require_operand(command, operands, 'a')
-        a = _coerce_str(a_raw, command, 'TE_GEMM.a')
-        b_raw = _require_operand(command, operands, 'b')
-        b = _coerce_str(b_raw, command, 'TE_GEMM.b')
-        c_raw = _optional_operand(command, operands, 'c')
+        m_raw = _require_operand(command, operands, "m")
+        m = _coerce_int(m_raw, command, "TE_GEMM.m")
+        n_raw = _require_operand(command, operands, "n")
+        n = _coerce_int(n_raw, command, "TE_GEMM.n")
+        k_raw = _require_operand(command, operands, "k")
+        k = _coerce_int(k_raw, command, "TE_GEMM.k")
+        a_raw = _require_operand(command, operands, "a")
+        a = _coerce_str(a_raw, command, "TE_GEMM.a")
+        b_raw = _require_operand(command, operands, "b")
+        b = _coerce_str(b_raw, command, "TE_GEMM.b")
+        c_raw = _optional_operand(command, operands, "c")
         if c_raw is None:
             c = None
         else:
-            c = _coerce_str(c_raw, command, 'TE_GEMM.c')
+            c = _coerce_str(c_raw, command, "TE_GEMM.c")
 
         return cls(
             m=m,

@@ -252,7 +252,7 @@ def _generate_operands_module(spec: Mapping[str, Any]) -> str:
         "from src.cq.spec import ISASpecError",
         "",
         "if TYPE_CHECKING:",
-            "    from src.cq.schema import CQCommand",
+        "    from src.cq.schema import CQCommand",
         "",
         "",
         'def _require_operand(command: "CQCommand", operands: dict, name: str) -> Any:',
