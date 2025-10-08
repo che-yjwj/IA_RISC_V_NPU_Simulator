@@ -114,18 +114,31 @@ def _render_operand(
     ]
     if annotation.startswith("Tuple["):
         tuple_len = annotation.count(",") + 1
-        tuple_call = (
-            f"_coerce_tuple({func}, {tuple_len}, {value_var}, command, '{context}')"
-        )
         if required:
-            lines.append(f"{operand_name} = {tuple_call}")
+            lines.extend(
+                [
+                    f"{operand_name} = _coerce_tuple(",
+                    f"    {func},",
+                    f"    {tuple_len},",
+                    f"    {value_var},",
+                    "    command,",
+                    f"    '{context}',",
+                    ")",
+                ]
+            )
         else:
             lines.extend(
                 [
                     f"if {value_var} is None:",
                     f"    {operand_name} = None",
                     "else:",
-                    f"    {operand_name} = {tuple_call}",
+                    f"    {operand_name} = _coerce_tuple(",
+                    f"        {func},",
+                    f"        {tuple_len},",
+                    f"        {value_var},",
+                    "        command,",
+                    f"        '{context}',",
+                    "    )",
                 ]
             )
     else:
@@ -150,6 +163,15 @@ def _generate_operands_module(spec: Mapping[str, Any]) -> str:
     operations = spec.get("operations", [])
     if not isinstance(operations, Iterable):
         raise ValueError("ISA spec 'operations' must be an iterable")
+
+    def _error_lines(*parts: str) -> list[str]:
+        lines = [
+            "        raise ISASpecError(",
+            "            (",
+        ]
+        lines.extend(f"                {part}" for part in parts)
+        lines.extend(["            )", "        )"])
+        return lines
 
     class_blocks: list[list[str]] = []
     class_names: list[str] = []
@@ -196,13 +218,16 @@ def _generate_operands_module(spec: Mapping[str, Any]) -> str:
                 "",
                 "    @classmethod",
                 f'    def from_command(cls, command: "CQCommand") -> "{class_name}":',
-                "        operands = command.operands",
             ]
         )
-        for block in extractor_blocks:
-            for line in block:
-                class_lines.append(f"        {line}")
+        if extractor_blocks:
+            class_lines.append("        operands = command.operands")
+            for block in extractor_blocks:
+                for line in block:
+                    class_lines.append(f"        {line}")
         if operand_order:
+            if not extractor_blocks:
+                class_lines.append("        operands = command.operands")
             class_lines.append("")
             class_lines.append("        return cls(")
             for name in operand_order:
@@ -211,9 +236,11 @@ def _generate_operands_module(spec: Mapping[str, Any]) -> str:
         else:
             class_lines.append("        return cls()")
 
+        class_lines.append("")
+
         class_blocks.append(class_lines)
 
-    helper_imports = ", ".join(sorted(imports))
+    helper_imports = ", ".join(["TYPE_CHECKING", *sorted(imports)])
     header_lines = [
         "# Auto-generated via scripts/generate_cq_models.py. Do not edit manually.",
         "",
@@ -224,17 +251,16 @@ def _generate_operands_module(spec: Mapping[str, Any]) -> str:
         "",
         "from src.cq.spec import ISASpecError",
         "",
-        "from typing import TYPE_CHECKING",
-        "",
         "if TYPE_CHECKING:",
-        "    from src.cq.schema import CQCommand",
+            "    from src.cq.schema import CQCommand",
         "",
         "",
         'def _require_operand(command: "CQCommand", operands: dict, name: str) -> Any:',
         "    if name not in operands:",
-        "        raise ISASpecError(",
-        "            f\"Command '{command.cmd_id}' ({command.opcode}) operand '{name}' must be present\"",
-        "        )",
+        *_error_lines(
+            "f\"Command '{command.cmd_id}' ({command.opcode}) \"",
+            "f\"operand '{name}' must be present\"",
+        ),
         "    return operands[name]",
         "",
         "",
@@ -244,33 +270,37 @@ def _generate_operands_module(spec: Mapping[str, Any]) -> str:
         "",
         'def _coerce_int(value: Any, command: "CQCommand", name: str) -> int:',
         "    if not isinstance(value, int):",
-        "        raise ISASpecError(",
-        "            f\"Command '{command.cmd_id}' ({command.opcode}) operand '{name}' must be an integer\"",
-        "        )",
+        *_error_lines(
+            "f\"Command '{command.cmd_id}' ({command.opcode}) \"",
+            "f\"operand '{name}' must be an integer\"",
+        ),
         "    return int(value)",
         "",
         "",
         'def _coerce_float(value: Any, command: "CQCommand", name: str) -> float:',
         "    if not isinstance(value, (int, float)):",
-        "        raise ISASpecError(",
-        "            f\"Command '{command.cmd_id}' ({command.opcode}) operand '{name}' must be numeric\"",
-        "        )",
+        *_error_lines(
+            "f\"Command '{command.cmd_id}' ({command.opcode}) \"",
+            "f\"operand '{name}' must be numeric\"",
+        ),
         "    return float(value)",
         "",
         "",
         'def _coerce_bool(value: Any, command: "CQCommand", name: str) -> bool:',
         "    if not isinstance(value, bool):",
-        "        raise ISASpecError(",
-        "            f\"Command '{command.cmd_id}' ({command.opcode}) operand '{name}' must be boolean\"",
-        "        )",
+        *_error_lines(
+            "f\"Command '{command.cmd_id}' ({command.opcode}) \"",
+            "f\"operand '{name}' must be boolean\"",
+        ),
         "    return bool(value)",
         "",
         "",
         'def _coerce_str(value: Any, command: "CQCommand", name: str) -> str:',
         "    if not isinstance(value, str) or not value:",
-        "        raise ISASpecError(",
-        "            f\"Command '{command.cmd_id}' ({command.opcode}) operand '{name}' must be a non-empty string\"",
-        "        )",
+        *_error_lines(
+            "f\"Command '{command.cmd_id}' ({command.opcode}) \"",
+            "f\"operand '{name}' must be a non-empty string\"",
+        ),
         "    return value",
         "",
         "",
@@ -286,19 +316,22 @@ def _generate_operands_module(spec: Mapping[str, Any]) -> str:
         "    name: str,",
         ") -> Tuple[Any, ...]:",
         "    if not isinstance(value, (list, tuple)):",
-        "        raise ISASpecError(",
-        "            f\"Command '{command.cmd_id}' ({command.opcode}) operand '{name}' must be a sequence\"",
-        "        )",
+        *_error_lines(
+            "f\"Command '{command.cmd_id}' ({command.opcode}) \"",
+            "f\"operand '{name}' must be a sequence\"",
+        ),
         "    if len(value) != length:",
-        "        raise ISASpecError(",
-        "            f\"Command '{command.cmd_id}' ({command.opcode}) operand '{name}' must contain exactly {length} entries\"",
-        "        )",
+        *_error_lines(
+            "f\"Command '{command.cmd_id}' ({command.opcode}) \"",
+            "f\"operand '{name}' must contain exactly {length} entries\"",
+        ),
         "    coerced = [",
         '        element_fn(item, command, f"{name}[{index}]")',
         "        for index, item in enumerate(value)",
         "    ]",
         "    return tuple(coerced)",
     ]
+    header_lines.append("")
 
     body = ["\n".join(lines) for lines in class_blocks]
 
@@ -324,7 +357,7 @@ def _generate_command_model(schema: Mapping[str, Any]) -> str:
         "",
         "from __future__ import annotations",
         "",
-        "from typing import Any, Dict, List, Optional",
+        "from typing import Any, Dict, List",
         "",
         "from pydantic import BaseModel, Field, ValidationError, root_validator, validator",
         "",
@@ -372,7 +405,7 @@ def _generate_command_model(schema: Mapping[str, Any]) -> str:
         "",
         '__all__ = ["CQCommandModel", "ValidationError"]',
     ]
-    return "\n".join(lines)
+    return "\n".join(lines) + "\n"
 
 
 def main(argv: Sequence[str] | None = None) -> None:
@@ -390,7 +423,7 @@ def main(argv: Sequence[str] | None = None) -> None:
 
     GENERATED_ROOT.mkdir(parents=True, exist_ok=True)
     (GENERATED_ROOT / "isa_operands.py").write_text(
-        _generate_operands_module(spec), encoding="utf-8"
+        _generate_operands_module(spec) + "\n", encoding="utf-8"
     )
     (GENERATED_ROOT / "command_model.py").write_text(
         _generate_command_model(schema), encoding="utf-8"
