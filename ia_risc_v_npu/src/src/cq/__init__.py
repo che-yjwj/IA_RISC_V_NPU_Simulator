@@ -20,6 +20,8 @@ from .dispatcher import (
     DispatchTrace,
     replay_dependencies,
 )
+from .generated.command_model import CQCommandModel
+from .generated.isa_operands import OPERAND_MODELS
 from .generator import generate_command_queue
 from .io import dump_cq_trace, load_cq_trace
 from .mapper import Rule, RuleError, load_rules, map_ir_to_isa
@@ -77,4 +79,6 @@ __all__ = [
     "DMATransferPlan",
     "ScratchpadTimingModel",
     "TensorEngineTimingModel",
+    "CQCommandModel",
+    "OPERAND_MODELS",
 ]

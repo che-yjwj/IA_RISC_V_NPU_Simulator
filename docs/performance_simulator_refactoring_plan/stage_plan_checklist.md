@@ -34,9 +34,9 @@ Stage 0 — 리포 준비 & 가드레일
 - [x] CQ 텐서 초기화/실데이터 주입 (`AdaptiveSimulator.load_cq_tensors`)
 
 ## Stage 5 — Spec-Codegen v1
-- [ ] `isa.yaml` → dataclass 자동 생성 (백로그 `CQ-BG-002`)
-- [ ] `cq.schema.json` → Pydantic 모델 생성 (백로그 `CQ-BG-002`)
-- [ ] pre-commit 훅 추가 (백로그 `CQ-BG-002`)
+- [x] `isa.yaml` → dataclass 자동 생성 (백로그 `CQ-BG-002`, `src/scripts/generate_cq_models.py`, `src/cq/generated/isa_operands.py`)
+- [x] `cq.schema.json` → Pydantic 모델 생성 (백로그 `CQ-BG-002`, `src/cq/generated/command_model.py`)
+- [x] pre-commit 훅 추가 (백로그 `CQ-BG-002`, `.githooks/pre-commit`)
 
 ## Stage 6 — IR→ISA & ISA→CQ 변환
 - [x] `rules/*.yaml`: Conv/Copy 룰 정의 (백로그 `CQ-BG-005`, `src/cq/rules/*.yaml`)

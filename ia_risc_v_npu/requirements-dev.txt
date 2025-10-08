@@ -4,3 +4,4 @@ pytest-json-report
 pytest-benchmark
 black
 ruff
+pydantic>=1.10,<2
