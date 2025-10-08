@@ -22,6 +22,7 @@ try:  # pragma: no cover - mirrors ELFFile guard
 except ImportError:  # pragma: no cover - pyelftools optional at runtime
     SH_FLAGS = None  # type: ignore[assignment]
 
+from src.cq import SchedulingPolicy
 from src.cq.io import CQIOError, load_cq_trace
 from src.cq.schema import CommandQueue
 from src.cq.spec import ISASpecError, load_isa_spec
@@ -286,6 +287,34 @@ def _setup_environment(args: argparse.Namespace) -> tuple[dict, logging.Logger]:
     # Override config with CLI arguments where provided.
     if getattr(args, "scheduler_policy", None):
         config["npu"]["policy"] = args.scheduler_policy
+    cq_policy = getattr(args, "cq_policy", None)
+    if cq_policy:
+        config.setdefault("cq", {}).setdefault("dispatcher", {})["policy"] = cq_policy
+    lane_overrides = getattr(args, "cq_lane_limit", None) or []
+    if lane_overrides:
+        dispatcher_cfg = config.setdefault("cq", {}).setdefault("dispatcher", {})
+        lane_limits = dict(dispatcher_cfg.get("lane_limits", {}))
+        for item in lane_overrides:
+            if "=" not in item:
+                raise CLIError(
+                    f"Invalid lane limit override '{item}'. Expected format LANE=VALUE."
+                )
+            lane, value = item.split("=", 1)
+            lane_key = lane.strip().lower()
+            if not lane_key:
+                raise CLIError("Lane name in --cq-lane-limit must be non-empty.")
+            try:
+                capacity = int(value)
+            except ValueError as exc:
+                raise CLIError(
+                    f"Lane limit for '{lane}' must be an integer value."
+                ) from exc
+            if capacity < 1:
+                raise CLIError(
+                    f"Lane limit for '{lane}' must be >= 1 (got {capacity})."
+                )
+            lane_limits[lane_key] = capacity
+        dispatcher_cfg["lane_limits"] = lane_limits
 
     simulator_logger = configure_logging(
         config,
@@ -505,7 +534,25 @@ def _summarise_command_queue(
 
 
 def run_cq(args: argparse.Namespace) -> int:
-    _setup_environment(args)
+    simulate = bool(getattr(args, "simulate", False))
+    config: dict | None = None
+    simulator_logger: logging.Logger | None = None
+    if (
+        simulate
+        or args.config is not None
+        or bool(getattr(args, "log_level", None))
+        or bool(getattr(args, "log_path", None))
+        or bool(getattr(args, "trace", None))
+        or bool(getattr(args, "scheduler_policy", None))
+        or bool(getattr(args, "cq_policy", None))
+        or bool(getattr(args, "cq_lane_limit", None))
+        or bool(getattr(args, "verbose", False))
+    ):
+        config, simulator_logger = _setup_environment(args)
+    else:
+        simulator_logger = logging.getLogger("simulator")
+        config = None
+
     trace_path = getattr(args, "trace_path", None) or getattr(args, "trace", None)
     if trace_path is None:
         raise CLIError("CQ trace path is required")
@@ -552,6 +599,20 @@ def run_cq(args: argparse.Namespace) -> int:
         summary["command_count"],
         summary["unique_opcodes"],
     )
+
+    if simulate:
+        sim_config = config or default_simulator_config()
+        simulator = AdaptiveSimulator(config=sim_config, logger=simulator_logger)
+        cq_summary = simulator.run_cq_trace(queue)
+        cq_summary.setdefault("config", {})
+        cq_summary["config"].update(
+            {
+                "dispatcher_policy": simulator._cq_dispatcher_policy.value,
+                "lane_limits": dict(simulator._cq_lane_limits),
+            }
+        )
+        summary["status"] = "simulated"
+        summary["cq_execution"] = cq_summary
 
     if args.output:
         try:
@@ -602,6 +663,26 @@ def _add_simulator_arguments(parser: argparse.ArgumentParser) -> None:
         choices=["min_finish_time", "rr", "priority"],
         default=None,
         help="Override the NPU scheduler policy from the config file.",
+    )
+    _add_cq_dispatcher_arguments(parser)
+
+
+def _add_cq_dispatcher_arguments(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--cq-policy",
+        choices=[policy.value for policy in SchedulingPolicy],
+        default=None,
+        help="Override the CQ dispatcher scheduling policy from the config file.",
+    )
+    parser.add_argument(
+        "--cq-lane-limit",
+        metavar="LANE=CAP",
+        action="append",
+        default=None,
+        help=(
+            "Override a CQ dispatcher lane capacity (repeatable, e.g., "
+            "--cq-lane-limit dma=2)."
+        ),
     )
 
 
@@ -729,7 +810,16 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Enable verbose logging output",
     )
+    cq_parser.add_argument(
+        "--simulate",
+        action="store_true",
+        help=(
+            "Execute the CQ trace with the simulator and include dispatcher "
+            "statistics."
+        ),
+    )
     _add_logging_arguments(cq_parser)
+    _add_cq_dispatcher_arguments(cq_parser)
     cq_parser.set_defaults(handler=run_cq)
 
     return parser

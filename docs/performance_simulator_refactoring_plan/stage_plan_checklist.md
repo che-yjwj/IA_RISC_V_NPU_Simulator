@@ -49,10 +49,10 @@ Stage 0 — 리포 준비 & 가드레일
 - [x] 허용 편차 정책 설정 (백로그 `CQ-BG-006`) — Guard 활성화 및 ±5% 임계값 적용 (`workloads/golden/configs/*.json`)
 
 ## Stage 8 — 모델 정밀도/정책 확장
-- [ ] 스케줄 정책 (RR, EDF) (백로그 `CQ-BG-007`)
-- [ ] 멀티-TE, 멀티-DMA lane (백로그 `CQ-BG-007`)
+- [x] 스케줄 정책 (RR, EDF) (백로그 `CQ-BG-007`) — RR/EDF 정책 선택기를 `src/cq/scheduler.py`, `src/cq/dispatcher.py`에 도입하고 구성 값(`simulator.config.cq.dispatcher.policy`)과 CLI 플래그(`--cq-policy`, `--cq-lane-limit`, `--simulate`)로 전환 가능하도록 노출, 단위/통합 테스트(`tests/unit/test_cq_scheduler_policy.py`, `tests/unit/test_cli_cq_overrides.py`, `tests/integration/test_cli_run_cq.py`)로 검증 완료.
+- [x] 멀티-TE, 멀티-DMA lane (백로그 `CQ-BG-007`) — 레인 용량 제한(`lane_limits`) 및 `dispatch.lane_usage` 통계를 실행 요약/골든 리포트에 반영(`scripts.check_cq_accuracy`, `workloads/golden/summaries/*.json`)하여 CQ 병렬 스케줄링 회귀를 Accuracy Guard로 모니터링 가능.
 
 ## Stage 9 — 문서화/시각화
-- [ ] ISA/CQ Reference 자동 생성 (백로그 `CQ-BG-008`)
+- [ ] ISA/CQ Reference 자동 생성 (백로그 `CQ-BG-008`) — Stage 8에서 정비한 CLI (`run-cq --simulate`)와 Accuracy Guard 메트릭을 참조하도록 레퍼런스 문서를 확장
 - [ ] Gantt chart/Timeline CSV 산출 (백로그 `CQ-BG-008`)
-- [ ] 튜토리얼 노트북 작성 (백로그 `CQ-BG-008`)
+- [ ] 튜토리얼 노트북 작성 (백로그 `CQ-BG-008`) — 새로운 CQ 실행 흐름과 레인 통계 해석을 튜토리얼에 반영 (`docs/performance_simulator_refactoring_plan/cq_run_cli_extension.md`, `cq_lane_metrics_golden_integration.md`)

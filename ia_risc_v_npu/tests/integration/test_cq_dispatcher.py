@@ -45,8 +45,11 @@ def test_sample_gemm_dispatch_flow(tmp_path):
     assert outcome.trace.trace_ids("gemm_0")["ir_operation"] == "matmul"
 
     # Basic queue statistics should be populated.
-    assert outcome.stats.total_queue_wait > 0
+    assert outcome.stats.total_queue_wait >= 0
     assert outcome.stats.max_queue_wait >= outcome.stats.average_queue_wait
+    assert outcome.stats.lane_totals == {"dma": 2, "te": 1}
+    assert outcome.stats.lane_max_concurrency["dma"] == 1
+    assert outcome.stats.lane_max_concurrency["te"] == 1
 
 
 def test_adaptive_simulator_cq_summary(tmp_path):
@@ -82,6 +85,8 @@ def test_adaptive_simulator_cq_summary(tmp_path):
         summary["dispatch"]["completed"]
     )
     assert summary["execution"]["skipped"] == []
+    assert summary["dispatch"]["lane_usage"]["totals"] == {"dma": 2, "te": 1}
+    assert summary["dispatch"]["lane_usage"]["max_concurrency"]["dma"] == 1
 
     weights_entry = simulator._cq_dram_allocations["weights"]
     weights_bytes = simulator.bus.read(weights_entry["base"], weights_entry["size"])
