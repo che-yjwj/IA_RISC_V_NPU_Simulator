@@ -1,0 +1,5 @@
+{"metadata": {"workload_id": "cq_dma_chain", "description": "Three-stage DMA chain that enforces sequential dependencies."}}
+{"cmd_id": "dma_stage0", "opcode": "DMA_2D", "operands": {"src": "dram://input_stage0", "dst": "spm://stage0", "shape": [8, 2]}, "trace": {"ir_id": "dma_stage0"}}
+{"cmd_id": "dma_stage1", "opcode": "DMA_2D", "operands": {"src": "spm://stage0", "dst": "spm://stage1", "shape": [8, 2]}, "deps": ["dma_stage0"], "trace": {"ir_id": "dma_stage1"}}
+{"cmd_id": "dma_stage2", "opcode": "DMA_2D", "operands": {"src": "spm://stage1", "dst": "dram://output_stage2", "shape": [8, 2]}, "deps": ["dma_stage1"], "trace": {"ir_id": "dma_stage2"}}
+{"cmd_id": "fence_stage", "opcode": "FENCE_SPM", "deps": ["dma_stage2"], "trace": {"ir_id": "fence_stage"}}

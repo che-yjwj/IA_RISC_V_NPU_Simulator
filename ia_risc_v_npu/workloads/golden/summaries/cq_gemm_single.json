@@ -1,0 +1,99 @@
+{
+  "plan_summary": {
+    "dma": 3,
+    "gemm": 1,
+    "fence": 1
+  },
+  "dispatch": {
+    "executed": 5,
+    "completed": [
+      "dma_a_tile",
+      "dma_b_tile",
+      "gemm_compute",
+      "fence_gemm",
+      "dma_result_tile"
+    ],
+    "rejected": [],
+    "queue_wait": {
+      "average": 0.0,
+      "max": 0,
+      "total": 0,
+      "zero_wait": 5
+    }
+  },
+  "actions": [
+    {
+      "type": "dma",
+      "cmd_id": "dma_a_tile",
+      "src": "dram://mat_a",
+      "dst": "spm://mat_a_tile",
+      "shape": [
+        2,
+        3
+      ],
+      "strides": null
+    },
+    {
+      "type": "dma",
+      "cmd_id": "dma_b_tile",
+      "src": "dram://mat_b",
+      "dst": "spm://mat_b_tile",
+      "shape": [
+        3,
+        2
+      ],
+      "strides": null
+    },
+    {
+      "type": "gemm",
+      "cmd_id": "gemm_compute",
+      "m": 2,
+      "n": 2,
+      "k": 3,
+      "inputs": {
+        "a": "spm://mat_a_tile",
+        "b": "spm://mat_b_tile"
+      },
+      "output": "dram://mat_c"
+    },
+    {
+      "type": "fence",
+      "cmd_id": "fence_gemm",
+      "target": null
+    },
+    {
+      "type": "dma",
+      "cmd_id": "dma_result_tile",
+      "src": "dram://mat_c",
+      "dst": "spm://mat_c_tile",
+      "shape": [
+        2,
+        2
+      ],
+      "strides": null
+    }
+  ],
+  "execution": {
+    "executed": [
+      "dma_a_tile",
+      "dma_b_tile",
+      "gemm_compute",
+      "fence_gemm",
+      "dma_result_tile"
+    ],
+    "skipped": [],
+    "count": {
+      "dma": 3,
+      "gemm": 1,
+      "fence": 1
+    },
+    "estimate_cycles": 15,
+    "dma_cycles": 26,
+    "dma_bytes": 64
+  },
+  "metadata": {
+    "workload_id": "cq_gemm_single",
+    "description": "Baseline GEMM fed by DMA-loaded tiles with a post-compute fence."
+  },
+  "status": "cq_actions_executed"
+}

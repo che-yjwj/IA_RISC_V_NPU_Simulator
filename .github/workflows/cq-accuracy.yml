@@ -1,0 +1,44 @@
+name: CQ Accuracy Guard
+
+on:
+  pull_request:
+    paths:
+      - "ia_risc_v_npu/**"
+      - "docs/performance_simulator_refactoring_plan/**"
+      - "specs/**"
+      - ".github/workflows/cq-accuracy.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "ia_risc_v_npu/**"
+      - "docs/performance_simulator_refactoring_plan/**"
+      - "specs/**"
+      - ".github/workflows/cq-accuracy.yml"
+
+jobs:
+  check-cq-accuracy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r ia_risc_v_npu/requirements.txt
+          python -m pip install -e ia_risc_v_npu
+
+      - name: Run CQ accuracy guard
+        run: python -m scripts.check_cq_accuracy --fail-fast --output cq_accuracy_report.json
+
+      - name: Upload report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cq-accuracy-report
+          path: cq_accuracy_report.json

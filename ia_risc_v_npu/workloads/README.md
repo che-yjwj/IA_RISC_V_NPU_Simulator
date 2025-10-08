@@ -13,6 +13,7 @@ on demand.
   (ignored by git).
 - `profiling/` – utilities for collecting trace data during performance
   experiments.
+- `golden/` – CQ accuracy guard seeds (plans, manifest, and placeholder summaries).
 
 ## Two-Layer CNN Assets
 
