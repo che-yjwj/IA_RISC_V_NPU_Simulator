@@ -5,12 +5,13 @@ from workloads.golden import GOLDEN_WORKLOADS, iter_workloads
 
 def test_manifest_contains_expected_entries():
     workload_ids = tuple(GOLDEN_WORKLOADS.keys())
-    assert len(workload_ids) == 5
+    assert len(workload_ids) == 6
     assert set(workload_ids) == {
         "cq_dma_roundtrip",
         "cq_dma_chain",
         "cq_gemm_single",
         "cq_gemm_pipeline",
+        "cq_conv_single",
         "cq_mixed_latency",
     }
 

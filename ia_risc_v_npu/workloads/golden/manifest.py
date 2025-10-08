@@ -98,7 +98,9 @@ def _build_manifest() -> Dict[str, GoldenWorkload]:
             plan_relpath="plans/cq_conv_single.yaml",
             trace_relpath="traces/cq_conv_single.jsonl",
             config_relpath="configs/cq_conv_single.json",
-            description="Single-tile conv lowering into GEMM with DMA load/store and fence.",
+            description=(
+                "Single-tile conv lowering into GEMM with DMA load/store and fence."
+            ),
             accuracy_summary_relpath="summaries/cq_conv_single.json",
             tags=("conv", "gemm"),
         ),
