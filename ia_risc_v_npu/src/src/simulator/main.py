@@ -27,6 +27,7 @@ from src.cq import (
     build_execution_plan,
     load_isa_spec,
 )
+from src.cq.dispatcher import DispatchTrace
 from src.cq.models import (
     BusTimingModel,
     DMATimingModel,
@@ -34,6 +35,7 @@ from src.cq.models import (
     TensorEngineTimingModel,
 )
 from src.cq.scheduler import lane_for_command
+from src.cq.vector_executor import VectorExecutor
 from src.npu.cluster import ClusterPolicy, ClusterTask, NPUCluster
 from src.npu.model import NPU
 from src.risc_v.engine import (
@@ -103,12 +105,15 @@ class _CQActionExecutor:
         self,
         simulator: "AdaptiveSimulator",
         action_lookup: Mapping[str, Dict[str, Any]],
+        *,
+        trace: DispatchTrace | None = None,
     ) -> None:
         self._simulator = simulator
         self._action_lookup = action_lookup
+        self._trace = trace
         self.executed: list[str] = []
         self.skipped: list[str] = []
-        self.counts: Dict[str, int] = {"dma": 0, "gemm": 0, "fence": 0}
+        self.counts: Dict[str, int] = {"dma": 0, "gemm": 0, "fence": 0, "vector": 0}
         self.actions: list[Dict[str, Any]] = []
 
     def execute(self, command: CQCommand) -> bool:
@@ -123,10 +128,11 @@ class _CQActionExecutor:
         handler = {
             "dma": self._simulator._handle_cq_dma,
             "gemm": self._simulator._handle_cq_gemm,
+            "vector": self._simulator._handle_cq_vector,
             "fence": self._simulator._handle_cq_fence,
         }.get(action.get("type"), self._simulator._handle_cq_unknown)
 
-        success = handler(action)
+        success = handler(action, command=command, trace=self._trace)
         if success:
             action_type = action.get("type", "unknown")
             if action_type in self.counts:
@@ -147,6 +153,8 @@ class _CQActionExecutor:
             "estimate_cycles": sum(self._simulator._cq_gemm_cycle_log),
             "dma_cycles": sum(self._simulator._cq_dma_cycle_log),
             "dma_bytes": self._simulator._cq_dma_bytes,
+            "vector_cycles": sum(self._simulator._cq_vector_cycle_log),
+            "vector_bytes": self._simulator._cq_vector_bytes,
         }
 
 
@@ -182,6 +190,7 @@ class AdaptiveSimulator:
         self._cq_spm_model = ScratchpadTimingModel()
         self._cq_te_model = TensorEngineTimingModel()
         self._cq_te_model.update_cores(self._resolve_npu_cores())
+        self._cq_vector_executor = VectorExecutor()
 
         dispatcher_cfg = self._get_config_section("cq", "dispatcher")
         self._cq_dispatcher_policy = self._resolve_cq_dispatcher_policy(dispatcher_cfg)
@@ -260,6 +269,8 @@ class AdaptiveSimulator:
         self._cq_dma_bytes = 0
         self._cq_gemm_cycle_log: list[int] = []
         self._cq_dma_cycle_log: list[int] = []
+        self._cq_vector_cycle_log: list[int] = []
+        self._cq_vector_bytes: int = 0
 
     def _reset_cq_runtime(self) -> None:
         self._cq_dram_allocations.clear()
@@ -269,6 +280,8 @@ class AdaptiveSimulator:
         self._cq_dma_bytes = 0
         self._cq_gemm_cycle_log = []
         self._cq_dma_cycle_log = []
+        self._cq_vector_cycle_log = []
+        self._cq_vector_bytes = 0
         self._cq_spm_model.reset()
         self._cq_te_model.update_cores(self._resolve_npu_cores())
 
@@ -329,6 +342,16 @@ class AdaptiveSimulator:
                 "inputs": {"a": gemm.a, "b": gemm.b},
                 "output": gemm.c,
             }
+        for vector in plan.vector_ops:
+            action_lookup[vector.cmd_id] = {
+                "type": "vector",
+                "cmd_id": vector.cmd_id,
+                "dst": vector.dst,
+                "src0": vector.src0,
+                "src1": vector.src1,
+                "length": vector.length,
+                "stride": vector.stride,
+            }
         for fence in plan.fence_ops:
             action_lookup[fence.cmd_id] = {
                 "type": "fence",
@@ -336,12 +359,12 @@ class AdaptiveSimulator:
                 "target": fence.target,
             }
 
-        runtime = _CQActionExecutor(self, action_lookup)
         dispatcher = CQDispatcher(
             clock=lambda: self.bus.now,
             policy=self._cq_dispatcher_policy,
             lane_limits=self._cq_lane_limits,
         )
+        runtime = _CQActionExecutor(self, action_lookup, trace=dispatcher.trace)
         outcome = dispatcher.run(queue, executor=runtime.execute)
 
         dispatch_summary = {
@@ -540,7 +563,13 @@ class AdaptiveSimulator:
         else:
             raise ValueError(f"Unsupported CQ memory space: {space}")
 
-    def _handle_cq_dma(self, action: dict[str, Any]) -> bool:
+    def _handle_cq_dma(
+        self,
+        action: dict[str, Any],
+        *,
+        command: CQCommand | None = None,
+        trace: DispatchTrace | None = None,
+    ) -> bool:
         src = action.get("src")
         dst = action.get("dst")
         shape = tuple(int(dim) for dim in action.get("shape", ()))
@@ -565,7 +594,13 @@ class AdaptiveSimulator:
         self.logger.debug("CQ DMA executed: %s -> %s shape=%s", src, dst, shape)
         return True
 
-    def _handle_cq_gemm(self, action: dict[str, Any]) -> bool:
+    def _handle_cq_gemm(
+        self,
+        action: dict[str, Any],
+        *,
+        command: CQCommand | None = None,
+        trace: DispatchTrace | None = None,
+    ) -> bool:
         try:
             m = int(action["m"])
             n = int(action["n"])
@@ -609,12 +644,90 @@ class AdaptiveSimulator:
         self.logger.debug("CQ GEMM executed: %s x %s -> %s", a_uri, b_uri, out_uri)
         return True
 
-    def _handle_cq_fence(self, action: dict[str, Any]) -> bool:
+    def _handle_cq_fence(
+        self,
+        action: dict[str, Any],
+        *,
+        command: CQCommand | None = None,
+        trace: DispatchTrace | None = None,
+    ) -> bool:
         target = action.get("target")
         self.logger.debug("CQ FENCE noop: target=%s", target)
         return True
 
-    def _handle_cq_unknown(self, action: dict[str, Any]) -> bool:
+    def _handle_cq_vector(
+        self,
+        action: dict[str, Any],
+        *,
+        command: CQCommand | None = None,
+        trace: DispatchTrace | None = None,
+    ) -> bool:
+        try:
+            dst = str(action["dst"])
+            src0 = str(action["src0"])
+            src1 = str(action["src1"])
+            length = int(action["length"])
+            stride = int(action.get("stride", 1) or 1)
+        except (KeyError, TypeError, ValueError):
+            self.logger.warning("Invalid VECTOR action: %s", action)
+            return False
+
+        span = (length - 1) * stride + 1 if length > 0 else 0
+        span_bytes = span * 4
+        if span_bytes > 0:
+            self._ensure_cq_allocation(src0, span_bytes, shape=(span,))
+            self._ensure_cq_allocation(src1, span_bytes, shape=(span,))
+            self._ensure_cq_allocation(dst, span_bytes, shape=(span,))
+
+        start_tick = self.bus.now
+        plan = self._cq_vector_executor.plan_add(length=length, stride=stride)
+        cursor = start_tick
+        pipeline_trace: list[dict[str, int | str]] = []
+        for step in plan.steps:
+            cursor += step.cycles
+            pipeline_trace.append(
+                {
+                    "stage": step.stage,
+                    "cycles": step.cycles,
+                    "bytes": step.bytes_accessed,
+                    "end_tick": cursor,
+                }
+            )
+
+        completion_tick = start_tick + plan.total_cycles
+        if completion_tick > self.bus.now:
+            self.bus.sync_time(completion_tick)
+
+        if trace is not None and command is not None:
+            metadata = trace.trace_metadata.setdefault(
+                command.cmd_id, dict(command.trace)
+            )
+            metadata["vector_pipeline"] = pipeline_trace
+            metadata["vector_totals"] = {
+                "cycles": plan.total_cycles,
+                "bytes": plan.total_bytes,
+                "stride": stride,
+            }
+
+        self._cq_vector_cycle_log.append(plan.total_cycles)
+        self._cq_vector_bytes += plan.total_bytes
+        self.logger.debug(
+            "CQ VECTOR executed: %s = %s + %s len=%s stride=%s",
+            dst,
+            src0,
+            src1,
+            length,
+            stride,
+        )
+        return True
+
+    def _handle_cq_unknown(
+        self,
+        action: dict[str, Any],
+        *,
+        command: CQCommand | None = None,
+        trace: DispatchTrace | None = None,
+    ) -> bool:
         self.logger.warning("CQ action type '%s' not recognised", action.get("type"))
         return False
 
