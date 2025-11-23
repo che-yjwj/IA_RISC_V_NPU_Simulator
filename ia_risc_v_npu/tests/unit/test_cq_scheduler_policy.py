@@ -107,3 +107,75 @@ def test_lane_limits_allow_parallel_scheduling():
     assert waits[2] >= 0
     assert outcome.stats.lane_totals == {"dma": 3}
     assert outcome.stats.lane_max_concurrency["dma"] == 2
+
+
+def test_queue_waits_reported_per_lane():
+    queue = CommandQueue.from_iterable(
+        [
+            {
+                "cmd_id": "vec_add0",
+                "opcode": "VEC_ADD",
+                "deps": ["dma_inputs0", "dma_inputs1"],
+                "operands": {
+                    "dst": "spm://vec_out0",
+                    "src0": "spm://vec_in0",
+                    "src1": "spm://vec_in1",
+                    "length": 128,
+                    "stride": 1,
+                },
+            },
+            {
+                "cmd_id": "vec_add1",
+                "opcode": "VEC_ADD",
+                "deps": ["dma_inputs0", "dma_inputs1"],
+                "operands": {
+                    "dst": "spm://vec_out1",
+                    "src0": "spm://vec_in0",
+                    "src1": "spm://vec_in1",
+                    "length": 256,
+                    "stride": 2,
+                },
+            },
+            {
+                "cmd_id": "dma_inputs0",
+                "opcode": "DMA_2D",
+                "operands": {
+                    "src": "dram://inputs0",
+                    "dst": "spm://vec_in0",
+                    "shape": [1, 256],
+                    "strides": [256, 1],
+                },
+            },
+            {
+                "cmd_id": "dma_inputs1",
+                "opcode": "DMA_2D",
+                "operands": {
+                    "src": "dram://inputs1",
+                    "dst": "spm://vec_in1",
+                    "shape": [1, 256],
+                    "strides": [256, 1],
+                },
+            },
+            {
+                "cmd_id": "vec_add2",
+                "opcode": "VEC_ADD",
+                "deps": ["dma_inputs0", "dma_inputs1"],
+                "operands": {
+                    "dst": "spm://vec_out2",
+                    "src0": "spm://vec_in0",
+                    "src1": "spm://vec_in1",
+                    "length": 64,
+                    "stride": 1,
+                },
+            },
+        ],
+        strict=True,
+    )
+
+    dispatcher = CQDispatcher()
+    outcome = dispatcher.run(queue)
+
+    assert outcome.stats.lane_max_concurrency["vector"] == 2
+    assert outcome.stats.lane_max_queue_wait["vector"] == 2
+    assert outcome.stats.lane_average_queue_wait["vector"] == 1.0
+    assert outcome.stats.lane_max_queue_wait["dma"] == 0

@@ -1,0 +1,32 @@
+{
+  "scheduled": [
+    "dma_inputs0",
+    "dma_inputs1",
+    "vec_add0",
+    "vec_add1",
+    "vec_add2"
+  ],
+  "completed": [
+    "dma_inputs0",
+    "dma_inputs1",
+    "vec_add0",
+    "vec_add1",
+    "vec_add2"
+  ],
+  "lane_totals": {
+    "dma": 2,
+    "vector": 3
+  },
+  "lane_max_concurrency": {
+    "dma": 1,
+    "vector": 2
+  },
+  "lane_max_queue_wait": {
+    "dma": 0,
+    "vector": 2
+  },
+  "lane_average_queue_wait": {
+    "dma": 0.0,
+    "vector": 1.0
+  }
+}
