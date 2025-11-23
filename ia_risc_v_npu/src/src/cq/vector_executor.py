@@ -43,7 +43,9 @@ class VectorExecutor:
         self.store_overhead = max(0, int(store_overhead))
         self.compute_overhead = max(0, int(compute_overhead))
 
-    def plan_add(self, *, length: int, stride: int = 1, element_bytes: int = 4) -> VectorExecutionPlan:
+    def plan_add(
+        self, *, length: int, stride: int = 1, element_bytes: int = 4
+    ) -> VectorExecutionPlan:
         if length <= 0:
             return VectorExecutionPlan(steps=[], total_cycles=0, total_bytes=0)
 
@@ -62,9 +64,15 @@ class VectorExecutor:
             load_bytes = span * element_bytes * 2  # src0 + src1
             store_bytes = active * element_bytes
 
-            load_cycles = self.load_overhead + math.ceil(load_bytes / self.bytes_per_cycle)
-            compute_cycles = self.compute_overhead + max(1, math.ceil(active / self.vector_width))
-            store_cycles = self.store_overhead + math.ceil(store_bytes / self.bytes_per_cycle)
+            load_cycles = self.load_overhead + math.ceil(
+                load_bytes / self.bytes_per_cycle
+            )
+            compute_cycles = self.compute_overhead + max(
+                1, math.ceil(active / self.vector_width)
+            )
+            store_cycles = self.store_overhead + math.ceil(
+                store_bytes / self.bytes_per_cycle
+            )
 
             steps.append(
                 VectorMicroStep(
@@ -91,7 +99,9 @@ class VectorExecutor:
             total_cycles += load_cycles + compute_cycles + store_cycles
             total_bytes += load_bytes + store_bytes
 
-        return VectorExecutionPlan(steps=steps, total_cycles=total_cycles, total_bytes=total_bytes)
+        return VectorExecutionPlan(
+            steps=steps, total_cycles=total_cycles, total_bytes=total_bytes
+        )
 
 
 __all__ = [

@@ -712,7 +712,12 @@ class AdaptiveSimulator:
         self._cq_vector_cycle_log.append(plan.total_cycles)
         self._cq_vector_bytes += plan.total_bytes
         self.logger.debug(
-            "CQ VECTOR executed: %s = %s + %s len=%s stride=%s", dst, src0, src1, length, stride
+            "CQ VECTOR executed: %s = %s + %s len=%s stride=%s",
+            dst,
+            src0,
+            src1,
+            length,
+            stride,
         )
         return True
 
