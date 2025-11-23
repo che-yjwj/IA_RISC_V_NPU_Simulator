@@ -380,6 +380,21 @@ class AdaptiveSimulator:
             "lane_usage": {
                 "totals": dict(outcome.stats.lane_totals),
                 "max_concurrency": dict(outcome.stats.lane_max_concurrency),
+                "queue_wait": {
+                    "max": dict(outcome.stats.lane_max_queue_wait),
+                    "average": dict(outcome.stats.lane_average_queue_wait),
+                },
+            },
+            "vector_lane": {
+                "max_concurrency": outcome.stats.lane_max_concurrency.get(
+                    "vector", 0
+                ),
+                "queue_wait": {
+                    "max": outcome.stats.lane_max_queue_wait.get("vector", 0),
+                    "average": outcome.stats.lane_average_queue_wait.get(
+                        "vector", 0.0
+                    ),
+                },
             },
         }
 

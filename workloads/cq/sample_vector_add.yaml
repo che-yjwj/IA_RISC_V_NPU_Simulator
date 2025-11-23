@@ -1,0 +1,66 @@
+metadata:
+  name: sample_vector_add
+  description: Sample CQ workload combining DMA staging with vector adds
+  version: 1
+commands:
+  - cmd_id: vec_add0
+    opcode: VEC_ADD
+    deps: [dma_inputs0, dma_inputs1]
+    operands:
+      dst: spm://vec_out0
+      src0: spm://vec_in0
+      src1: spm://vec_in1
+      length: 128
+      stride: 1
+    trace:
+      ir_id: vector_tile0
+      isa_idx: 0
+      ir_operation: vector_add
+  - cmd_id: vec_add1
+    opcode: VEC_ADD
+    deps: [dma_inputs0, dma_inputs1]
+    operands:
+      dst: spm://vec_out1
+      src0: spm://vec_in0
+      src1: spm://vec_in1
+      length: 256
+      stride: 2
+    trace:
+      ir_id: vector_tile1
+      isa_idx: 1
+      ir_operation: vector_add
+  - cmd_id: dma_inputs0
+    opcode: DMA_2D
+    operands:
+      src: dram://inputs0
+      dst: spm://vec_in0
+      shape: [1, 256]
+      strides: [256, 1]
+    trace:
+      ir_id: vector_inputs
+      isa_idx: 2
+      ir_operation: load
+  - cmd_id: dma_inputs1
+    opcode: DMA_2D
+    operands:
+      src: dram://inputs1
+      dst: spm://vec_in1
+      shape: [1, 256]
+      strides: [256, 1]
+    trace:
+      ir_id: vector_inputs
+      isa_idx: 3
+      ir_operation: load
+  - cmd_id: vec_add2
+    opcode: VEC_ADD
+    deps: [dma_inputs0, dma_inputs1]
+    operands:
+      dst: spm://vec_out2
+      src0: spm://vec_in0
+      src1: spm://vec_in1
+      length: 64
+      stride: 1
+    trace:
+      ir_id: vector_tile2
+      isa_idx: 4
+      ir_operation: vector_add

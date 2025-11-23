@@ -93,6 +93,8 @@ class DispatchStats:
     commands_with_zero_wait: int = 0
     lane_totals: Dict[str, int] = field(default_factory=dict)
     lane_max_concurrency: Dict[str, int] = field(default_factory=dict)
+    lane_max_queue_wait: Dict[str, int] = field(default_factory=dict)
+    lane_average_queue_wait: Dict[str, float] = field(default_factory=dict)
 
 
 @dataclass(slots=True)
@@ -192,6 +194,7 @@ class CQDispatcher:
         context = SchedulingContext()
 
         queue_wait_ticks: list[int] = []
+        queue_wait_by_lane: Dict[str, list[int]] = {}
         tick = 0
         queued_order: Dict[str, int] = {}
         pending_ids: Set[str] = set()
@@ -295,6 +298,8 @@ class CQDispatcher:
                 self.trace.record_schedule(selected, tick=schedule_tick)
                 queue_wait = schedule_tick - queued_tick
                 queue_wait_ticks.append(queue_wait)
+                lane = lane_for_command(selected)
+                queue_wait_by_lane.setdefault(lane, []).append(queue_wait)
             if self._clock is None:
                 tick += 1
 
@@ -337,6 +342,7 @@ class CQDispatcher:
             queue_wait_ticks,
             lane_totals=lane_totals,
             lane_max_concurrency=lane_max_concurrency,
+            queue_wait_by_lane=queue_wait_by_lane,
         )
         return DispatchOutcome(
             commands_executed=len(executed_ids), trace=self.trace, stats=stats
@@ -408,11 +414,23 @@ class CQDispatcher:
         *,
         lane_totals: Dict[str, int],
         lane_max_concurrency: Dict[str, int],
+        queue_wait_by_lane: Dict[str, List[int]],
     ) -> DispatchStats:
+        lane_max_queue_wait: Dict[str, int] = {}
+        lane_average_queue_wait: Dict[str, float] = {}
+
+        for lane, waits in queue_wait_by_lane.items():
+            if not waits:
+                continue
+            lane_max_queue_wait[lane] = max(waits)
+            lane_average_queue_wait[lane] = sum(waits) / len(waits)
+
         if not queue_wait_ticks:
             return DispatchStats(
                 lane_totals=dict(lane_totals),
                 lane_max_concurrency=dict(lane_max_concurrency),
+                lane_max_queue_wait=lane_max_queue_wait,
+                lane_average_queue_wait=lane_average_queue_wait,
             )
         total = sum(queue_wait_ticks)
         max_wait = max(queue_wait_ticks)
@@ -425,6 +443,8 @@ class CQDispatcher:
             commands_with_zero_wait=zero_wait,
             lane_totals=dict(lane_totals),
             lane_max_concurrency=dict(lane_max_concurrency),
+            lane_max_queue_wait=lane_max_queue_wait,
+            lane_average_queue_wait=lane_average_queue_wait,
         )
 
 

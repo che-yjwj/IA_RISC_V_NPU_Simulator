@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import numpy as np
@@ -389,3 +390,23 @@ def test_cq_multi_gemm_with_repeated_fence():
     accum_bytes = simulator.bus.read(accum_entry["base"], accum_entry["size"])
     accum = np.frombuffer(accum_bytes, dtype=np.float32).reshape(tile_shape)
     np.testing.assert_allclose(accum, expected_last, rtol=1e-5, atol=1e-6)
+
+
+def test_vector_sample_queue_matches_golden_trace():
+    root = Path(__file__).resolve().parents[3]
+    trace_path = root / "workloads" / "cq" / "sample_vector_add.jsonl"
+    golden_path = Path(__file__).parent / "golden" / "sample_vector_dispatch.json"
+
+    queue = load_cq_trace(trace_path)
+    dispatcher = CQDispatcher()
+    outcome = dispatcher.run(queue)
+
+    with golden_path.open("r", encoding="utf-8") as handle:
+        golden = json.load(handle)
+
+    assert outcome.trace.scheduled == golden["scheduled"]
+    assert outcome.trace.completed == golden["completed"]
+    assert outcome.stats.lane_totals == golden["lane_totals"]
+    assert outcome.stats.lane_max_concurrency == golden["lane_max_concurrency"]
+    assert outcome.stats.lane_max_queue_wait == golden["lane_max_queue_wait"]
+    assert outcome.stats.lane_average_queue_wait == golden["lane_average_queue_wait"]
