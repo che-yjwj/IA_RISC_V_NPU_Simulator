@@ -93,3 +93,34 @@ operations:
     operands: {}
     tags:
       - synchronisation
+  - name: VEC_ADD
+    category: vector_engine
+    summary: "Elementwise vector addition executed on SIMD lanes."
+    operands:
+      dst:
+        type: address
+        required: true
+        description: Destination vector buffer.
+      src0:
+        type: address
+        required: true
+        description: First source vector buffer.
+      src1:
+        type: address
+        required: true
+        description: Second source vector buffer.
+      length:
+        type: int
+        required: true
+        description: Number of elements to process.
+      stride:
+        type: int
+        required: false
+        description: Optional element stride (defaults to 1).
+      accumulator:
+        type: address
+        required: false
+        description: Optional accumulator buffer for fused operations.
+    tags:
+      - vector
+      - simd

@@ -43,5 +43,19 @@
       "additionalProperties": true
     }
   },
-  "additionalProperties": true
+  "additionalProperties": true,
+  "examples": [
+    {
+      "cmd_id": "vec_add_0",
+      "opcode": "VEC_ADD",
+      "operands": {
+        "dst": "spm://vec_out0",
+        "src0": "spm://vec_in0",
+        "src1": "spm://vec_in1",
+        "length": 256,
+        "stride": 1
+      },
+      "deps": ["dma_stage"]
+    }
+  ]
 }
