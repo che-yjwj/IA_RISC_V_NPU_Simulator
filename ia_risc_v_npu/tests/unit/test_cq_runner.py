@@ -11,7 +11,12 @@ def test_compare_cq_vs_elf_stub(tmp_path: Path) -> None:
 
     assert result["status"] == "cq_ready_elf_pending"
     assert result["cq_trace"] == str(cq_path)
-    assert result["cq_summary"]["plan_summary"] == {"dma": 2, "gemm": 1, "fence": 0}
+    assert result["cq_summary"]["plan_summary"] == {
+        "dma": 2,
+        "gemm": 1,
+        "vector": 0,
+        "fence": 0,
+    }
     assert result["elf_summary"]["status"] == "not_provided"
 
     elf_path = cq_path.with_suffix(".elf")
