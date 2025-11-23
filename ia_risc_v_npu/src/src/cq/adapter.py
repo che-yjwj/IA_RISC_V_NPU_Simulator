@@ -1,7 +1,7 @@
 """CQ command adapter translating ISA opcodes into execution plans.
 
 The adapter acts as a bridge between high-level CQ traces and the simulator's
-runtime.  It inspects the operands registered in the ISA specification and
+runtime. It inspects the operands registered in the ISA specification and
 returns structured plan objects that downstream components can consume without
 having to re-parse the JSON payloads.
 """
