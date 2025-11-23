@@ -116,16 +116,13 @@ def test_validate_queue_reports_vector_missing_and_unexpected_operands() -> None
 
     issues, _ = spec.validate_queue(queue)
 
-    assert any(
-        issue.kind == "missing_operands"
-        and issue.details.get("operands") == ("src1",)
-        for issue in issues
-    )
-    assert any(
-        issue.kind == "unexpected_operands"
-        and issue.details.get("operands") == ("unexpected",)
-        for issue in issues
-    )
+    assert len(issues) == 2
+    found = {(issue.kind, issue.details.get("operands")) for issue in issues}
+    expected = {
+        ("missing_operands", ("src1",)),
+        ("unexpected_operands", ("unexpected",)),
+    }
+    assert found == expected
 
 
 def test_sample_workload_matches_spec() -> None:

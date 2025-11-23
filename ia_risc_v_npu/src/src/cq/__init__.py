@@ -11,6 +11,7 @@ from .adapter import (
     DMAPlan,
     FencePlan,
     GEMMPlan,
+    VectorAddPlan,
     build_execution_plan,
 )
 from .dispatcher import (
@@ -65,6 +66,7 @@ __all__ = [
     "CQExecutionPlan",
     "DMAPlan",
     "GEMMPlan",
+    "VectorAddPlan",
     "FencePlan",
     "build_execution_plan",
     "tools",

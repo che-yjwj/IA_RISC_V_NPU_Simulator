@@ -117,10 +117,6 @@ operations:
         type: int
         required: false
         description: Optional element stride (defaults to 1).
-      accumulator:
-        type: address
-        required: false
-        description: Optional accumulator buffer for fused operations.
     tags:
       - vector
       - simd
