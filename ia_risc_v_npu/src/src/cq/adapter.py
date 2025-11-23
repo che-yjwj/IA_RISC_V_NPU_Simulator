@@ -124,11 +124,7 @@ def build_execution_plan(queue: CommandQueue, spec: ISASpec) -> CQExecutionPlan:
                     src0=operands.src0,
                     src1=operands.src1,
                     length=int(operands.length),
-                    stride=(
-                        int(operands.stride)
-                        if operands.stride is not None
-                        else 1
-                    ),
+                    stride=(int(operands.stride) if operands.stride is not None else 1),
                 )
             )
         elif isinstance(operands, FENCE_SPM_Operands):
