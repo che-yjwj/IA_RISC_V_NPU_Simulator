@@ -1,0 +1,17 @@
+rules:
+  - name: vector_add
+    match:
+      op: vector_add
+    emit:
+      - cmd_id: "{{ir.cmd_id}}"
+        opcode: VEC_ADD
+        deps: "{{ir.depends_on}}"
+        operands:
+          dst: "{{ir.dst}}"
+          src0: "{{ir.src0}}"
+          src1: "{{ir.src1}}"
+          length: "{{ir.length}}"
+          stride: "{{ir.stride}}"
+        trace:
+          ir_id: "{{ir.trace_id}}"
+          ir_operation: "{{ir.ir_operation}}"

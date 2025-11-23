@@ -135,6 +135,62 @@ def _match_rule(rule: Rule, node: Mapping[str, Any]) -> bool:
     return True
 
 
+def _valid_buffer_name(candidate: object) -> str | None:
+    if isinstance(candidate, str) and candidate:
+        return candidate
+    return None
+
+
+def _buffer_reads(opcode: str, operands: Mapping[str, Any]) -> list[str]:
+    opcode_upper = (opcode or "").upper()
+    reads: list[str] = []
+    if opcode_upper.startswith("DMA"):
+        reads.append(_valid_buffer_name(operands.get("src")))
+    elif opcode_upper.startswith("TE_"):
+        reads.extend(
+            [
+                _valid_buffer_name(operands.get("a")),
+                _valid_buffer_name(operands.get("b")),
+                _valid_buffer_name(operands.get("c")),
+            ]
+        )
+    elif opcode_upper.startswith("VEC_"):
+        reads.extend(
+            [
+                _valid_buffer_name(operands.get("src0")),
+                _valid_buffer_name(operands.get("src1")),
+            ]
+        )
+    return [buf for buf in reads if buf is not None]
+
+
+def _buffer_writes(opcode: str, operands: Mapping[str, Any]) -> list[str]:
+    opcode_upper = (opcode or "").upper()
+    writes: list[str] = []
+    if opcode_upper.startswith("DMA"):
+        writes.append(_valid_buffer_name(operands.get("dst")))
+    elif opcode_upper.startswith("TE_"):
+        writes.append(_valid_buffer_name(operands.get("c")))
+    elif opcode_upper.startswith("VEC_"):
+        writes.append(_valid_buffer_name(operands.get("dst")))
+    return [buf for buf in writes if buf is not None]
+
+
+def _merge_dependencies(
+    existing: Sequence[str], additional: Sequence[str]
+) -> list[str]:
+    merged: list[str] = []
+    seen: set[str] = set()
+    for dep in list(existing) + list(additional):
+        if not isinstance(dep, str):
+            continue
+        if dep in seen:
+            continue
+        merged.append(dep)
+        seen.add(dep)
+    return merged
+
+
 def map_ir_to_isa(
     ir_nodes: Iterable[Mapping[str, Any]],
     *,
@@ -150,6 +206,8 @@ def map_ir_to_isa(
     for node in ir_nodes:
         if not isinstance(node, Mapping):
             raise RuleError("IR nodes must be mappings")
+        node = dict(node)
+        node.setdefault("depends_on", [])
         rule = next((item for item in loaded_rules if _match_rule(item, node)), None)
         if rule is None:
             op = node.get("op", "<unknown>")
@@ -206,6 +264,29 @@ def map_ir_to_isa(
                 "trace": trace,
             }
             instructions.append(command)
+
+    last_writers: dict[str, tuple[str, str]] = {}
+    for command in instructions:
+        operands = command.get("operands", {})
+        opcode = (command.get("opcode", "") or "").upper()
+        existing_deps = command.get("deps", [])
+        reads = _buffer_reads(opcode, operands)
+        writes = _buffer_writes(opcode, operands)
+        is_vector_op = opcode.startswith("VEC_")
+
+        inherited: list[str] = []
+        for buffer in reads:
+            writer = last_writers.get(buffer)
+            if writer and (is_vector_op or writer[1].startswith("VEC_")):
+                inherited.append(writer[0])
+        for buffer in writes:
+            writer = last_writers.get(buffer)
+            if writer and (is_vector_op or writer[1].startswith("VEC_")):
+                inherited.append(writer[0])
+
+        command["deps"] = _merge_dependencies(existing_deps, inherited)
+        for buffer in writes:
+            last_writers[buffer] = (command["cmd_id"], opcode)
 
     for index, command in enumerate(instructions):
         trace = command.setdefault("trace", {})
