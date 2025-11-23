@@ -77,6 +77,7 @@ def _assert_acyclic(queue: CommandQueue) -> None:
 _DEFAULT_LANE_LIMITS: Dict[str, int] = {
     "dma": 1,
     "te": 1,
+    "vector": 2,
     "fence": 1,
     "misc": 1,
 }

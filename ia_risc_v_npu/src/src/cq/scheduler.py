@@ -33,6 +33,8 @@ def lane_for_command(command: CQCommand) -> str:
         return "dma"
     if opcode.startswith("TE_"):
         return "te"
+    if opcode.startswith("VEC_"):
+        return "vector"
     if opcode.startswith("FENCE"):
         return "fence"
     return "misc"
