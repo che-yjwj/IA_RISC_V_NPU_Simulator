@@ -176,7 +176,9 @@ def _buffer_writes(opcode: str, operands: Mapping[str, Any]) -> list[str]:
     return [buf for buf in writes if buf is not None]
 
 
-def _merge_dependencies(existing: Sequence[str], additional: Sequence[str]) -> list[str]:
+def _merge_dependencies(
+    existing: Sequence[str], additional: Sequence[str]
+) -> list[str]:
     merged: list[str] = []
     seen: set[str] = set()
     for dep in list(existing) + list(additional):
