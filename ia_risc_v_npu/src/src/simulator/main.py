@@ -28,7 +28,6 @@ from src.cq import (
     load_isa_spec,
 )
 from src.cq.dispatcher import DispatchTrace
-from src.cq.vector_executor import VectorExecutor
 from src.cq.models import (
     BusTimingModel,
     DMATimingModel,
@@ -36,6 +35,7 @@ from src.cq.models import (
     TensorEngineTimingModel,
 )
 from src.cq.scheduler import lane_for_command
+from src.cq.vector_executor import VectorExecutor
 from src.npu.cluster import ClusterPolicy, ClusterTask, NPUCluster
 from src.npu.model import NPU
 from src.risc_v.engine import (
