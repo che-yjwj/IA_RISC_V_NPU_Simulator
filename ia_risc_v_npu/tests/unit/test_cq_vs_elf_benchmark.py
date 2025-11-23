@@ -16,7 +16,12 @@ def test_cq_vs_elf_cli_json():
     assert exit_code == 0
 
     payload = json.loads(buffer.getvalue())
-    assert payload["cq_summary"]["plan_summary"] == {"dma": 2, "gemm": 1, "fence": 0}
+    assert payload["cq_summary"]["plan_summary"] == {
+        "dma": 2,
+        "gemm": 1,
+        "vector": 0,
+        "fence": 0,
+    }
     assert payload["elf_summary"]["status"] == "not_provided"
 
     elf_path = cq_path.with_suffix(".elf")

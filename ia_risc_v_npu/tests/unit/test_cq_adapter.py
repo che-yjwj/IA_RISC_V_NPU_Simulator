@@ -31,6 +31,18 @@ def make_queue() -> CommandQueue:
             },
         },
         {
+            "cmd_id": "vec_add_0",
+            "opcode": "VEC_ADD",
+            "deps": ["gemm_0"],
+            "operands": {
+                "dst": "spm://vec_out0",
+                "src0": "spm://vec_in0",
+                "src1": "spm://vec_in1",
+                "length": 128,
+                "stride": 2,
+            },
+        },
+        {
             "cmd_id": "sync",
             "opcode": "FENCE_SPM",
             "deps": ["gemm_0"],
@@ -46,7 +58,7 @@ def test_build_execution_plan() -> None:
 
     plan = build_execution_plan(queue, spec)
 
-    assert plan.summary() == {"dma": 1, "gemm": 1, "fence": 1}
+    assert plan.summary() == {"dma": 1, "gemm": 1, "vector": 1, "fence": 1}
     dma = plan.dma_ops[0]
     assert dma.src == "dram://input"
     assert dma.shape == (64, 64)
@@ -57,6 +69,11 @@ def test_build_execution_plan() -> None:
     assert gemm.n == 64
     assert gemm.k == 32
     assert gemm.c is None
+
+    vector = plan.vector_ops[0]
+    assert vector.dst == "spm://vec_out0"
+    assert vector.length == 128
+    assert vector.stride == 2
 
     fence = plan.fence_ops[0]
     assert fence.target is None

@@ -27,6 +27,18 @@ def build_valid_queue() -> CommandQueue:
                     "b": "dram://weights",
                 },
             },
+            {
+                "cmd_id": "vec_add_0",
+                "opcode": "VEC_ADD",
+                "deps": ["gemm_0"],
+                "operands": {
+                    "dst": "spm://vec_out0",
+                    "src0": "spm://vec_in0",
+                    "src1": "spm://vec_in1",
+                    "length": 128,
+                    "stride": 1,
+                },
+            },
         ]
     )
 
@@ -36,6 +48,7 @@ def test_load_isa_spec_contains_known_opcodes() -> None:
 
     assert spec.get_operation("DMA_2D") is not None
     assert spec.get_operation("TE_GEMM") is not None
+    assert spec.get_operation("VEC_ADD") is not None
     assert spec.version >= 1
 
 
@@ -46,7 +59,7 @@ def test_validate_queue_success() -> None:
     issues, covered = spec.validate_queue(queue)
 
     assert issues == []
-    assert {"DMA_2D", "TE_GEMM"}.issubset(covered)
+    assert {"DMA_2D", "TE_GEMM", "VEC_ADD"}.issubset(covered)
 
 
 def test_validate_queue_reports_missing_operands() -> None:
@@ -80,6 +93,36 @@ def test_validate_queue_reports_unknown_opcode() -> None:
     issues, _ = spec.validate_queue(queue)
 
     assert any(issue.kind == "unknown_opcode" for issue in issues)
+
+
+def test_validate_queue_reports_vector_missing_and_unexpected_operands() -> None:
+    queue = CommandQueue.from_iterable(
+        [
+            {
+                "cmd_id": "vec_add_bad",
+                "opcode": "VEC_ADD",
+                "operands": {
+                    "dst": "spm://vec_out0",
+                    "src0": "spm://vec_in0",
+                    # src1 missing on purpose
+                    "length": 64,
+                    "stride": 1,
+                    "unexpected": True,
+                },
+            }
+        ]
+    )
+    spec = load_isa_spec()
+
+    issues, _ = spec.validate_queue(queue)
+
+    assert len(issues) == 2
+    found = {(issue.kind, issue.details.get("operands")) for issue in issues}
+    expected = {
+        ("missing_operands", ("src1",)),
+        ("unexpected_operands", ("unexpected",)),
+    }
+    assert found == expected
 
 
 def test_sample_workload_matches_spec() -> None:

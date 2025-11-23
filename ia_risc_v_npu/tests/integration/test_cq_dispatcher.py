@@ -30,7 +30,7 @@ def test_sample_gemm_dispatch_flow(tmp_path):
     assert outcome.trace.rejected == []
 
     # The execution plan should mirror the dispatcher order (load -> compute -> store).
-    assert plan.summary() == {"dma": 2, "gemm": 1, "fence": 0}
+    assert plan.summary() == {"dma": 2, "gemm": 1, "vector": 0, "fence": 0}
     # Validate dispatcher processed the same set of command IDs recorded in the plan.
     plan_command_ids = {op.cmd_id for op in plan.dma_ops}
     plan_command_ids.update(op.cmd_id for op in plan.gemm_ops)
@@ -70,7 +70,12 @@ def test_adaptive_simulator_cq_summary(tmp_path):
 
     summary = simulator.run_cq_trace(queue)
 
-    assert summary["plan_summary"] == {"dma": 2, "gemm": 1, "fence": 0}
+    assert summary["plan_summary"] == {
+        "dma": 2,
+        "gemm": 1,
+        "vector": 0,
+        "fence": 0,
+    }
     assert summary["dispatch"]["executed"] == len(queue)
     assert (
         summary["dispatch"]["queue_wait"]["max"]

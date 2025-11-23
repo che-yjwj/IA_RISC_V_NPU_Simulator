@@ -230,6 +230,41 @@ class TE_CONV2D_Operands:
 
 
 @dataclass(slots=True)
+class VEC_ADD_Operands:
+    dst: str
+    src0: str
+    src1: str
+    length: int
+    stride: Optional[int] = None
+
+    @classmethod
+    def from_command(cls, command: "CQCommand") -> "VEC_ADD_Operands":
+        operands = command.operands
+        dst_raw = _require_operand(command, operands, "dst")
+        dst = _coerce_str(dst_raw, command, "VEC_ADD.dst")
+        src0_raw = _require_operand(command, operands, "src0")
+        src0 = _coerce_str(src0_raw, command, "VEC_ADD.src0")
+        src1_raw = _require_operand(command, operands, "src1")
+        src1 = _coerce_str(src1_raw, command, "VEC_ADD.src1")
+        length_raw = _require_operand(command, operands, "length")
+        length = _coerce_int(length_raw, command, "VEC_ADD.length")
+        stride_raw = _optional_operand(command, operands, "stride")
+        stride = (
+            _coerce_int(stride_raw, command, "VEC_ADD.stride")
+            if stride_raw is not None
+            else None
+        )
+
+        return cls(
+            dst=dst,
+            src0=src0,
+            src1=src1,
+            length=length,
+            stride=stride,
+        )
+
+
+@dataclass(slots=True)
 class FENCE_SPM_Operands:
     pass
 
@@ -242,6 +277,7 @@ OPERAND_MODELS = {
     "DMA_2D": DMA_2D_Operands,
     "TE_GEMM": TE_GEMM_Operands,
     "TE_CONV2D": TE_CONV2D_Operands,
+    "VEC_ADD": VEC_ADD_Operands,
     "FENCE_SPM": FENCE_SPM_Operands,
 }
 
@@ -249,6 +285,7 @@ __all__ = [
     "DMA_2D_Operands",
     "TE_GEMM_Operands",
     "TE_CONV2D_Operands",
+    "VEC_ADD_Operands",
     "FENCE_SPM_Operands",
     "OPERAND_MODELS",
 ]

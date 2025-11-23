@@ -1,7 +1,7 @@
 """CQ command adapter translating ISA opcodes into execution plans.
 
 The adapter acts as a bridge between high-level CQ traces and the simulator's
-runtime.  It inspects the operands registered in the ISA specification and
+runtime. It inspects the operands registered in the ISA specification and
 returns structured plan objects that downstream components can consume without
 having to re-parse the JSON payloads.
 """
@@ -16,6 +16,7 @@ from .generated.isa_operands import (
     DMA_2D_Operands,
     FENCE_SPM_Operands,
     TE_GEMM_Operands,
+    VEC_ADD_Operands,
 )
 from .schema import CommandQueue
 from .spec import ISASpec, ISASpecError
@@ -42,6 +43,16 @@ class GEMMPlan:
 
 
 @dataclass(slots=True)
+class VectorAddPlan:
+    cmd_id: str
+    dst: str
+    src0: str
+    src1: str
+    length: int
+    stride: int
+
+
+@dataclass(slots=True)
 class FencePlan:
     cmd_id: str
     target: str | None = None
@@ -51,6 +62,7 @@ class FencePlan:
 class CQExecutionPlan:
     dma_ops: List[DMAPlan] = field(default_factory=list)
     gemm_ops: List[GEMMPlan] = field(default_factory=list)
+    vector_ops: List[VectorAddPlan] = field(default_factory=list)
     fence_ops: List[FencePlan] = field(default_factory=list)
     metadata: Mapping[str, object] = field(default_factory=dict)
 
@@ -58,6 +70,7 @@ class CQExecutionPlan:
         return {
             "dma": len(self.dma_ops),
             "gemm": len(self.gemm_ops),
+            "vector": len(self.vector_ops),
             "fence": len(self.fence_ops),
         }
 
@@ -103,6 +116,17 @@ def build_execution_plan(queue: CommandQueue, spec: ISASpec) -> CQExecutionPlan:
                     c=operands.c,
                 )
             )
+        elif isinstance(operands, VEC_ADD_Operands):
+            plan.vector_ops.append(
+                VectorAddPlan(
+                    cmd_id=command.cmd_id,
+                    dst=operands.dst,
+                    src0=operands.src0,
+                    src1=operands.src1,
+                    length=int(operands.length),
+                    stride=(int(operands.stride) if operands.stride is not None else 1),
+                )
+            )
         elif isinstance(operands, FENCE_SPM_Operands):
             target_value = command.operands.get("target")
             plan.fence_ops.append(
@@ -122,6 +146,7 @@ __all__ = [
     "CQExecutionPlan",
     "DMAPlan",
     "GEMMPlan",
+    "VectorAddPlan",
     "FencePlan",
     "build_execution_plan",
 ]
