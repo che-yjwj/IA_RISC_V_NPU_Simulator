@@ -386,14 +386,10 @@ class AdaptiveSimulator:
                 },
             },
             "vector_lane": {
-                "max_concurrency": outcome.stats.lane_max_concurrency.get(
-                    "vector", 0
-                ),
+                "max_concurrency": outcome.stats.lane_max_concurrency.get("vector", 0),
                 "queue_wait": {
                     "max": outcome.stats.lane_max_queue_wait.get("vector", 0),
-                    "average": outcome.stats.lane_average_queue_wait.get(
-                        "vector", 0.0
-                    ),
+                    "average": outcome.stats.lane_average_queue_wait.get("vector", 0.0),
                 },
             },
         }

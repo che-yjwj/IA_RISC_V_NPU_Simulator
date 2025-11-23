@@ -179,4 +179,3 @@ def test_queue_waits_reported_per_lane():
     assert outcome.stats.lane_max_queue_wait["vector"] == 2
     assert outcome.stats.lane_average_queue_wait["vector"] == 1.0
     assert outcome.stats.lane_max_queue_wait["dma"] == 0
-
